@@ -1,0 +1,121 @@
+name: Publish extensions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "themes/**"
+      - "plugins/**"
+      - "registry/**"
+      - "scripts/**"
+      - "store.config.json"
+      - ".github/workflows/publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sblog-extension-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
+        with:
+          php-version: "8.2"
+          extensions: json, mbstring, zip
+          coverage: none
+
+      - name: Validate extension sources
+        run: |
+          php scripts/test.php
+          php scripts/validate.php
+
+      - name: Build packages and catalog
+        shell: bash
+        run: |
+          previous="${RUNNER_TEMP}/catalog.json"
+          catalog_url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/catalog/catalog.json"
+          curl --fail --silent --show-error --location "$catalog_url" --output "$previous" || rm -f "$previous"
+          php scripts/build.php --repository="$GITHUB_REPOSITORY" --previous="$previous"
+
+      - name: Publish immutable release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r tag filename sha256 name version; do
+            [ -n "$tag" ] || continue
+            asset="build/packages/${filename}"
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fxq "$filename"; then
+                gh release upload "$tag" "$asset" --repo "$GITHUB_REPOSITORY"
+              fi
+            else
+              gh release create "$tag" "$asset" \
+                --repo "$GITHUB_REPOSITORY" \
+                --target "$GITHUB_SHA" \
+                --title "$name $version" \
+                --notes "Automated SBlog extension release from commit $GITHUB_SHA."
+            fi
+
+            verify_dir="$(mktemp -d)"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$filename" --dir "$verify_dir"
+            echo "${sha256}  ${verify_dir}/${filename}" | sha256sum --check --status
+            rm -rf "$verify_dir"
+          done < <(jq -r '.releases[] | [.tag, .filename, .sha256, .name, .version] | @tsv' build/release-plan.json)
+
+      - name: Publish catalog branch last
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(jq -r '.catalog_changed' build/release-plan.json)" != "true" ]; then
+            echo "Catalog is unchanged."
+            exit 0
+          fi
+
+          branch="$(jq -r '.catalog_branch' build/release-plan.json)"
+          catalog_dir="${RUNNER_TEMP}/catalog-branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "$branch"
+            git worktree add -b catalog-publish "$catalog_dir" "origin/$branch"
+          else
+            git worktree add --detach "$catalog_dir" "$GITHUB_SHA"
+            git -C "$catalog_dir" switch --orphan catalog-publish
+          fi
+
+          cp build/catalog.json "$catalog_dir/catalog.json"
+          git -C "$catalog_dir" add catalog.json
+          if git -C "$catalog_dir" diff --cached --quiet; then
+            echo "Catalog content is unchanged."
+            exit 0
+          fi
+          git -C "$catalog_dir" commit -m "Publish extension catalog for ${GITHUB_SHA::12}"
+          git -C "$catalog_dir" push origin "HEAD:$branch"
+
+      - name: Write workflow summary
+        shell: bash
+        run: |
+          releases="$(jq -r '.release_count' build/release-plan.json)"
+          entries="$(jq -r '.extensions | length' build/catalog.json)"
+          {
+            echo "## Extension publication"
+            echo
+            echo "- Catalog entries: ${entries}"
+            echo "- Release packages: ${releases}"
+            echo "- Catalog: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/catalog/catalog.json"
+          } >> "$GITHUB_STEP_SUMMARY"

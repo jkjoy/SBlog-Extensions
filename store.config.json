@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "repository": "jkjoy/SBlog-Extensions",
+  "catalog_branch": "catalog",
+  "defaults": {
+    "requires": "1.13.6",
+    "tested": "1.13.6"
+  },
+  "retired": []
+}

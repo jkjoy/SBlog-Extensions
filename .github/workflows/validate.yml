@@ -1,0 +1,38 @@
+name: Validate extensions
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f
+        with:
+          php-version: "8.2"
+          extensions: json, mbstring, zip
+          coverage: none
+
+      - name: Validate extension sources
+        run: |
+          php scripts/test.php
+          php scripts/validate.php
+
+      - name: Validate release plan
+        shell: bash
+        run: |
+          previous="${RUNNER_TEMP}/catalog.json"
+          catalog_url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/catalog/catalog.json"
+          curl --fail --silent --show-error --location "$catalog_url" --output "$previous" || rm -f "$previous"
+          php scripts/build.php --repository="$GITHUB_REPOSITORY" --previous="$previous"
+          cat build/release-plan.json

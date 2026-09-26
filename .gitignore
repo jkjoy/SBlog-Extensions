@@ -1,0 +1,6 @@
+/build/
+/build-*/
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
