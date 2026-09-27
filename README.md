@@ -66,7 +66,7 @@ php scripts/build.php \
 
 1. 创建公开仓库，并将此目录推送为默认分支 `main`。
 2. 在仓库 Actions 设置中允许工作流对仓库内容执行读写操作。
-3. 运行一次 `Publish extensions`，确认 27 个 Release 和 `catalog` 分支都已生成。
+3. 运行一次 `Publish extensions`，确认 28 个 Release 和 `catalog` 分支都已生成。
 4. 保护 `main`、`catalog` 和已发布标签，禁止强制推送和删除。
 5. 确认目录 URL 可访问后，再修改 SBlog 默认目录地址或设置 `SBLOG_EXTENSION_STORE_URL`。
 
