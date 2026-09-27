@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-09-26T11:15:37+00:00",
+    "updated_at": "2026-09-27T01:27:56+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -62,15 +62,15 @@
             "type": "plugin",
             "slug": "english-language",
             "name": "英文语言包",
-            "version": "1.0.9",
+            "version": "1.0.10",
             "author": "Simple PHP Blog",
             "description": "将博客前台、登录页面和后台管理界面翻译为英文。",
             "homepage": "https://github.com/jkjoy/Simple-PHP-Blog",
             "requires": "1.13.6",
             "tested": "1.13.6",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.9/plugin-english-language-1.0.9.zip",
-            "sha256": "9861957d9fcae51f17df0f20882f9056c26ed3f22b9fa076d2ae8f145849700a",
-            "source_sha256": "b6691f734a8e8b2e64cd59a5be5746aefb8ced8e89dd2cafbca8c2f9efc0a949"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.10/plugin-english-language-1.0.10.zip",
+            "sha256": "8598b79430a88db49339bf2c99df08f05eb10c9db4ccc0dc5931d701fbee848e",
+            "source_sha256": "ae2fceea97b77b50afb8d91b8cb92674b42e5d7716c159bb1b65750d2a35c199"
         },
         {
             "type": "plugin",
@@ -90,15 +90,15 @@
             "type": "plugin",
             "slug": "russian-language",
             "name": "俄语语言包",
-            "version": "1.0.10",
+            "version": "1.0.11",
             "author": "zalexstudios",
             "description": "将博客前台、登录页面和后台管理界面翻译为俄语。",
             "homepage": "https://github.com/zalexstudios",
             "requires": "1.13.6",
             "tested": "1.13.6",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-russian-language-v1.0.10/plugin-russian-language-1.0.10.zip",
-            "sha256": "b51a28098531d0d7ef1ca26e50970edf8120aa1cbdafbd29e7400f52e97ec6f3",
-            "source_sha256": "65a9a187f8305d807f267b40465f9f5598dc7d35590987f0022d89d85e4ef22a"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-russian-language-v1.0.11/plugin-russian-language-1.0.11.zip",
+            "sha256": "0667827b28fdaba100dd6ace88e31382262f41a588789712401c116f8c5dd8db",
+            "source_sha256": "5d5a8616ea88efc328f42acba2a1b0ef7e4eb6b4a8e846a8e4f003f8e474d9b4"
         },
         {
             "type": "plugin",
@@ -155,6 +155,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-butterfly-v1.0.3/theme-butterfly-1.0.3.zip",
             "sha256": "f2f5c5d2bd0b3c54b5990850e7d99d03e7dec207575236d28f77171f2e0155a7",
             "source_sha256": "70fe4363b176a7e838429ba75b008e43d62f60a812b2c313e243b80bf32f3a9b"
+        },
+        {
+            "type": "theme",
+            "slug": "candy",
+            "name": "Candy",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "高饱和糖果色的新粗野主义博客主题，包含文章网格、归档、标签、友链和响应式阅读页面。",
+            "homepage": "",
+            "requires": "1.13.6",
+            "tested": "1.13.6",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-candy-v1.0.0/theme-candy-1.0.0.zip",
+            "sha256": "4f56f81efb3292eead7e21f184c5cf3c8461dd452c2337753db1b54fc49a91ff",
+            "source_sha256": "6053519be376566733e5e6c0b563cc06d4d432538edd79b858513f67089a4046"
         },
         {
             "type": "theme",
