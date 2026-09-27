@@ -18,6 +18,7 @@
 html.html {
   height: 100%;
   min-width: 320px;
+  scrollbar-gutter: stable;
   background: var(--nojs-bg);
   overflow-wrap: break-word;
   -webkit-text-size-adjust: 100%;

@@ -1,3 +1,7 @@
+html {
+  scrollbar-gutter: stable;
+}
+
 .theme-public.ying-theme {
   min-height: 100vh;
   background-color: #f3f4f6;

@@ -1,3 +1,7 @@
+html {
+  scrollbar-gutter: stable;
+}
+
 @font-face {
   font-family: "Photograph Brush";
   src: url("assets/BRUSHSCI.TTF") format("truetype");

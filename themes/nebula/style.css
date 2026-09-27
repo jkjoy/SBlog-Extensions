@@ -66,6 +66,7 @@ html[data-theme="light"] {
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
 }
 

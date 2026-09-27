@@ -166,6 +166,7 @@
 .output {
   flex: 1;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 14px 18px 5px;
   scrollbar-color: var(--dim) transparent;
   scrollbar-width: thin;

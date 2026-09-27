@@ -1,4 +1,8 @@
 /* Clay theme: inspired by the clay.css material model. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body.clay-theme {
   --clay-bg: #dceff4;
   --clay-bg-deep: #c9e4ec;

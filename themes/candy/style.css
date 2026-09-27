@@ -18,7 +18,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 110px; }
+html { scroll-behavior: smooth; scroll-padding-top: 110px; scrollbar-gutter: stable; }
 body.candy-theme { margin: 0; min-width: 320px; background: var(--candy-paper); color: var(--candy-ink); font: 400 16px/1.65 Inter, Arial, sans-serif; letter-spacing: 0; }
 .candy-theme button, .candy-theme input, .candy-theme textarea { font: inherit; }
 .candy-theme button { cursor: pointer; }

@@ -258,6 +258,10 @@
   }
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Project content hooks mapped to the canonical article container. */
 #article-container.bf-article-container,
 #article-container.post-content {
