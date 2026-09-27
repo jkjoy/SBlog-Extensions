@@ -1,0 +1,140 @@
+.theme-admin .font-installer-panel {
+  margin-bottom: 18px;
+}
+
+.theme-admin .font-installer-panel .panel__header {
+  flex-wrap: wrap;
+}
+
+.theme-admin .font-installer-preview {
+  min-height: 152px;
+  padding: 20px 24px;
+  border-radius: 6px;
+  background: var(--admin-panel-muted);
+  box-shadow: inset 0 0 0 1px var(--admin-border);
+}
+
+.theme-admin .font-installer-preview__name {
+  margin: 0 0 14px;
+  color: var(--admin-muted);
+  font: 600 12px/1.4 var(--font-ui);
+}
+
+.theme-admin .font-installer-preview__sample,
+.theme-admin .font-installer-preview__latin {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.theme-admin .font-installer-preview__sample {
+  font-size: 27px;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.theme-admin .font-installer-preview__latin {
+  margin-top: 10px;
+  color: var(--admin-muted);
+  font-size: 15px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.theme-admin .font-installer-preview.is-custom .font-installer-preview__sample,
+.theme-admin .font-installer-preview.is-custom .font-installer-preview__latin {
+  font-family: "SBlog Font Preview", var(--font-ui);
+}
+
+.theme-admin .font-installer-reset {
+  margin-top: 16px;
+}
+
+.theme-admin .font-installer-upload {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+}
+
+.theme-admin .font-installer-upload .field {
+  min-width: 0;
+  flex: 1;
+}
+
+.theme-admin .font-installer-upload input[type="file"] {
+  min-height: 42px;
+  padding: 7px;
+}
+
+.theme-admin .font-installer-upload > .button,
+.theme-admin .font-installer-reset .button,
+.theme-admin .font-installer-row__actions .button {
+  min-height: 40px;
+}
+
+.theme-admin .font-installer-list {
+  padding: 0 20px;
+}
+
+.theme-admin .font-installer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 74px;
+  padding: 12px 0;
+}
+
+.theme-admin .font-installer-row + .font-installer-row {
+  border-top: 1px solid var(--admin-border);
+}
+
+.theme-admin .font-installer-row__main,
+.theme-admin .font-installer-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-admin .font-installer-row__main {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.theme-admin .font-installer-row__main strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.theme-admin .font-installer-row__main > span:not(.status-badge) {
+  color: var(--admin-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.theme-admin .font-installer-row__actions {
+  flex: 0 0 auto;
+}
+
+.theme-admin .font-installer-row__actions form {
+  margin: 0;
+}
+
+@media (max-width: 700px) {
+  .theme-admin .font-installer-upload,
+  .theme-admin .font-installer-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .theme-admin .font-installer-upload > .button {
+    align-self: flex-start;
+  }
+
+  .theme-admin .font-installer-preview {
+    padding: 18px;
+  }
+
+  .theme-admin .font-installer-preview__sample {
+    font-size: 23px;
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "字体安装器",
+  "version": "1.0.0",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "上传并管理站点字体，一键应用到所有前台主题。",
+  "settings_action": "admin_font_installer"
+}

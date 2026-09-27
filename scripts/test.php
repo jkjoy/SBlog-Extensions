@@ -35,3 +35,5 @@ try {
 } finally {
     store_remove_tree($temporary);
 }
+
+require __DIR__ . '/test-font-installer.php';
