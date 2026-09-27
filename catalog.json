@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-09-27T07:50:55+00:00",
+    "updated_at": "2026-09-27T11:00:38+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -71,6 +71,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.10/plugin-english-language-1.0.10.zip",
             "sha256": "8598b79430a88db49339bf2c99df08f05eb10c9db4ccc0dc5931d701fbee848e",
             "source_sha256": "ae2fceea97b77b50afb8d91b8cb92674b42e5d7716c159bb1b65750d2a35c199"
+        },
+        {
+            "type": "plugin",
+            "slug": "font-installer",
+            "name": "字体安装器",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "上传并管理站点字体，一键应用到所有前台主题。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.13.6",
+            "tested": "1.13.6",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-font-installer-v1.0.0/plugin-font-installer-1.0.0.zip",
+            "sha256": "db77c9682c5d828332ec23157bb434520a28ccca0234320d86f7b86fe01ba9f6",
+            "source_sha256": "122ed94c1590589881681a7aac00b7134c97cd21d71a76fe8bfd28a20a7f6596"
         },
         {
             "type": "plugin",
