@@ -2,8 +2,23 @@
 
 declare(strict_types=1);
 
+function adams_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function adams_post_excerpt(array $post): string
 {
+    $post = adams_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? $excerpt : derive_excerpt((string)($post['content'] ?? ''), 110);
 }
@@ -12,6 +27,7 @@ function adams_render_post_items(array $posts): string
 {
     ob_start();
     foreach ($posts as $post):
+        $post = adams_public_content($post);
         $permalink = url_for('post', ['slug' => (string)$post['slug']]);
         $comments = approved_comment_count((int)$post['id']);
         ?>
@@ -89,13 +105,17 @@ function adams_search_posts(string $term): array
     }
 
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows(
+    $posts = all_rows(
         "SELECT * FROM posts
          WHERE kind = ? AND status = ? AND published_at <= ?
            AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
          ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100",
         ['post', 'published', time(), $like, $like, $like]
     );
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('adams_public_content', $posts), static function (array $post) use ($needle): bool {
+        return str_contains(str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? '')), $needle);
+    }));
 }
 
 function adams_render_home(): string

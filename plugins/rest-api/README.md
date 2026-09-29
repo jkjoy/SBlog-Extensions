@@ -2,7 +2,7 @@
 
 该插件为 SBlog 提供兼容 WordPress REST API v2 常用资源的 JSON 接口，适合连接 WordPress 客户端、迁移脚本和自动化工具。
 
-本文档对应插件清单版本 `1.0.2`。实现以 WordPress 的 URL、字段命名、分页响应头和错误对象为参照，但不是完整的 WordPress REST API。
+本文档对应插件清单版本 `1.0.3`。实现以 WordPress 的 URL、字段命名、分页响应头和错误对象为参照，但不是完整的 WordPress REST API。
 
 ## 启用与入口
 
@@ -168,6 +168,8 @@ GET /wp/v2/pages/{id}
 ```
 
 `view` 上下文只允许读取已经发布且发布时间不晚于当前时间的内容。`context=edit` 会增加 `title.raw`、`content.raw` 和 `excerpt.raw`，其中 `content.raw` 是 SBlog Markdown，`content.rendered` 是渲染后的 HTML。
+
+密码保护或含有回复可见区块的内容会在 `view` 上下文中脱敏，并通过 `content.protected` 和 `excerpt.protected` 标记。公开搜索只匹配脱敏后仍可见的标题、摘要和正文；经过鉴权的 `context=edit` 请求仍可读取和搜索原始内容。
 
 ### 创建与更新
 

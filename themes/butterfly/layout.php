@@ -6,6 +6,7 @@ $isHome = butterfly_is_home($themeContext) && butterfly_query() === '';
 $isSearch = butterfly_is_home($themeContext) && butterfly_query() !== '';
 $post = butterfly_current_post();
 $isPost = $post && (string)$post['kind'] === 'post';
+$passwordLocked = $post ? butterfly_password_locked($post) : false;
 $heroTitle = $isSearch ? sblog_t('搜索') . ': ' . butterfly_query() : $title;
 $heroImage = $post ? butterfly_cover($post) : theme_asset_url('assets/hero.png');
 $profile = one('SELECT username, nickname, avatar_url, website_url, github_url, signature FROM users ORDER BY id ASC LIMIT 1') ?? [];
@@ -66,7 +67,7 @@ $headerStyle = $headerClass === 'not-top-img' ? '' : ' style="background-image:u
           <h1 class="post-title"><?= h((string)$post['title']) ?></h1>
           <div id="post-meta">
             <div class="meta-firstline"><span class="post-meta-date"><i class="ri-calendar-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('发表于')) ?></span><time datetime="<?= h(date(DATE_ATOM, (int)$post['published_at'])) ?>"><?= h(date('Y-m-d', (int)$post['published_at'])) ?></time></span><span class="post-meta-date"><span class="post-meta-separator">|</span><i class="ri-history-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('更新于')) ?></span><time datetime="<?= h(date(DATE_ATOM, (int)$post['updated_at'])) ?>"><?= h(date('Y-m-d', (int)$post['updated_at'])) ?></time></span><?php foreach ($categories as $category): if ((int)$category['id'] !== (int)($post['category_id'] ?? 0)) { continue; } ?><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="ri-inbox-line fa-fw post-meta-icon" aria-hidden="true"></i><a href="<?= h(butterfly_url(url_for('category', ['slug' => (string)$category['slug']]))) ?>"><?= h((string)$category['name']) ?></a></span><?php endforeach; ?></div>
-            <?php $words = str_len_u(preg_replace('/\s+/u', '', markdown_to_plain((string)$post['content'])) ?? ''); ?><div class="meta-secondline"><span class="post-meta-wordcount"><i class="ri-file-word-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('字数总计')) ?>:</span><span class="word-count"><?= $words ?></span><span class="post-meta-separator">|</span><i class="ri-time-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('阅读时长')) ?>:</span><span><?= max(1, (int)ceil($words / 400)) ?> <?= h(sblog_t('分钟')) ?></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="ri-eye-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('阅读量')) ?>:</span><span><?= (int)$post['views'] ?></span></span></span></div>
+            <?php $publicPost = butterfly_public_content($post); $words = str_len_u(preg_replace('/\s+/u', '', markdown_to_plain((string)$publicPost['content'])) ?? ''); ?><div class="meta-secondline"><span class="post-meta-wordcount"><i class="ri-file-word-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('字数总计')) ?>:</span><span class="word-count"><?= $words ?></span><span class="post-meta-separator">|</span><i class="ri-time-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('阅读时长')) ?>:</span><span><?= max(1, (int)ceil($words / 400)) ?> <?= h(sblog_t('分钟')) ?></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="ri-eye-line fa-fw post-meta-icon" aria-hidden="true"></i><span class="post-meta-label"><?= h(sblog_t('阅读量')) ?>:</span><span><?= (int)$post['views'] ?></span></span></span></div>
           </div>
         </div>
       <?php elseif (!$isError): ?><div id="page-site-info"><h1 id="site-title"><?= h($heroTitle) ?></h1></div><?php endif; ?>
@@ -85,8 +86,8 @@ $headerStyle = $headerClass === 'not-top-img' ? '' : ' style="background-image:u
       <?php if ($flash): ?><section class="bf-notice" role="status"><?= h((string)$flash['message']) ?></section><?php endif; ?>
       <?php theme_action('content_before', $themeContext); ?>
       <?php if ($isPost): ?>
-        <div id="post"><article class="post-content" id="article-container"><?= markdown_to_html((string)$post['content']) ?></article><div class="tag_share"><div class="post-meta__tag-list"><?= render_tag_chips($post) ?></div></div><?= render_comments_section($post) ?></div>
-      <?php elseif ($post): ?><div id="page"><article class="post-content" id="article-container"><?= markdown_to_html((string)$post['content']) ?></article><?= render_comments_section($post) ?></div>
+        <div id="post"><article class="post-content" id="article-container"><?= butterfly_render_content($post) ?></article><?php if (!$passwordLocked): ?><div class="tag_share"><div class="post-meta__tag-list"><?= render_tag_chips($post) ?></div></div><?= render_comments_section($post) ?><?php endif; ?></div>
+      <?php elseif ($post): ?><div id="page"><article class="post-content" id="article-container"><?= butterfly_render_content($post) ?></article><?php if (!$passwordLocked): ?><?= render_comments_section($post) ?><?php endif; ?></div>
       <?php elseif ($isHome || $isSearch): ?><div class="recent-posts<?= $isSearch ? ' search' : '' ?>" id="recent-posts"><?= $content ?></div>
       <?php elseif (in_array($action, ['archives', 'tag', 'category'], true)): ?><?= $content ?>
       <?php elseif (in_array($action, ['tags', 'categories'], true)): ?><div id="page"><?= $content ?></div>

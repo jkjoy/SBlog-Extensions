@@ -2,8 +2,23 @@
 
 declare(strict_types=1);
 
+function farallon_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function farallon_post_cover(array $post): string
 {
+    $post = farallon_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -16,6 +31,7 @@ function farallon_post_cover(array $post): string
 
 function farallon_post_excerpt(array $post): string
 {
+    $post = farallon_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? $excerpt : derive_excerpt((string)($post['content'] ?? ''), 180);
 }
@@ -63,6 +79,7 @@ function farallon_render_post_items(array $posts): string
 {
     ob_start();
     foreach ($posts as $post):
+        $post = farallon_public_content($post);
         $permalink = url_for('post', ['slug' => (string)$post['slug']]);
         $cover = farallon_post_cover($post);
         $category = farallon_post_category($post);
@@ -143,10 +160,14 @@ function farallon_search_posts(string $term): array
         return [];
     }
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows(
+    $posts = all_rows(
         "SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100",
         ['post', 'published', time(), $like, $like, $like]
     );
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('farallon_public_content', $posts), static function (array $post) use ($needle): bool {
+        return str_contains(str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? '')), $needle);
+    }));
 }
 
 function farallon_render_home(): string

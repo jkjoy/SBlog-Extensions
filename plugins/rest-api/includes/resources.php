@@ -191,8 +191,54 @@ function sblog_rest_api_rendered_excerpt(string $excerpt): string
     return $plain === '' ? '' : '<p>' . h($plain) . "</p>\n";
 }
 
+function sblog_rest_api_content_protection(array $row): array
+{
+    $passwordProtected = function_exists('content_requires_password')
+        ? content_requires_password($row)
+        : content_kind($row) === 'post' && trim((string)($row['content_password_hash'] ?? '')) !== '';
+    $replyProtected = function_exists('content_has_reply_hidden_blocks')
+        ? content_has_reply_hidden_blocks((string)($row['content'] ?? ''))
+        : preg_match('/^\s*\[reply\]\s*$/mi', (string)($row['content'] ?? '')) === 1;
+    return ['password' => $passwordProtected, 'reply' => $replyProtected];
+}
+
+function sblog_rest_api_public_content_context(array $row): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($row);
+    }
+
+    $protection = sblog_rest_api_content_protection($row);
+    if ($protection['password']) {
+        $row['content'] = '';
+        $row['excerpt'] = sblog_t('此文章受密码保护。');
+    } elseif ($protection['reply']) {
+        $row['content'] = function_exists('strip_reply_hidden_blocks')
+            ? strip_reply_hidden_blocks((string)($row['content'] ?? ''))
+            : '';
+        $description = function_exists('derive_excerpt') ? derive_excerpt((string)$row['content']) : '';
+        $row['excerpt'] = $description !== '' ? $description : sblog_t('此内容回复后可见');
+    }
+    unset($row['content_password_hash']);
+    return $row;
+}
+
+function sblog_rest_api_content_matches_search(array $row, string $search, bool $editContext): bool
+{
+    $searchRow = $editContext ? $row : sblog_rest_api_public_content_context($row);
+    $haystack = implode("\n", [
+        (string)($searchRow['title'] ?? ''),
+        (string)($searchRow['excerpt'] ?? ''),
+        (string)($searchRow['content'] ?? ''),
+    ]);
+    return stripos($haystack, $search) !== false;
+}
+
 function sblog_rest_api_prepare_content(array $row, bool $editContext = false): array
 {
+    $protection = sblog_rest_api_content_protection($row);
+    $responseRow = $editContext ? $row : sblog_rest_api_public_content_context($row);
+    $isProtected = $protection['password'] || $protection['reply'];
     $kind = content_kind($row);
     $restBase = $kind === 'page' ? 'pages' : 'posts';
     $tagIds = $kind === 'post' ? sblog_rest_api_tag_ids_for_post($row) : [];
@@ -209,8 +255,8 @@ function sblog_rest_api_prepare_content(array $row, bool $editContext = false): 
         'type' => $kind,
         'link' => absolute_url(content_permalink($row)),
         'title' => ['rendered' => h((string)$row['title'])],
-        'content' => ['rendered' => markdown_to_html((string)$row['content']), 'protected' => false],
-        'excerpt' => ['rendered' => sblog_rest_api_rendered_excerpt((string)$row['excerpt']), 'protected' => false],
+        'content' => ['rendered' => markdown_to_html((string)$responseRow['content']), 'protected' => $isProtected],
+        'excerpt' => ['rendered' => sblog_rest_api_rendered_excerpt((string)$responseRow['excerpt']), 'protected' => $isProtected],
         'author' => $authorId,
         'featured_media' => 0,
         'comment_status' => content_allows_comments($row) ? 'open' : 'closed',
@@ -333,8 +379,9 @@ function sblog_rest_api_content_collection(string $kind, bool $editContext): nev
     }
 
     $search = trim((string)sblog_rest_api_param('search', ''));
+    $filterPublicSearch = $search !== '' && !$editContext;
     if ($search !== '') {
-        $where[] = '(p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
+        $where[] = "(p.title LIKE ? ESCAPE '\\' OR p.excerpt LIKE ? ESCAPE '\\' OR p.content LIKE ? ESCAPE '\\')";
         $needle = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
         array_push($params, $needle, $needle, $needle);
     }
@@ -395,8 +442,33 @@ function sblog_rest_api_content_collection(string $kind, bool $editContext): nev
     $orderColumns = ['date' => 'p.published_at', 'id' => 'p.id', 'modified' => 'p.updated_at', 'title' => 'p.title', 'slug' => 'p.slug'];
     $orderBy = $orderColumns[(string)sblog_rest_api_param('orderby', 'date')] ?? 'p.published_at';
     $whereSql = implode(' AND ', $where);
-    $total = (int)val('SELECT COUNT(*) FROM posts p WHERE ' . $whereSql, $params);
-    $rows = all_rows('SELECT p.* FROM posts p WHERE ' . $whereSql . ' ORDER BY ' . $orderBy . ' ' . $order . ', p.id ' . $order . ' LIMIT ' . $perPage . ' OFFSET ' . $offset, $params);
+    if ($filterPublicSearch) {
+        $total = 0;
+        $rows = [];
+        $scanOffset = 0;
+        $scanSize = 100;
+        do {
+            $batch = all_rows(
+                'SELECT p.* FROM posts p WHERE ' . $whereSql . ' ORDER BY ' . $orderBy . ' ' . $order . ', p.id ' . $order
+                . ' LIMIT ' . $scanSize . ' OFFSET ' . $scanOffset,
+                $params
+            );
+            foreach ($batch as $row) {
+                if (!sblog_rest_api_content_matches_search($row, $search, false)) {
+                    continue;
+                }
+                if ($total >= $offset && count($rows) < $perPage) {
+                    $rows[] = $row;
+                }
+                $total++;
+            }
+            $batchSize = count($batch);
+            $scanOffset += $batchSize;
+        } while ($batchSize === $scanSize);
+    } else {
+        $total = (int)val('SELECT COUNT(*) FROM posts p WHERE ' . $whereSql, $params);
+        $rows = all_rows('SELECT p.* FROM posts p WHERE ' . $whereSql . ' ORDER BY ' . $orderBy . ' ' . $order . ', p.id ' . $order . ' LIMIT ' . $perPage . ' OFFSET ' . $offset, $params);
+    }
     $items = array_map(static fn(array $row): array => sblog_rest_api_prepare_content($row, $editContext), $rows);
     sblog_rest_api_collection($items, $total, $page, $perPage, '/wp/v2/' . ($kind === 'page' ? 'pages' : 'posts'));
 }

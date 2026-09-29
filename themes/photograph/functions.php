@@ -2,6 +2,60 @@
 
 declare(strict_types=1);
 
+function photograph_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== ''
+        || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
+function photograph_password_locked(array $post): bool
+{
+    $protected = function_exists('content_requires_password')
+        ? content_requires_password($post)
+        : trim((string)($post['content_password_hash'] ?? '')) !== '';
+    return $protected && (!function_exists('content_password_is_unlocked') || !content_password_is_unlocked($post));
+}
+
+function photograph_visible_content(array $post): array
+{
+    if (photograph_password_locked($post)) {
+        return photograph_public_content($post);
+    }
+    if (function_exists('parse_reply_hidden_blocks') && function_exists('can_view_reply_hidden_content')) {
+        $visible = [];
+        $canViewHidden = can_view_reply_hidden_content($post);
+        foreach (parse_reply_hidden_blocks((string)($post['content'] ?? '')) as $segment) {
+            if (empty($segment['hidden']) || $canViewHidden) {
+                $visible[] = (string)$segment['markdown'];
+            }
+        }
+        $post['content'] = implode("\n\n", $visible);
+        return $post;
+    }
+    return preg_match('/^\s*\[\/?reply\]\s*$/mi', (string)($post['content'] ?? ''))
+        ? photograph_public_content($post)
+        : $post;
+}
+
+function photograph_render_content(array $post): string
+{
+    if (function_exists('render_content_html')) {
+        return render_content_html($post);
+    }
+    $publicPost = photograph_public_content($post);
+    $markdown = trim((string)($publicPost['content'] ?? ''));
+    return $markdown !== '' ? markdown_to_html($markdown) : '<p>' . h(sblog_t('此内容暂不可见。')) . '</p>';
+}
+
 function photograph_icon(string $name, string $class = ''): string
 {
     $paths = [
@@ -45,7 +99,7 @@ function photograph_post_images(array $post, int $limit = PHP_INT_MAX): array
 
 function photograph_post_cover(array $post): string
 {
-    return photograph_post_images($post, 1)[0] ?? theme_asset_url('assets/noimage.svg');
+    return photograph_post_images(photograph_public_content($post), 1)[0] ?? theme_asset_url('assets/noimage.svg');
 }
 
 function photograph_post_format(array $post): string
@@ -58,11 +112,17 @@ function photograph_search_posts(string $term): array
     $term = str_sub_u(trim($term), 0, 100);
     if ($term === '') return [];
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows("SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", ['post', 'published', time(), $like, $like, $like]);
+    $posts = all_rows("SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", ['post', 'published', time(), $like, $like, $like]);
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('photograph_public_content', $posts), static function (array $post) use ($needle): bool {
+        $haystack = str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? ''));
+        return str_contains($haystack, $needle);
+    }));
 }
 
 function photograph_render_card(array $post): string
 {
+    $post = photograph_public_content($post);
     $images = photograph_post_images($post);
     $count = count($images);
     $cover = $images[0] ?? theme_asset_url('assets/noimage.svg');
@@ -131,30 +191,33 @@ function photograph_render_links(): string
 
 function photograph_render_post(array $post, string $originalContent): string
 {
-    $images = photograph_post_images($post);
+    $passwordLocked = photograph_password_locked($post);
+    $visiblePost = photograph_visible_content($post);
+    $images = photograph_post_images($visiblePost);
     $postFormat = photograph_post_format($post);
     $comments = '';
     $commentPosition = strpos($originalContent, '<section class="comments"');
     if ($commentPosition !== false) $comments = substr($originalContent, $commentPosition);
     $tags = tag_descriptors($post);
     $timestamp = (int)($post['published_at'] ?: $post['updated_at'] ?: $post['created_at']);
-    $description = trim((string)($post['excerpt'] ?? '')) ?: derive_excerpt((string)$post['content']);
+    $publicPost = photograph_public_content($post);
+    $description = trim((string)($publicPost['excerpt'] ?? '')) ?: derive_excerpt((string)($publicPost['content'] ?? ''));
 
-    if ($postFormat === 'text') {
+    if ($postFormat === 'text' || $passwordLocked) {
         ob_start(); ?>
         <main class="photo-article-main">
           <article class="photo-page photo-text-post" itemscope itemtype="https://schema.org/BlogPosting">
             <h1 itemprop="name headline"><?= h((string)$post['title']) ?></h1>
-            <div class="post-content" itemprop="articleBody"><?= markdown_to_html((string)$post['content']) ?></div>
+            <div class="post-content" itemprop="articleBody"><?= photograph_render_content($post) ?></div>
             <div class="photo-post-info">
               <span><?= photograph_icon('text') ?><b><?= h(sblog_t('标题：')) ?></b><?= h((string)$post['title']) ?></span>
               <span><b><?= h(sblog_t('日期：')) ?></b><?= h(date('Y/m/d', $timestamp)) ?></span>
               <span><b><?= h(sblog_t('浏览：')) ?></b><?= h((string)(int)($post['views'] ?? 0)) ?><?= h(sblog_t('次')) ?></span>
               <span><b><?= h(sblog_t('描述：')) ?></b><?= h($description !== '' ? $description : sblog_t('未填写')) ?></span>
             </div>
-            <?php if ($tags): ?><nav class="photo-tags" aria-label="<?= h(sblog_t('标签')) ?>"><?php foreach ($tags as $tag): ?><a href="<?= h(url_for('tag', ['slug' => (string)$tag['slug']])) ?>"><?= h((string)$tag['label']) ?></a><?php endforeach; ?></nav><?php endif; ?>
+            <?php if (!$passwordLocked && $tags): ?><nav class="photo-tags" aria-label="<?= h(sblog_t('标签')) ?>"><?php foreach ($tags as $tag): ?><a href="<?= h(url_for('tag', ['slug' => (string)$tag['slug']])) ?>"><?= h((string)$tag['label']) ?></a><?php endforeach; ?></nav><?php endif; ?>
           </article>
-          <?php if ($comments !== ''): ?><div class="photo-article-comments"><?= $comments ?></div><?php endif; ?>
+          <?php if (!$passwordLocked && $comments !== ''): ?><div class="photo-article-comments"><?= $comments ?></div><?php endif; ?>
         </main>
         <?php return (string)ob_get_clean();
     }
@@ -165,6 +228,7 @@ function photograph_render_post(array $post, string $originalContent): string
       <div class="photo-post-grid" id="masonry" aria-label="<?= h((string)$post['title']) ?>"><?php foreach ($images as $index => $image): ?>
         <button class="photo-post-item" type="button" data-photo-lightbox data-src="<?= h($image) ?>" data-caption="<?= h((string)$post['title']) ?> [<?= h((string)($index + 1)) ?>]"><img src="<?= h($image) ?>" alt="<?= h((string)$post['title']) ?> [<?= h((string)($index + 1)) ?>]" loading="<?= $index < 4 ? 'eager' : 'lazy' ?>" decoding="async"></button>
       <?php endforeach; ?></div>
+      <?php if (function_exists('content_has_reply_hidden_blocks') && function_exists('can_view_reply_hidden_content') && function_exists('render_reply_content_gate') && content_has_reply_hidden_blocks((string)($post['content'] ?? '')) && !can_view_reply_hidden_content($post)): ?><?= render_reply_content_gate($post) ?><?php endif; ?>
       <div class="photo-post-info">
         <span><?= photograph_icon('image') ?><b><?= h(sblog_t('标题：')) ?></b><?= h((string)$post['title']) ?></span>
         <span><b><?= h(sblog_t('日期：')) ?></b><?= h(date('Y/m/d', $timestamp)) ?></span>

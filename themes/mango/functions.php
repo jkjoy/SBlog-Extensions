@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+function mango_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) return public_content_context($post);
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) { $post['content'] = ''; $post['excerpt'] = ''; }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function mango_icon(string $name, string $class = ''): string
 {
     $paths = [
@@ -40,6 +49,7 @@ function mango_icon(string $name, string $class = ''): string
 
 function mango_post_images(array $post, int $limit = 9): array
 {
+    $post = mango_public_content($post);
     $content = (string)($post['content'] ?? '');
     preg_match_all('/!\[[^\]]*\]\((?:<)?([^\s)>]+)(?:>)?(?:\s+["\'][^"\']*["\'])?\)|<img\b[^>]*\bsrc=["\']([^"\']+)["\'][^>]*>/i', $content, $matches, PREG_SET_ORDER);
     $images = [];
@@ -74,6 +84,7 @@ function mango_post_cover(array $post): string
 
 function mango_post_excerpt(array $post, int $length = 180): string
 {
+    $post = mango_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? $excerpt : derive_excerpt((string)($post['content'] ?? ''), $length);
 }
@@ -159,9 +170,10 @@ function mango_render_author_card(): string
 
 function mango_render_site_stats(): string
 {
-    $posts = all_rows('SELECT content FROM posts WHERE kind = ? AND status = ? AND published_at <= ?', ['post', 'published', time()]);
+    $posts = all_rows('SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ?', ['post', 'published', time()]);
     $wordCount = 0;
     foreach ($posts as $post) {
+        $post = mango_public_content($post);
         $plain = html_entity_decode(strip_tags(markdown_to_plain((string)$post['content'])), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $plain = preg_replace('/\s+/u', '', $plain) ?? $plain;
         $wordCount += str_len_u($plain);
@@ -206,6 +218,7 @@ function mango_render_post_items(array $posts): string
     $author = mango_author();
     ob_start();
     foreach ($posts as $post):
+        $post = mango_public_content($post);
         $permalink = content_permalink($post);
         $allImages = mango_post_images($post, PHP_INT_MAX);
         $totalImageCount = count($allImages);
@@ -274,7 +287,9 @@ function mango_search_posts(string $term): array
     $term = str_sub_u(trim($term), 0, 100);
     if ($term === '') return [];
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows("SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", ['post', 'published', time(), $like, $like, $like]);
+    $posts = all_rows("SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", ['post', 'published', time(), $like, $like, $like]);
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('mango_public_content', $posts), static function (array $post) use ($needle): bool { return str_contains(str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? '')), $needle); }));
 }
 
 function mango_render_home(): string

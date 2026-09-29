@@ -2,8 +2,23 @@
 
 declare(strict_types=1);
 
+function clay_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function clay_post_cover(array $post): string
 {
+    $post = clay_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -16,6 +31,7 @@ function clay_post_cover(array $post): string
 
 function clay_post_excerpt(array $post): string
 {
+    $post = clay_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? $excerpt : derive_excerpt((string)($post['content'] ?? ''), 110);
 }
@@ -31,7 +47,7 @@ function clay_render_post_grid(array $posts): string
     ob_start();
     ?>
     <div class="clay-post-grid">
-      <?php foreach ($posts as $index => $post): ?>
+      <?php foreach ($posts as $index => $post): $post = clay_public_content($post); ?>
         <?php
         $cover = clay_post_cover($post);
         $tags = tag_descriptors($post);

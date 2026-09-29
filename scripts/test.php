@@ -105,6 +105,12 @@ try {
 require __DIR__ . '/test-font-installer.php';
 require __DIR__ . '/test-comment-enhancer.php';
 
+$restApiCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-rest-api-content-protection.php');
+passthru($restApiCommand, $restApiStatus);
+if ($restApiStatus !== 0) {
+    store_fail('REST API content-protection tests failed.');
+}
+
 $integrationCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-comment-enhancer-integration.php');
 passthru($integrationCommand, $integrationStatus);
 if ($integrationStatus !== 0) {

@@ -2,8 +2,23 @@
 
 declare(strict_types=1);
 
+function jaguar_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function jaguar_post_cover(array $post): string
 {
+    $post = jaguar_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -18,6 +33,7 @@ function jaguar_post_cover(array $post): string
 
 function jaguar_post_excerpt(array $post): string
 {
+    $post = jaguar_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? $excerpt : derive_excerpt((string)($post['content'] ?? ''), 120);
 }
@@ -49,6 +65,7 @@ function jaguar_sns_icon(string $name): string
 
 function jaguar_image_count(array $post): int
 {
+    $post = jaguar_public_content($post);
     $content = (string)($post['content'] ?? '');
     preg_match_all('/<img\b[^>]*>|!\[[^\]]*\]\([^\)]+\)/i', $content, $matches);
     return count($matches[0] ?? []);
@@ -76,6 +93,7 @@ function jaguar_render_post_items(array $posts): string
 {
     ob_start();
     foreach ($posts as $post):
+        $post = jaguar_public_content($post);
         $permalink = content_permalink($post);
         $category = jaguar_post_category($post);
         $imageCount = jaguar_image_count($post);
@@ -145,10 +163,14 @@ function jaguar_search_posts(string $term): array
         return [];
     }
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows(
+    $posts = all_rows(
         "SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100",
         ['post', 'published', time(), $like, $like, $like]
     );
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('jaguar_public_content', $posts), static function (array $post) use ($needle): bool {
+        return str_contains(str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? '')), $needle);
+    }));
 }
 
 function jaguar_render_home(): string
@@ -233,6 +255,7 @@ function jaguar_render_links(): string
 
 function jaguar_reading_time(array $post): string
 {
+    $post = jaguar_public_content($post);
     $plain = trim(strip_tags((string)($post['content'] ?? '')));
     $characters = function_exists('mb_strlen') ? mb_strlen($plain, 'UTF-8') : strlen($plain);
     return sblog_tn('{count} 分钟阅读', max(1, (int)ceil($characters / 500)));

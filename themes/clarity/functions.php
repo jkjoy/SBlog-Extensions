@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+function clarity_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function clarity_icon(string $name, string $label = ''): string
 {
     $paths = [
@@ -26,6 +40,7 @@ function clarity_timestamp(array $post): int
 
 function clarity_reading_minutes(array $post): int
 {
+    $post = clarity_public_content($post);
     $text = html_entity_decode(strip_tags((string)($post['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     preg_match_all('/[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}]/u', $text, $cjk);
     $nonCjk = preg_replace('/[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}]/u', ' ', $text) ?? $text;
@@ -59,6 +74,7 @@ function clarity_post_meta(array $post, bool $withTags = true): string
 
 function clarity_render_excerpt(array $post): string
 {
+    $post = clarity_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? '')) ?: derive_excerpt((string)($post['content'] ?? ''), 200);
     ob_start();
     ?>

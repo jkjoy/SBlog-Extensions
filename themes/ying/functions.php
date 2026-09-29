@@ -2,8 +2,18 @@
 
 declare(strict_types=1);
 
+function ying_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) return public_content_context($post);
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) { $post['content'] = ''; $post['excerpt'] = ''; }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function ying_post_cover(array $post): string
 {
+    $post = ying_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -25,6 +35,7 @@ function ying_render_home_content(): string
     ob_start();
     if ($posts):
         foreach ($posts as $index => $post):
+            $post = ying_public_content($post);
             $cover = ying_post_cover($post);
             ?>
             <div class="flex gap-2.5 items-start post-card" style="--delay:<?= h((string)($index * 0.05)) ?>s">

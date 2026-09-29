@@ -2,6 +2,39 @@
 
 declare(strict_types=1);
 
+function timellow_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== ''
+        || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
+function timellow_password_locked(array $post): bool
+{
+    $protected = function_exists('content_requires_password')
+        ? content_requires_password($post)
+        : trim((string)($post['content_password_hash'] ?? '')) !== '';
+    return $protected && (!function_exists('content_password_is_unlocked') || !content_password_is_unlocked($post));
+}
+
+function timellow_render_content(array $post): string
+{
+    if (function_exists('render_content_html')) {
+        return render_content_html($post);
+    }
+    $publicPost = timellow_public_content($post);
+    $markdown = trim((string)($publicPost['content'] ?? ''));
+    return $markdown !== '' ? markdown_to_html($markdown) : '<p>' . h(sblog_t('此内容暂不可见。')) . '</p>';
+}
+
 function timellow_icon(string $name): string
 {
     $paths = [
@@ -68,6 +101,7 @@ function timellow_render_sns_links(): string
 
 function timellow_post_cover(array $post): string
 {
+    $post = timellow_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -89,6 +123,7 @@ function timellow_first_character(string $text): string
 
 function timellow_excerpt(array $post, int $length = 92): string
 {
+    $post = timellow_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? str_sub_u($excerpt, 0, $length) : derive_excerpt((string)($post['content'] ?? ''), $length);
 }
@@ -115,7 +150,7 @@ function timellow_render_posts(array $posts, string $hero = '', string $paginati
       <?= $hero ?>
       <?php if ($posts): ?>
         <div class="post-list" data-post-list>
-          <?php foreach ($posts as $post): ?>
+          <?php foreach ($posts as $post): $post = timellow_public_content($post); ?>
             <?php $permalink = content_permalink($post); $category = timellow_category($post); ?>
             <article class="post-card<?= !empty($post['is_pinned']) ? ' is-sticky' : '' ?>" data-post-cid="<?= h((string)$post['id']) ?>" itemscope itemtype="https://schema.org/BlogPosting">
               <a class="post-thumb-link" href="<?= h($permalink) ?>" aria-label="<?= h((string)$post['title']) ?>">
@@ -167,7 +202,12 @@ function timellow_search_posts(string $term): array
         return [];
     }
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows("SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", ['post', 'published', time(), $like, $like, $like]);
+    $posts = all_rows("SELECT * FROM posts WHERE kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", ['post', 'published', time(), $like, $like, $like]);
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('timellow_public_content', $posts), static function (array $post) use ($needle): bool {
+        $haystack = str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? ''));
+        return str_contains($haystack, $needle);
+    }));
 }
 
 function timellow_render_home(): string
@@ -275,7 +315,8 @@ function timellow_render_article(string $content, array $context): string
         return '<main class="site-main">' . $content . '</main>';
     }
 
-    $body = markdown_to_html((string)$post['content']);
+    $passwordLocked = timellow_password_locked($post);
+    $body = timellow_render_content($post);
     $timestamp = (int)($post['published_at'] ?: $post['updated_at'] ?: $post['created_at']);
     $category = timellow_category($post);
     $comments = '';
@@ -283,7 +324,7 @@ function timellow_render_article(string $content, array $context): string
         $comments = preg_replace('/\s*<span class="comments__count">.*?<\/span>/s', '', $match[0]) ?? $match[0];
     }
     $navigation = '';
-    if (!$isPage) {
+    if (!$isPage && !$passwordLocked) {
         $neighbors = post_neighbors($post);
         $newer = $neighbors['newer'];
         $older = $neighbors['older'];
@@ -307,10 +348,10 @@ function timellow_render_article(string $content, array $context): string
       <article class="content-card" itemscope itemtype="<?= $isPage ? 'https://schema.org/WebPage' : 'https://schema.org/BlogPosting' ?>">
         <?php if (!$isPage): ?><header class="article-header"><h1 class="article-title" itemprop="headline"><?= h((string)$post['title']) ?></h1><div class="article-meta"><time datetime="<?= h(date(DATE_ATOM, $timestamp)) ?>" itemprop="datePublished"><?= h(date('Y-m-d', $timestamp)) ?></time><?php if ($category): ?><span class="meta-separator"></span><a href="<?= h(url_for('category', ['slug' => (string)$category['slug']])) ?>"><?= h((string)$category['name']) ?></a><?php endif; ?><span class="meta-separator"></span><a href="#comments"><?= h(sblog_tn('{count} 条评论', approved_comment_count((int)$post['id']))) ?></a></div></header><?php endif; ?>
         <div class="article-body" itemprop="articleBody"><?= $body ?></div>
-        <?php $tags = tag_descriptors($post); if ($tags): ?><footer class="article-footer"><div class="tag-list"><?php foreach ($tags as $tag): ?><a class="tag-chip" href="<?= h(url_for('tag', ['slug' => (string)$tag['slug']])) ?>"><span class="tag-hash">#</span><span><?= h((string)$tag['label']) ?></span></a><?php endforeach; ?></div></footer><?php endif; ?>
+        <?php $tags = $passwordLocked ? [] : tag_descriptors($post); if ($tags): ?><footer class="article-footer"><div class="tag-list"><?php foreach ($tags as $tag): ?><a class="tag-chip" href="<?= h(url_for('tag', ['slug' => (string)$tag['slug']])) ?>"><span class="tag-hash">#</span><span><?= h((string)$tag['label']) ?></span></a><?php endforeach; ?></div></footer><?php endif; ?>
       </article>
       <?= $navigation ?>
-      <?= $comments ?>
+      <?php if (!$passwordLocked): ?><?= $comments ?><?php endif; ?>
     </main>
     <?php
     return (string)ob_get_clean();

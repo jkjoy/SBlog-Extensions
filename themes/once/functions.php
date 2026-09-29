@@ -2,8 +2,18 @@
 
 declare(strict_types=1);
 
+function once_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) return public_content_context($post);
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) { $post['content'] = ''; $post['excerpt'] = ''; }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function once_post_cover(array $post): string
 {
+    $post = once_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -15,6 +25,7 @@ function once_post_cover(array $post): string
 
 function once_excerpt(array $post, int $length = 150): string
 {
+    $post = once_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     return $excerpt !== '' ? $excerpt : derive_excerpt((string)($post['content'] ?? ''), $length);
 }
@@ -63,6 +74,7 @@ function once_post_meta(array $post, bool $includeTags = true): string
 
 function once_render_post_card(array $post): string
 {
+    $post = once_public_content($post);
     $cover = once_post_cover($post);
     $permalink = content_permalink($post);
     ob_start(); ?>
@@ -81,6 +93,7 @@ function once_render_post_card(array $post): string
 
 function once_render_feature(array $post, string $class, string $fallbackLabel): string
 {
+    $post = once_public_content($post);
     $cover = once_post_cover($post);
     $category = once_category($post);
     ob_start(); ?>
@@ -96,7 +109,7 @@ function once_render_feature(array $post, string $class, string $fallbackLabel):
 
 function once_sidebar(): string
 {
-    $popular = all_rows("SELECT id, slug, title, content, views FROM posts WHERE kind = 'post' AND status = 'published' AND published_at <= ? ORDER BY views DESC, id DESC LIMIT 5", [time()]);
+    $popular = array_map('once_public_content', all_rows("SELECT * FROM posts WHERE kind = 'post' AND status = 'published' AND published_at <= ? ORDER BY views DESC, id DESC LIMIT 5", [time()]));
     $comments = all_rows(
         "SELECT c.id, c.author_name, c.author_email, c.content, c.created_at, p.slug, p.title AS post_title
          FROM comments c
@@ -132,7 +145,9 @@ function once_search_posts(string $term): array
     $term = str_sub_u(trim($term), 0, 100);
     if ($term === '') return [];
     $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
-    return all_rows("SELECT * FROM posts WHERE kind = 'post' AND status = 'published' AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", [time(), $like, $like, $like]);
+    $posts = all_rows("SELECT * FROM posts WHERE kind = 'post' AND status = 'published' AND published_at <= ? AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\') ORDER BY is_pinned DESC, published_at DESC, id DESC LIMIT 100", [time(), $like, $like, $like]);
+    $needle = str_lower_u($term);
+    return array_values(array_filter(array_map('once_public_content', $posts), static function (array $post) use ($needle): bool { return str_contains(str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? '')), $needle); }));
 }
 
 function once_render_home(): string

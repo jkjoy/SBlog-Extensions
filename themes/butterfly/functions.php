@@ -2,6 +2,42 @@
 
 declare(strict_types=1);
 
+function butterfly_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== ''
+        || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
+function butterfly_password_locked(array $post): bool
+{
+    $protected = function_exists('content_requires_password')
+        ? content_requires_password($post)
+        : trim((string)($post['content_password_hash'] ?? '')) !== '';
+    if (!$protected) {
+        return false;
+    }
+    return !function_exists('content_password_is_unlocked') || !content_password_is_unlocked($post);
+}
+
+function butterfly_render_content(array $post): string
+{
+    if (function_exists('render_content_html')) {
+        return render_content_html($post);
+    }
+    $publicPost = butterfly_public_content($post);
+    $markdown = trim((string)($publicPost['content'] ?? ''));
+    return $markdown !== '' ? markdown_to_html($markdown) : '<p>' . h(sblog_t('此内容暂不可见。')) . '</p>';
+}
+
 function butterfly_icon(string $name): string
 {
     return '<i class="bf-icon ri-' . h($name) . '" aria-hidden="true"></i>';
@@ -41,6 +77,7 @@ function butterfly_current_post(): ?array
 
 function butterfly_cover(array $post): string
 {
+    $post = butterfly_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img\b[^>]*\bsrc=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -87,7 +124,7 @@ function butterfly_post_meta(array $post): string
 function butterfly_post_list(array $posts): string
 {
     ob_start(); ?>
-      <?php foreach ($posts as $index => $post): ?>
+      <?php foreach ($posts as $index => $post): $post = butterfly_public_content($post); ?>
         <?php $url = butterfly_url(content_permalink($post)); ?>
         <?php $coverSide = ($index % 2 === 0) ? 'left' : 'right'; ?>
         <article class="bf-post-card recent-post-item">
@@ -143,10 +180,16 @@ function butterfly_home(): string
         $term = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $query) . '%';
         $where = "kind = ? AND status = ? AND published_at <= ? AND (title LIKE ? ESCAPE '!' OR content LIKE ? ESCAPE '!' OR excerpt LIKE ? ESCAPE '!')";
         $params = ['post', 'published', time(), $term, $term, $term];
-        $total = (int)val('SELECT COUNT(*) FROM posts WHERE ' . $where, $params);
+        $matches = all_rows('SELECT * FROM posts WHERE ' . $where . ' ORDER BY published_at DESC, id DESC', $params);
+        $needle = str_lower_u($query);
+        $matches = array_values(array_filter(array_map('butterfly_public_content', $matches), static function (array $post) use ($needle): bool {
+            $haystack = str_lower_u((string)$post['title'] . "\n" . (string)($post['excerpt'] ?? '') . "\n" . (string)($post['content'] ?? ''));
+            return str_contains($haystack, $needle);
+        }));
+        $total = count($matches);
         $totalPages = max(1, (int)ceil($total / $perPage));
         $page = min($page, $totalPages);
-        $posts = all_rows('SELECT * FROM posts WHERE ' . $where . ' ORDER BY published_at DESC, id DESC LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage), $params);
+        $posts = array_slice($matches, ($page - 1) * $perPage, $perPage);
     } else {
         $total = count_published_posts();
         $totalPages = max(1, (int)ceil($total / $perPage));

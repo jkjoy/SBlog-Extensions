@@ -2,6 +2,20 @@
 
 declare(strict_types=1);
 
+function candy_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== '' || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
 function candy_icon(string $name): string
 {
     $paths = [
@@ -20,6 +34,7 @@ function candy_icon(string $name): string
 
 function candy_post_cover(array $post): string
 {
+    $post = candy_public_content($post);
     $content = (string)($post['content'] ?? '');
     if (preg_match('/!\[[^\]]*\]\((https?:\/\/[^\s)]+|\/[^\s)]+)(?:\s+["\'][^"\']*["\'])?\)/i', $content, $match)
         || preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $content, $match)) {
@@ -34,7 +49,7 @@ function candy_post_cards(array $posts): string
     ob_start();
     ?>
     <div class="candy-grid">
-      <?php foreach ($posts as $index => $post): ?>
+      <?php foreach ($posts as $index => $post): $post = candy_public_content($post); ?>
         <?php
         $url = url_for('post', ['slug' => (string)$post['slug']]);
         $cover = candy_post_cover($post);

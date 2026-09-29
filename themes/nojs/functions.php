@@ -2,8 +2,42 @@
 
 declare(strict_types=1);
 
+function nojs_public_content(array $post): array
+{
+    if (function_exists('public_content_context')) {
+        return public_content_context($post);
+    }
+    $content = (string)($post['content'] ?? '');
+    if (trim((string)($post['content_password_hash'] ?? '')) !== ''
+        || preg_match('/^\s*\[\/?reply\]\s*$/mi', $content)) {
+        $post['content'] = '';
+        $post['excerpt'] = '';
+    }
+    unset($post['content_password_hash']);
+    return $post;
+}
+
+function nojs_password_locked(array $post): bool
+{
+    $protected = function_exists('content_requires_password')
+        ? content_requires_password($post)
+        : trim((string)($post['content_password_hash'] ?? '')) !== '';
+    return $protected && (!function_exists('content_password_is_unlocked') || !content_password_is_unlocked($post));
+}
+
+function nojs_render_content(array $post): string
+{
+    if (function_exists('render_content_html')) {
+        return render_content_html($post);
+    }
+    $publicPost = nojs_public_content($post);
+    $markdown = trim((string)($publicPost['content'] ?? ''));
+    return $markdown !== '' ? markdown_to_html($markdown) : '<p>' . h(sblog_t('此内容暂不可见。')) . '</p>';
+}
+
 function nojs_excerpt(array $post, int $length = 100): string
 {
+    $post = nojs_public_content($post);
     $excerpt = trim((string)($post['excerpt'] ?? ''));
     if ($excerpt === '') {
         $excerpt = derive_excerpt((string)($post['content'] ?? ''));
@@ -15,7 +49,7 @@ function nojs_excerpt(array $post, int $length = 100): string
 function nojs_render_post_list(array $posts, bool $withExcerpt = true): string
 {
     ob_start();
-    foreach ($posts as $post): ?>
+    foreach ($posts as $post): $post = nojs_public_content($post); ?>
       <section class="content__item">
         <article class="article">
           <div class="article-header">
@@ -232,7 +266,8 @@ function nojs_prepare_comments(string $comments, int $postId): string
 
 function nojs_render_post(array $post, string $originalContent): string
 {
-    $neighbors = post_neighbors($post);
+    $passwordLocked = nojs_password_locked($post);
+    $neighbors = $passwordLocked ? ['newer' => null, 'older' => null] : post_neighbors($post);
     $meta = one('SELECT p.views, c.name AS category_name, c.slug AS category_slug FROM posts p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?', [(int)$post['id']]) ?? [];
     $comments = nojs_extract_comments($originalContent, (int)$post['id']);
     ob_start(); ?>
@@ -240,10 +275,10 @@ function nojs_render_post(array $post, string $originalContent): string
       <article class="article">
         <div class="article__header-link"><h2><?= h((string)$post['title']) ?></h2></div>
         <span class="article__views" aria-label="浏览量">◉ <?= h((string)($meta['views'] ?? $post['views'] ?? 0)) ?></span>
-        <div class="article__content"><?= markdown_to_html((string)$post['content']) ?></div>
+        <div class="article__content"><?= nojs_render_content($post) ?></div>
         <div class="article__taxonomy">
-          <?php if (trim((string)($meta['category_slug'] ?? '')) !== ''): ?>■ <a class="article__category-link" href="<?= h(url_for('category', ['slug' => (string)$meta['category_slug']])) ?>"><?= h((string)$meta['category_name']) ?></a><?php endif; ?>
-          <?php foreach (post_tags($post) as $tag): ?>◆ <a class="article__category-link" href="<?= h(url_for('tag', ['slug' => tag_slug_for_label($tag)])) ?>"><?= h($tag) ?></a><?php endforeach; ?>
+          <?php if (!$passwordLocked && trim((string)($meta['category_slug'] ?? '')) !== ''): ?>■ <a class="article__category-link" href="<?= h(url_for('category', ['slug' => (string)$meta['category_slug']])) ?>"><?= h((string)$meta['category_name']) ?></a><?php endif; ?>
+          <?php if (!$passwordLocked): ?><?php foreach (post_tags($post) as $tag): ?>◆ <a class="article__category-link" href="<?= h(url_for('tag', ['slug' => tag_slug_for_label($tag)])) ?>"><?= h($tag) ?></a><?php endforeach; ?><?php endif; ?>
         </div>
         <div class="article__footer-link">上一篇：<?php if ($neighbors['newer']): ?><a href="<?= h(url_for('post', ['slug' => (string)$neighbors['newer']['slug']])) ?>"><?= h((string)$neighbors['newer']['title']) ?></a><?php else: ?>没有了<?php endif; ?></div>
         <div class="article__footer-link">下一篇：<?php if ($neighbors['older']): ?><a href="<?= h(url_for('post', ['slug' => (string)$neighbors['older']['slug']])) ?>"><?= h((string)$neighbors['older']['title']) ?></a><?php else: ?>没有了<?php endif; ?></div>
@@ -261,7 +296,7 @@ function nojs_render_page(array $page, string $originalContent): string
     <section class="content__item">
       <article class="article">
         <div class="article__header-link"><h2><?= h((string)$page['title']) ?></h2></div>
-        <div class="article__content"><?= markdown_to_html((string)$page['content']) ?></div>
+        <div class="article__content"><?= nojs_render_content($page) ?></div>
         <?php if (is_admin()): ?><div class="article__footer-link"><a href="<?= h(url_for('edit', ['id' => (int)$page['id']])) ?>" target="_blank">编辑</a></div><?php endif; ?>
       </article>
     </section>
