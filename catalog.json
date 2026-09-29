@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-09-27T11:00:38+00:00",
+    "updated_at": "2026-09-29T07:45:24+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -43,6 +43,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-avatar-source-v1.0.0/plugin-avatar-source-1.0.0.zip",
             "sha256": "506bc1007b59df72f94f68fa623bab39c2144ad1b36e1635a79efa5dc8016b54",
             "source_sha256": "24bfe60d9c9865a5273998d13280c304d816ad8e6b277a2da8cf2aeb17f8ebef"
+        },
+        {
+            "type": "plugin",
+            "slug": "comment-enhancer",
+            "name": "评论增强",
+            "version": "1.2.0",
+            "author": "Simple PHP Blog",
+            "description": "为公开评论显示邮箱活跃等级、浏览器、操作系统和 IP 归属地，支持本地 MMDB（IPv4/IPv6）或在线查询。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.6",
+            "tested": "1.14.6",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-comment-enhancer-v1.2.0/plugin-comment-enhancer-1.2.0.zip",
+            "sha256": "df3f9fe60f8698de37a8a99433509387917c4b2856a13dd7c1913bc8e7415ffa",
+            "source_sha256": "6d267b93b2ff18ae3ecd4be0534c87660630f5fb9cb0a929dd9fc1efe8dbfb31"
         },
         {
             "type": "plugin",
