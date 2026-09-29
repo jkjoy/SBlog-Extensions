@@ -6,11 +6,15 @@
 {
   "name": "主题名称",
   "version": "1.0.0",
+  "requires": "1.13.6",
+  "tested": "1.14.5",
   "author": "作者",
   "url": "https://example.com/theme-author",
   "description": "主题说明"
 }
 ```
+
+`requires` 与 `tested` 可选，且必须使用语义版本格式。`requires` 表示主题要求的最低 SBlog 版本，`tested` 表示已验证兼容的 SBlog 版本；省略时使用 `store.config.json` 中的对应默认值。
 
 `url` 可选，用于主题管理中的作者链接，只接受完整的 HTTP 或 HTTPS 地址。
 

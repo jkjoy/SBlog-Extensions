@@ -21,12 +21,78 @@ try {
     if (store_file_bytes($binary) !== "\x00\r\n\xff") {
         store_fail('Binary package content was modified.');
     }
+    $manifest = [
+        'name' => 'Sample Extension',
+        'version' => '1.0.0',
+        'author' => '',
+        'description' => '',
+        'url' => '',
+    ];
+    $config = ['defaults' => ['requires' => '1.13.6', 'tested' => '1.14.5']];
+    $defaultEntry = store_manifest_entry('plugin', 'sample-plugin', $manifest, $config);
+    if ($defaultEntry['requires'] !== '1.13.6' || $defaultEntry['tested'] !== '1.14.5') {
+        store_fail('Manifest compatibility defaults were not applied.');
+    }
+    $overrideEntry = store_manifest_entry('theme', 'sample-theme', array_merge($manifest, [
+        'requires' => '1.14.0-beta.1',
+        'tested' => '1.15.0+build.2',
+    ]), $config);
+    if ($overrideEntry['requires'] !== '1.14.0-beta.1' || $overrideEntry['tested'] !== '1.15.0+build.2') {
+        store_fail('Manifest compatibility overrides were not applied.');
+    }
+    foreach (['requires' => '1.14', 'tested' => 'latest'] as $field => $value) {
+        $invalidManifest = $manifest;
+        $invalidManifest[$field] = $value;
+        $rejected = false;
+        try {
+            store_manifest_entry('plugin', 'invalid-plugin', $invalidManifest, $config);
+        } catch (RuntimeException $exception) {
+            $rejected = str_contains($exception->getMessage(), '.' . $field . ' must be a semantic version');
+        }
+        if (!$rejected) {
+            store_fail('Invalid manifest ' . $field . ' was accepted.');
+        }
+    }
     $firstZip = $temporary . '/first.zip';
     $secondZip = $temporary . '/second.zip';
     store_package('sample', ['file.txt' => $crlf], $firstZip);
     store_package('sample', ['file.txt' => $lf], $secondZip);
     if (!hash_equals(hash_file('sha256', $firstZip), hash_file('sha256', $secondZip))) {
         store_fail('Equivalent text produced different packages.');
+    }
+
+    $commentEnhancerFiles = store_extension_files(STORE_ROOT . '/plugins/comment-enhancer');
+    $commentEnhancerZip = $temporary . '/comment-enhancer.zip';
+    store_package('comment-enhancer', $commentEnhancerFiles, $commentEnhancerZip);
+    $archive = new ZipArchive();
+    if ($archive->open($commentEnhancerZip) !== true) {
+        store_fail('Unable to inspect the comment-enhancer package.');
+    }
+    try {
+        $packageFiles = [];
+        for ($index = 0; $index < $archive->numFiles; $index++) {
+            $name = $archive->getNameIndex($index);
+            if (is_string($name)) {
+                $packageFiles[$name] = true;
+            }
+        }
+        foreach ([
+            'comment-enhancer/vendor/maxmind-db-reader/LICENSE',
+            'comment-enhancer/vendor/maxmind-db-reader/composer.json',
+            'comment-enhancer/vendor/maxmind-db-reader/src/MaxMind/Db/Reader.php',
+        ] as $requiredFile) {
+            if (!isset($packageFiles[$requiredFile])) {
+                store_fail('Comment enhancer package is missing ' . $requiredFile . '.');
+            }
+        }
+        foreach (array_keys($packageFiles) as $name) {
+            $normalized = strtolower($name);
+            if (str_ends_with($normalized, '.mmdb') || str_contains($normalized, '/fixtures/')) {
+                store_fail('Comment enhancer package contains test data: ' . $name);
+            }
+        }
+    } finally {
+        $archive->close();
     }
     echo "Packaging self-test passed.\n";
 } catch (Throwable $exception) {
@@ -37,3 +103,10 @@ try {
 }
 
 require __DIR__ . '/test-font-installer.php';
+require __DIR__ . '/test-comment-enhancer.php';
+
+$integrationCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-comment-enhancer-integration.php');
+passthru($integrationCommand, $integrationStatus);
+if ($integrationStatus !== 0) {
+    store_fail('Comment enhancer integration tests failed.');
+}

@@ -33,6 +33,6 @@ jobs:
         run: |
           previous="${RUNNER_TEMP}/catalog.json"
           catalog_url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/catalog/catalog.json"
-          curl --fail --silent --show-error --location "$catalog_url" --output "$previous" || rm -f "$previous"
+          curl --fail --silent --show-error --location "$catalog_url" --output "$previous"
           php scripts/build.php --repository="$GITHUB_REPOSITORY" --previous="$previous"
           cat build/release-plan.json

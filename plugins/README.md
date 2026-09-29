@@ -6,6 +6,8 @@
 {
   "name": "插件名称",
   "version": "1.0.0",
+  "requires": "1.13.6",
+  "tested": "1.14.5",
   "author": "作者",
   "url": "https://example.com/plugin-author",
   "description": "插件说明",
@@ -13,6 +15,8 @@
   "exclusive_group": "language"
 }
 ```
+
+`requires` 与 `tested` 可选，且必须使用语义版本格式。`requires` 表示插件要求的最低 SBlog 版本，`tested` 表示已验证兼容的 SBlog 版本；省略时使用 `store.config.json` 中的对应默认值。
 
 `settings_action` 可选。填写后，插件启用时“插件管理”会显示设置入口；对应 action 应由插件的 `request` 回调处理。内置功能插件以此作为唯一设置入口，不额外注册侧边栏菜单。
 

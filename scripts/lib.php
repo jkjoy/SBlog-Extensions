@@ -104,6 +104,13 @@ function store_manifest_entry(string $type, string $slug, array $manifest, array
     store_assert_text($description, $type . ':' . $slug . '.description', 500, false);
     store_assert_https_url($homepage, $type . ':' . $slug . '.url');
     $defaults = $config['defaults'];
+    $compatibility = [];
+    foreach (['requires', 'tested'] as $field) {
+        $compatibility[$field] = array_key_exists($field, $manifest)
+            ? trim((string)$manifest[$field])
+            : (string)$defaults[$field];
+        store_assert_version($compatibility[$field], $type . ':' . $slug . '.' . $field);
+    }
     return [
         'type' => $type,
         'slug' => $slug,
@@ -112,8 +119,8 @@ function store_manifest_entry(string $type, string $slug, array $manifest, array
         'author' => $author,
         'description' => $description,
         'homepage' => $homepage,
-        'requires' => (string)$defaults['requires'],
-        'tested' => (string)$defaults['tested'],
+        'requires' => $compatibility['requires'],
+        'tested' => $compatibility['tested'],
     ];
 }
 
