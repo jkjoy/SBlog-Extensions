@@ -1,0 +1,10 @@
+{
+  "name": "图库",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "从媒体库或本地上传图片，按分类发布自适应图库与无障碍灯箱。",
+  "settings_action": "admin_gallery"
+}

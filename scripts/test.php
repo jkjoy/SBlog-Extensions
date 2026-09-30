@@ -122,3 +122,9 @@ passthru($integrationCommand, $integrationStatus);
 if ($integrationStatus !== 0) {
     store_fail('Comment enhancer integration tests failed.');
 }
+
+$galleryCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-gallery.php');
+passthru($galleryCommand, $galleryStatus);
+if ($galleryStatus !== 0) {
+    store_fail('Gallery integration tests failed.');
+}
