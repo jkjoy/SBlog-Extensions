@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-09-29T10:40:48+00:00",
+    "updated_at": "2026-09-30T02:15:16+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -76,15 +76,15 @@
             "type": "plugin",
             "slug": "english-language",
             "name": "英文语言包",
-            "version": "1.0.10",
+            "version": "1.0.12",
             "author": "Simple PHP Blog",
             "description": "将博客前台、登录页面和后台管理界面翻译为英文。",
             "homepage": "https://github.com/jkjoy/Simple-PHP-Blog",
             "requires": "1.13.6",
             "tested": "1.13.6",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.10/plugin-english-language-1.0.10.zip",
-            "sha256": "8598b79430a88db49339bf2c99df08f05eb10c9db4ccc0dc5931d701fbee848e",
-            "source_sha256": "ae2fceea97b77b50afb8d91b8cb92674b42e5d7716c159bb1b65750d2a35c199"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.12/plugin-english-language-1.0.12.zip",
+            "sha256": "11ef96f3c83c20373bfa2fecb427253df6e85dbd5a84d67b751fab43dba06a0d",
+            "source_sha256": "42acccafd1370a7f7225d64df2fc8b09b8d39ec814c6c591312df53d04dda337"
         },
         {
             "type": "plugin",
@@ -118,15 +118,15 @@
             "type": "plugin",
             "slug": "russian-language",
             "name": "俄语语言包",
-            "version": "1.0.11",
+            "version": "1.0.13",
             "author": "zalexstudios",
             "description": "将博客前台、登录页面和后台管理界面翻译为俄语。",
             "homepage": "https://github.com/zalexstudios",
             "requires": "1.13.6",
             "tested": "1.13.6",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-russian-language-v1.0.11/plugin-russian-language-1.0.11.zip",
-            "sha256": "0667827b28fdaba100dd6ace88e31382262f41a588789712401c116f8c5dd8db",
-            "source_sha256": "5d5a8616ea88efc328f42acba2a1b0ef7e4eb6b4a8e846a8e4f003f8e474d9b4"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-russian-language-v1.0.13/plugin-russian-language-1.0.13.zip",
+            "sha256": "155ac2e452d3231c0a2f1b7ac621eb1607b3164d4e58bdbb789b39c9f71c3fc4",
+            "source_sha256": "a7f58003e1e1e5b9cd332e0729f057586583369b37be332f36f91f88c205266c"
         },
         {
             "type": "plugin",
