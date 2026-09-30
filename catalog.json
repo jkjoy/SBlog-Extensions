@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-09-30T10:00:59+00:00",
+    "updated_at": "2026-09-30T12:49:40+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -99,6 +99,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-font-installer-v1.0.0/plugin-font-installer-1.0.0.zip",
             "sha256": "db77c9682c5d828332ec23157bb434520a28ccca0234320d86f7b86fe01ba9f6",
             "source_sha256": "122ed94c1590589881681a7aac00b7134c97cd21d71a76fe8bfd28a20a7f6596"
+        },
+        {
+            "type": "plugin",
+            "slug": "gallery",
+            "name": "图库",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "从媒体库或本地上传图片，按分类发布自适应图库与无障碍灯箱。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-gallery-v1.0.0/plugin-gallery-1.0.0.zip",
+            "sha256": "04e9b59ea19291f6def4fb1bb0c34727347cbc5e399ceb211d5537f982e97ed7",
+            "source_sha256": "fc3b8970506f08aae05a18e6102a3bd4a79b91f1f34efa1e0271f3045828ecd9"
         },
         {
             "type": "plugin",
