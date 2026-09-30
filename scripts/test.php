@@ -105,6 +105,12 @@ try {
 require __DIR__ . '/test-font-installer.php';
 require __DIR__ . '/test-comment-enhancer.php';
 
+$staticPageCacheCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-static-page-cache.php');
+passthru($staticPageCacheCommand, $staticPageCacheStatus);
+if ($staticPageCacheStatus !== 0) {
+    store_fail('Static page cache tests failed.');
+}
+
 $restApiCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-rest-api-content-protection.php');
 passthru($restApiCommand, $restApiStatus);
 if ($restApiStatus !== 0) {

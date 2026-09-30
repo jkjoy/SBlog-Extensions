@@ -1,0 +1,10 @@
+{
+  "name": "静态页面缓存",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "将公开文章和独立页面缓存为静态 HTML 文件，并在内容或评论变化时自动刷新。",
+  "settings_action": "admin_static_page_cache"
+}
