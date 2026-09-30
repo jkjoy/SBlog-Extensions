@@ -7,29 +7,43 @@ const SBLOG_GALLERY_MAX_BATCH_SIZE = 100;
 const SBLOG_GALLERY_SCHEMA_MARKER = 'plugin_gallery_schema_version';
 const SBLOG_GALLERY_ROUTE_MARKER = 'plugin_gallery_route_slug';
 
+function gallery_in_transaction(): bool
+{
+    return !empty($GLOBALS['sblog_gallery_transaction_active']) || db()->inTransaction();
+}
+
 /**
  * Execute a write operation without committing a transaction owned by the caller.
  */
 function gallery_transaction(callable $callback): mixed
 {
     $database = db();
-    $ownsTransaction = !$database->inTransaction();
+    $ownsTransaction = !gallery_in_transaction();
 
     if ($ownsTransaction) {
         $database->exec('BEGIN IMMEDIATE');
+        $GLOBALS['sblog_gallery_transaction_active'] = true;
     }
 
     try {
         $result = $callback($database);
         if ($ownsTransaction) {
-            $database->commit();
+            $database->exec('COMMIT');
         }
         return $result;
     } catch (Throwable $exception) {
-        if ($ownsTransaction && $database->inTransaction()) {
-            $database->rollBack();
+        if ($ownsTransaction) {
+            try {
+                $database->exec('ROLLBACK');
+            } catch (Throwable) {
+                // Preserve the original error if SQLite has already rolled back.
+            }
         }
         throw $exception;
+    } finally {
+        if ($ownsTransaction) {
+            unset($GLOBALS['sblog_gallery_transaction_active']);
+        }
     }
 }
 
@@ -59,7 +73,7 @@ function gallery_install(): void
             return;
         }
     }
-    if (db()->inTransaction()) {
+    if (gallery_in_transaction()) {
         throw new LogicException('Gallery installation cannot run inside an existing transaction.');
     }
 
@@ -189,7 +203,7 @@ function gallery_setting(string $name, string $default = ''): string
 
 function gallery_save_settings_values(array $values): void
 {
-    if (db()->inTransaction()) {
+    if (gallery_in_transaction()) {
         throw new LogicException('Gallery settings cannot be saved inside an existing transaction.');
     }
     $currentSettings = gallery_settings();

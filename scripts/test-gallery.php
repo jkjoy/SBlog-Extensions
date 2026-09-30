@@ -182,6 +182,42 @@ require dirname(__DIR__) . '/plugins/gallery/includes/data.php';
 require dirname(__DIR__) . '/plugins/gallery/includes/public.php';
 
 try {
+    $rollbackError = new RuntimeException('Gallery rollback regression');
+    $caughtRollbackError = null;
+    try {
+        gallery_transaction(static function () use ($rollbackError): void {
+            q('INSERT INTO settings(name, value) VALUES(?, ?)', ['gallery_test_rollback', 'pending']);
+            gallery_transaction(static function (): void {
+                q('INSERT INTO settings(name, value) VALUES(?, ?)', ['gallery_test_nested', 'pending']);
+            });
+            throw $rollbackError;
+        });
+    } catch (Throwable $exception) {
+        $caughtRollbackError = $exception;
+    }
+    gallery_test_assert($caughtRollbackError === $rollbackError, 'Rollback replaced the original transaction error');
+    gallery_test_same(
+        0,
+        (int)val("SELECT COUNT(*) FROM settings WHERE name IN ('gallery_test_rollback', 'gallery_test_nested')"),
+        'Failed gallery transaction retained writes'
+    );
+    gallery_test_same(false, gallery_in_transaction(), 'Failed gallery transaction remained active');
+
+    $transactionResult = gallery_transaction(static function (): string {
+        q('INSERT INTO settings(name, value) VALUES(?, ?)', ['gallery_test_commit', 'committed']);
+        return 'transaction result';
+    });
+    gallery_test_same('transaction result', $transactionResult, 'Gallery transaction lost the callback result');
+    gallery_test_same('committed', val("SELECT value FROM settings WHERE name = 'gallery_test_commit'"), 'Gallery transaction did not commit');
+
+    db()->beginTransaction();
+    gallery_transaction(static function (): void {
+        q('INSERT INTO settings(name, value) VALUES(?, ?)', ['gallery_test_caller', 'pending']);
+    });
+    gallery_test_same(true, db()->inTransaction(), 'Gallery transaction committed a transaction owned by its caller');
+    db()->rollBack();
+    gallery_test_same(false, val("SELECT value FROM settings WHERE name = 'gallery_test_caller'"), 'Caller rollback did not remove gallery writes');
+
     $mediaOne = gallery_test_insert_media([
         'original_name' => 'one.jpg',
         'title' => 'Media One',
@@ -287,6 +323,16 @@ try {
     db()->rollBack();
     gallery_test_same('gallery', gallery_setting('route_slug'), 'Rejected nested settings changed the request cache');
     gallery_test_same('gallery', setting(SBLOG_GALLERY_ROUTE_MARKER), 'Rejected nested settings changed the core cache');
+
+    gallery_transaction(static function (): void {
+        gallery_test_expect_exception(
+            LogicException::class,
+            static fn() => gallery_save_settings_values(['route_slug' => 'uncommitted-route']),
+            'Gallery settings were allowed inside a gallery-owned transaction'
+        );
+    });
+    gallery_test_same('gallery', gallery_setting('route_slug'), 'Rejected gallery-owned settings changed the request cache');
+    gallery_test_same('gallery', setting(SBLOG_GALLERY_ROUTE_MARKER), 'Rejected gallery-owned settings changed the core cache');
 
     q("UPDATE sblog_gallery_settings SET value = 'Bad/Route' WHERE name = 'route_slug'");
     q('INSERT OR REPLACE INTO settings(name, value) VALUES(?, ?)', [SBLOG_GALLERY_ROUTE_MARKER, 'Bad/Route']);
