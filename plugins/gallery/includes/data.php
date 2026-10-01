@@ -335,6 +335,8 @@ function gallery_categories(bool $includeEmpty = true): array
                    cover.alt_text AS cover_alt_text,
                    cover.width AS cover_width,
                    cover.height AS cover_height,
+                   cover.local_path AS cover_local_path,
+                   cover.mime_type AS cover_mime_type,
                    COUNT(gi.id) AS item_count,
                    COALESCE(SUM(CASE WHEN gi.status = 'published' THEN 1 ELSE 0 END), 0) AS published_count
             FROM sblog_gallery_categories c
@@ -388,7 +390,9 @@ function gallery_validate_category(array $input, ?array $existing = null): array
     $description = trim(is_scalar($input['description'] ?? null) ? (string)$input['description'] : '');
     $slugInput = trim(is_scalar($input['slug'] ?? null) ? (string)$input['slug'] : '');
     $sortRaw = is_scalar($input['sort_order'] ?? null) ? trim((string)$input['sort_order']) : '0';
-    $coverRaw = $input['cover_media_id'] ?? null;
+    $coverRaw = array_key_exists('cover_media_id', $input)
+        ? $input['cover_media_id']
+        : ($existing['cover_media_id'] ?? null);
     $errors = [];
 
     if ($name === '') {
@@ -508,13 +512,14 @@ function gallery_delete_category_record(int $categoryId): bool
 }
 
 /**
- * @return array{0:array<int,int>,1:int}
+ * @return array{0:array<int,int>,1:int,2:array<int,int>}
  */
 function gallery_normalize_ids(array $values, int $limit = 500): array
 {
     $ids = [];
     $seen = [];
     $invalid = 0;
+    $rejectedIds = [];
 
     foreach ($values as $value) {
         $raw = is_scalar($value) ? trim((string)$value) : '';
@@ -529,22 +534,31 @@ function gallery_normalize_ids(array $values, int $limit = 500): array
         $seen[$id] = true;
         if (count($ids) >= $limit) {
             $invalid++;
+            $rejectedIds[] = $id;
             continue;
         }
         $ids[] = $id;
     }
 
-    return [$ids, $invalid];
+    return [$ids, $invalid, $rejectedIds];
 }
 
+/**
+ * Invalid values without a positive media ID are counted in invalid only.
+ *
+ * @return array{added:int,existing:int,invalid:int,item_ids:array<int,int>,added_media_ids:array<int,int>,existing_media_ids:array<int,int>,invalid_media_ids:array<int,int>}
+ */
 function gallery_add_media_items(array $mediaIds, ?int $categoryId = null): array
 {
-    [$ids, $invalidInput] = gallery_normalize_ids($mediaIds);
+    [$ids, $invalidInput, $rejectedIds] = gallery_normalize_ids($mediaIds);
     if ($ids === []) {
-        return ['added' => 0, 'existing' => 0, 'invalid' => $invalidInput, 'item_ids' => []];
+        return [
+            'added' => 0, 'existing' => 0, 'invalid' => $invalidInput, 'item_ids' => [],
+            'added_media_ids' => [], 'existing_media_ids' => [], 'invalid_media_ids' => $rejectedIds,
+        ];
     }
 
-    return gallery_transaction(static function () use ($ids, $invalidInput, $categoryId): array {
+    return gallery_transaction(static function () use ($ids, $invalidInput, $rejectedIds, $categoryId): array {
         if ($categoryId !== null && $categoryId > 0
             && one('SELECT id FROM sblog_gallery_categories WHERE id = ?', [$categoryId]) === null) {
             throw new InvalidArgumentException('所选图库分类不存在。');
@@ -561,9 +575,14 @@ function gallery_add_media_items(array $mediaIds, ?int $categoryId = null): arra
             $validMap[(int)$row['id']] = true;
         }
         $validIds = array_values(array_filter($ids, static fn(int $id): bool => isset($validMap[$id])));
+        $invalidMediaIds = array_values(array_filter($ids, static fn(int $id): bool => !isset($validMap[$id])));
+        array_push($invalidMediaIds, ...$rejectedIds);
         $invalid = $invalidInput + count($ids) - count($validIds);
         if ($validIds === []) {
-            return ['added' => 0, 'existing' => 0, 'invalid' => $invalid, 'item_ids' => []];
+            return [
+                'added' => 0, 'existing' => 0, 'invalid' => $invalid, 'item_ids' => [],
+                'added_media_ids' => [], 'existing_media_ids' => [], 'invalid_media_ids' => $invalidMediaIds,
+            ];
         }
 
         $validPlaceholders = implode(',', array_fill(0, count($validIds), '?'));
@@ -584,27 +603,32 @@ function gallery_add_media_items(array $mediaIds, ?int $categoryId = null): arra
         );
         $now = time();
         $itemIds = [];
-        $existing = 0;
+        $addedMediaIds = [];
+        $existingMediaIds = [];
 
         foreach ($validIds as $mediaId) {
             if (isset($existingMap[$mediaId])) {
-                $existing++;
+                $existingMediaIds[] = $mediaId;
                 continue;
             }
             $sortOrder++;
             $insert->execute([$mediaId, $categoryId, '', '', $sortOrder, $now, $now]);
             if ($insert->rowCount() > 0) {
                 $itemIds[] = (int)db()->lastInsertId();
+                $addedMediaIds[] = $mediaId;
             } else {
-                $existing++;
+                $existingMediaIds[] = $mediaId;
             }
         }
 
         return [
             'added' => count($itemIds),
-            'existing' => $existing,
+            'existing' => count($existingMediaIds),
             'invalid' => $invalid,
             'item_ids' => $itemIds,
+            'added_media_ids' => $addedMediaIds,
+            'existing_media_ids' => $existingMediaIds,
+            'invalid_media_ids' => $invalidMediaIds,
         ];
     });
 }
@@ -864,7 +888,7 @@ function gallery_public_items(array $filters = []): array
         "SELECT gi.id, gi.media_id, gi.category_id, gi.title, gi.description,
                 gi.sort_order, gi.created_at, gi.updated_at,
                 m.original_name, m.title AS media_title, m.alt_text, m.caption,
-                m.url, m.width, m.height,
+                m.url, m.width, m.height, m.local_path, m.mime_type,
                 c.name AS category_name, c.slug AS category_slug,
                 COALESCE(NULLIF(gi.title, ''), NULLIF(m.title, ''), m.original_name) AS display_title"
         . $from . $condition

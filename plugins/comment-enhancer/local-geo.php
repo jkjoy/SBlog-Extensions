@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 const SCE_LOCAL_GEO_MAX_BYTES = 134217728;
+const SCE_BUILTIN_GEO_DATABASE = 'builtin';
+const SCE_BUILTIN_GEO_VERSION = '2026-10';
+const SCE_BUILTIN_GEO_SHA256 = '9e250f02722d1ad1780f88192f0e908af285478a33e76b88b349c9181ae9d0f5';
+const SCE_BUILTIN_GEO_BYTES = 126998165;
 
 function sce_load_mmdb_reader(): void
 {
@@ -51,6 +55,137 @@ function sce_local_geo_database_path(?string $basename = null): string
 
     $directory = sce_local_geo_directory();
     return $directory === '' ? '' : $directory . DIRECTORY_SEPARATOR . $basename;
+}
+
+function sce_local_geo_builtin_database_path(): string
+{
+    $directory = sce_local_geo_directory();
+    return $directory === '' ? '' : $directory . '/builtin/dbip-city-lite-' . SCE_BUILTIN_GEO_VERSION . '.mmdb';
+}
+
+function sce_local_geo_builtin_source_path(): string
+{
+    return __DIR__ . '/resources/geo/dbip-city-lite.mmdb.gz';
+}
+
+function sce_local_geo_builtin_file_ready(string $path): bool
+{
+    if (!sce_local_geo_database_directory_safe($path, SCE_BUILTIN_GEO_DATABASE)
+        || is_link($path) || !is_file($path) || !is_readable($path)) {
+        return false;
+    }
+    clearstatcache(true, $path);
+    return @filesize($path) === SCE_BUILTIN_GEO_BYTES;
+}
+
+function sce_local_geo_prepare_builtin_database(): string
+{
+    $path = sce_local_geo_builtin_database_path();
+    if ($path === '' || !sce_local_geo_database_directory_safe($path, SCE_BUILTIN_GEO_DATABASE)
+        || is_link($path)) {
+        return '';
+    }
+    if (sce_local_geo_builtin_file_ready($path)) {
+        return $path;
+    }
+
+    try {
+        return sce_with_local_geo_lock(static function () use ($path): string {
+            if (!sce_local_geo_database_directory_safe($path, SCE_BUILTIN_GEO_DATABASE)
+                || is_link($path) || (file_exists($path) && !is_file($path))) {
+                return '';
+            }
+            if (sce_local_geo_builtin_file_ready($path)) {
+                return $path;
+            }
+
+            $source = sce_local_geo_builtin_source_path();
+            if (!function_exists('gzopen') || is_link(__DIR__ . '/resources')
+                || is_link(dirname($source)) || is_link($source)
+                || !is_file($source) || !is_readable($source)) {
+                return '';
+            }
+            clearstatcache(true, $source);
+            $sourceSize = @filesize($source);
+            if (!is_int($sourceSize) || $sourceSize < 1 || $sourceSize > SCE_LOCAL_GEO_MAX_BYTES) {
+                return '';
+            }
+
+            $directory = dirname($path);
+            if (!is_dir($directory) && !@mkdir($directory, 0755) && !is_dir($directory)) {
+                return '';
+            }
+            if (is_link($directory) || !is_writable($directory)) {
+                return '';
+            }
+            $temporary = $directory . '/.dbip-extract-' . bin2hex(random_bytes(16)) . '.tmp';
+            $input = null;
+            $output = null;
+            try {
+                $input = @gzopen($source, 'rb');
+                $output = @fopen($temporary, 'xb');
+                if (!is_resource($input) || !is_resource($output)) {
+                    return '';
+                }
+                $hash = hash_init('sha256');
+                $size = 0;
+                while (!gzeof($input)) {
+                    $chunk = @gzread($input, 1048576);
+                    if (!is_string($chunk) || ($chunk === '' && !gzeof($input))) {
+                        return '';
+                    }
+                    $length = strlen($chunk);
+                    $size += $length;
+                    if ($size > SCE_BUILTIN_GEO_BYTES || $size > SCE_LOCAL_GEO_MAX_BYTES
+                        || @fwrite($output, $chunk) !== $length) {
+                        return '';
+                    }
+                    hash_update($hash, $chunk);
+                }
+                if ($size !== SCE_BUILTIN_GEO_BYTES
+                    || !hash_equals(SCE_BUILTIN_GEO_SHA256, hash_final($hash))
+                    || !@fflush($output)) {
+                    return '';
+                }
+                fclose($output);
+                $output = null;
+                gzclose($input);
+                $input = null;
+                if (!sce_local_geo_database_directory_safe($path, SCE_BUILTIN_GEO_DATABASE)
+                    || is_link($path) || !@rename($temporary, $path)) {
+                    return '';
+                }
+                return sce_local_geo_builtin_file_ready($path) ? $path : '';
+            } finally {
+                if (is_resource($output)) {
+                    fclose($output);
+                }
+                if (is_resource($input)) {
+                    gzclose($input);
+                }
+                if (is_file($temporary) || is_link($temporary)) {
+                    @unlink($temporary);
+                }
+            }
+        });
+    } catch (Throwable) {
+        return '';
+    }
+}
+
+function sce_local_geo_lookup_path(?string $basename = null): string
+{
+    return $basename === SCE_BUILTIN_GEO_DATABASE
+        ? sce_local_geo_prepare_builtin_database()
+        : sce_local_geo_database_path($basename);
+}
+
+function sce_local_geo_database_directory_safe(string $path, ?string $basename = null): bool
+{
+    if ($path === '' || is_link(dirname($path))) {
+        return false;
+    }
+    return $basename !== SCE_BUILTIN_GEO_DATABASE || !is_link(sce_local_geo_directory());
 }
 
 function sce_local_geo_empty_status(string $basename = '', string $error = ''): array
@@ -143,13 +278,15 @@ function sce_local_geo_database_status(?string $basename = null): array
         return sce_local_geo_empty_status('', 'database_not_selected');
     }
 
-    $path = sce_local_geo_database_path($basename);
+    $path = sce_local_geo_lookup_path($basename);
     if ($path === '') {
+        if ($basename === SCE_BUILTIN_GEO_DATABASE) {
+            return sce_local_geo_empty_status($basename, 'database_not_found');
+        }
         return sce_local_geo_empty_status('', 'invalid_database_name');
     }
 
-    $directory = dirname($path);
-    if (is_link($directory)) {
+    if (!sce_local_geo_database_directory_safe($path, $basename)) {
         return sce_local_geo_empty_status($basename, 'unsafe_database_directory');
     }
 
@@ -218,8 +355,9 @@ function sce_lookup_local_ip(string $ip, ?string $basename = null): string
         return '';
     }
 
-    $path = sce_local_geo_database_path($basename);
-    if ($path === '' || is_link(dirname($path)) || is_link($path) || !is_file($path) || !is_readable($path)) {
+    $path = sce_local_geo_lookup_path($basename);
+    if (!sce_local_geo_database_directory_safe($path, $basename)
+        || is_link($path) || !is_file($path) || !is_readable($path)) {
         return '';
     }
     clearstatcache(true, $path);

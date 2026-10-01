@@ -10,7 +10,7 @@ if (!defined('PLUGINS_DIR')) {
 require_once __DIR__ . '/lib.php';
 require_once __DIR__ . '/local-geo.php';
 
-const SCE_VERSION = '1.2.0';
+const SCE_VERSION = '1.3.0';
 const SCE_SCHEMA_VERSION = '3';
 const SCE_LOCATION_CACHE_TTL = 15552000;
 const SCE_LOCATION_FAILURE_TTL = 21600;
@@ -43,20 +43,28 @@ function sce_install(): void
         db()->exec('ALTER TABLE comment_enhancer_ip_cache ADD COLUMN attempted_at INTEGER NOT NULL DEFAULT 0');
     }
 
+    $freshInstall = (int)val('SELECT COUNT(*) FROM comment_enhancer_settings') === 0;
     $insertDefault = db()->prepare('INSERT OR IGNORE INTO comment_enhancer_settings(name, value) VALUES(?, ?)');
     $insertDefault->execute(['cache_secret', bin2hex(random_bytes(32))]);
     $insertDefault->execute(['lookup_generation', bin2hex(random_bytes(16))]);
-    $insertDefault->execute(['local_geo_database', '']);
+    $insertDefault->execute(['local_geo_database', SCE_BUILTIN_GEO_DATABASE]);
+    db()->prepare("UPDATE comment_enhancer_settings SET value = ? WHERE name = 'local_geo_database' AND value = ''")
+        ->execute([SCE_BUILTIN_GEO_DATABASE]);
     $insertDefault->execute(['backfill_cursor', (string)PHP_INT_MAX]);
 
     $schemaVersion = (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['schema_version']);
     $lookupMode = (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['lookup_mode']);
     if (!in_array($lookupMode, ['off', 'local', 'online'], true)) {
-        $lookupMode = (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['online_lookup']) === '1'
-            ? 'online'
-            : 'off';
+        $lookupMode = $freshInstall ? 'local' : (
+            (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['online_lookup']) === '1'
+                ? 'online'
+                : 'off'
+        );
     }
     $insertDefault->execute(['lookup_mode', $lookupMode]);
+    $insertDefault->execute(['cache_source_database', $lookupMode === 'local'
+        ? (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['local_geo_database'])
+        : '']);
 
     $keyVersion = (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['cache_key_version']);
     if ($schemaVersion !== SCE_SCHEMA_VERSION || $keyVersion !== '2') {
@@ -83,6 +91,7 @@ function sce_install(): void
             throw $exception;
         }
     }
+    sce_sync_builtin_geo_version();
     $lastPrune = (int)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['last_cache_prune']);
     if ($lastPrune < time() - 86400) {
         q(
@@ -93,6 +102,50 @@ function sce_install(): void
         );
         db()->prepare('INSERT OR REPLACE INTO comment_enhancer_settings(name, value) VALUES(?, ?)')
             ->execute(['last_cache_prune', (string)time()]);
+    }
+}
+
+function sce_sync_builtin_geo_version(): void
+{
+    $pdo = db();
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) {
+        $pdo->exec('BEGIN IMMEDIATE');
+    }
+    $values = [];
+    try {
+        $version = (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['builtin_geo_version']);
+        if ($version !== SCE_BUILTIN_GEO_VERSION) {
+            // Paused lookup still displays cached results from its previous source.
+            $source = (string)val('SELECT value FROM comment_enhancer_settings WHERE name = ?', ['cache_source_database']);
+            if ($source === SCE_BUILTIN_GEO_DATABASE) {
+                $values['lookup_generation'] = bin2hex(random_bytes(16));
+                $values['backfill_cursor'] = (string)PHP_INT_MAX;
+                $pdo->exec('DELETE FROM comment_enhancer_ip_cache');
+            }
+            $values['builtin_geo_version'] = SCE_BUILTIN_GEO_VERSION;
+            $statement = $pdo->prepare('INSERT OR REPLACE INTO comment_enhancer_settings(name, value) VALUES(?, ?)');
+            foreach ($values as $name => $value) {
+                $statement->execute([$name, $value]);
+            }
+        }
+        if ($ownsTransaction) {
+            $pdo->exec('COMMIT');
+        }
+    } catch (Throwable $exception) {
+        if ($ownsTransaction) {
+            try {
+                $pdo->exec('ROLLBACK');
+            } catch (Throwable) {
+            }
+        }
+        unset($GLOBALS['sce_settings_cache']);
+        $GLOBALS['sce_location_memory'] = [];
+        throw $exception;
+    }
+    if ($values !== []) {
+        $GLOBALS['sce_settings_cache'] = array_replace(sce_settings(), $values);
+        $GLOBALS['sce_location_memory'] = [];
     }
 }
 
@@ -127,6 +180,8 @@ function sce_settings(): array
     $settings = [
         'lookup_mode' => 'off',
         'local_geo_database' => '',
+        'cache_source_database' => '',
+        'builtin_geo_version' => '',
         'lookup_generation' => '',
         'backfill_cursor' => (string)PHP_INT_MAX,
     ];
@@ -161,7 +216,8 @@ function sce_change_lookup_context(string $mode, string $database): void
         throw new DomainException(sce_text('invalid_mode'));
     }
     $database = trim($database);
-    if ($database !== '' && !preg_match('/^geoip-[a-f0-9]{32}\.mmdb$/', $database)) {
+    if ($database !== '' && $database !== SCE_BUILTIN_GEO_DATABASE
+        && !preg_match('/^geoip-[a-f0-9]{32}\.mmdb$/', $database)) {
         throw new DomainException(sce_text('database_invalid'));
     }
     $settings = sce_settings();
@@ -185,6 +241,7 @@ function sce_change_lookup_context(string $mode, string $database): void
     $values = [
         'lookup_mode' => $mode,
         'local_geo_database' => $database,
+        'cache_source_database' => $mode === 'local' ? $database : '',
         'lookup_generation' => $generation,
         'backfill_cursor' => (string)PHP_INT_MAX,
     ];
@@ -340,12 +397,18 @@ function sce_text(string $key, array $parameters = []): string
         'mode_online' => 'Online service (ipwho.is)',
         'mode_online_hint' => 'New public IPs are sent to ipwho.is over HTTPS after comment submission. Public page views never trigger a lookup.',
         'invalid_mode' => 'Choose a valid IP location source.',
-        'local_required' => 'Upload a valid MMDB database before selecting local lookup.',
+        'local_required' => 'Select an available built-in or uploaded MMDB database before enabling local lookup.',
         'save' => 'Save settings',
         'saved' => 'Comment enhancer settings saved.',
         'database_title' => 'Local IP database',
         'database_ready' => 'Ready',
-        'database_missing' => 'No database uploaded',
+        'database_missing' => 'No database selected',
+        'database_builtin' => 'Built-in DB-IP City Lite ({version})',
+        'database_custom' => 'Uploaded database',
+        'database_builtin_hint' => 'The built-in database works offline and supports IPv4, IPv6, and provinces. Free geolocation data may be approximate. Database updates are manual.',
+        'database_use_builtin' => 'Use built-in database',
+        'database_builtin_selected' => 'Built-in IP database selected.',
+        'database_builtin_protected' => 'The built-in database cannot be deleted.',
         'database_invalid' => 'The selected local IP database is missing or invalid.',
         'database_summary' => '{type} · built {built} · {size} · {networks}',
         'database_build_unknown' => 'unknown date',
@@ -354,13 +417,13 @@ function sce_text(string $key, array $parameters = []): string
         'database_ipv6' => 'IPv6 only',
         'database_none' => 'no supported network',
         'database_upload_label' => 'MMDB file',
-        'database_upload_hint' => 'Upload a MaxMind GeoLite2 or GeoIP2 City/Country .mmdb file, up to 128 MiB. The database file is stored under the protected data directory and is not bundled with the plugin.',
+        'database_upload_hint' => 'Upload a compatible City/Country .mmdb file, up to 128 MiB, to replace the selected built-in database. Uploads are stored under the protected site data directory.',
         'database_upload' => 'Upload database',
         'database_uploaded' => 'Local IP database uploaded.',
-        'database_delete' => 'Delete database',
-        'database_delete_confirm' => 'Delete the local IP database? Local lookup will be turned off.',
-        'database_deleted' => 'Local IP database deleted.',
-        'database_delete_failed' => 'The database file is still in use and could not be removed. Local lookup was turned off; retry deletion after current requests finish.',
+        'database_delete' => 'Delete uploaded database',
+        'database_delete_confirm' => 'Delete the uploaded database and switch back to the built-in database?',
+        'database_deleted' => 'Uploaded database deleted; the built-in database is selected.',
+        'database_delete_failed' => 'The uploaded file is still in use. The built-in database is selected; retry cleanup after current requests finish.',
         'database_replaced_cleanup_failed' => 'The new database is active, but an old database file is still in use. Retry cleanup below.',
         'database_cleanup_pending' => '{count} old database file(s) are awaiting cleanup.',
         'database_cleanup' => 'Retry cleanup',
@@ -416,12 +479,18 @@ function sce_text(string $key, array $parameters = []): string
         'mode_online' => '在线服务（ipwho.is）',
         'mode_online_hint' => '评论提交后通过 HTTPS 查询公网 IP；访客浏览公开页面不会触发查询。',
         'invalid_mode' => '请选择有效的 IP 归属地查询源。',
-        'local_required' => '选择本地查询前，请先上传有效的 MMDB 数据库。',
+        'local_required' => '启用本地查询前，请选择可用的内置或上传的 MMDB 数据库。',
         'save' => '保存设置',
         'saved' => '评论增强设置已保存。',
         'database_title' => '本地 IP 数据库',
         'database_ready' => '可用',
-        'database_missing' => '尚未上传数据库',
+        'database_missing' => '尚未选择数据库',
+        'database_builtin' => '内置 DB-IP City Lite（{version}）',
+        'database_custom' => '已上传的数据库',
+        'database_builtin_hint' => '内置库可离线查询 IPv4、IPv6 和省级信息；免费数据的归属地可能存在偏差，数据库需手动更新。',
+        'database_use_builtin' => '使用内置数据库',
+        'database_builtin_selected' => '已切回内置 IP 数据库。',
+        'database_builtin_protected' => '内置数据库不能删除。',
         'database_invalid' => '当前选择的本地 IP 数据库不存在或无效。',
         'database_summary' => '{type} · 构建于 {built} · {size} · {networks}',
         'database_build_unknown' => '日期未知',
@@ -430,13 +499,13 @@ function sce_text(string $key, array $parameters = []): string
         'database_ipv6' => '仅支持 IPv6',
         'database_none' => '不支持可识别的地址类型',
         'database_upload_label' => 'MMDB 文件',
-        'database_upload_hint' => '支持 MaxMind GeoLite2 或 GeoIP2 的 City/Country .mmdb 文件，最大 128 MiB。数据库保存在受保护的数据目录中，不随插件打包。',
+        'database_upload_hint' => '可上传兼容的 City/Country .mmdb 文件替换当前选择的内置库，最大 128 MiB。上传的数据库保存在受保护的站点数据目录中。',
         'database_upload' => '上传数据库',
         'database_uploaded' => '本地 IP 数据库已上传。',
-        'database_delete' => '删除数据库',
-        'database_delete_confirm' => '确定删除本地 IP 数据库吗？本地查询将同时关闭。',
-        'database_deleted' => '本地 IP 数据库已删除。',
-        'database_delete_failed' => '数据库文件仍被占用，暂时无法删除；本地查询已关闭，请等待当前请求结束后重试。',
+        'database_delete' => '删除上传的数据库',
+        'database_delete_confirm' => '确定删除上传的数据库并切回内置库吗？',
+        'database_deleted' => '上传的数据库已删除，已选择内置库。',
+        'database_delete_failed' => '上传的文件仍被占用，已选择内置库；请等待当前请求结束后重试清理。',
         'database_replaced_cleanup_failed' => '新数据库已启用，但旧数据库文件仍被占用，请在下方重试清理。',
         'database_cleanup_pending' => '有 {count} 个旧数据库文件等待清理。',
         'database_cleanup' => '重试清理',
@@ -875,6 +944,14 @@ function sce_render_comment_meta(mixed $html, array $context): string
     if ($location !== null && $location !== '') {
         $title = sce_text('location', ['value' => $location]);
         $items[] = '<span class="comment-enhancer-meta__item" role="listitem" data-kind="location" aria-label="' . h($title) . '" title="' . h($title) . '">' . h($location) . '</span>';
+        static $creditedBuiltin = false;
+        if (!$creditedBuiltin
+            && (string)(sce_settings()['cache_source_database'] ?? '') === SCE_BUILTIN_GEO_DATABASE
+            && sce_ip_scope((string)($comment['ip_address'] ?? '')) === 'public'
+            && $location !== sce_text('unknown_location')) {
+            $items[] = '<a class="comment-enhancer-meta__credit" role="listitem" href="https://db-ip.com/" rel="external">IP Geolocation by DB-IP</a>';
+            $creditedBuiltin = true;
+        }
     }
 
     if ($items === []) {
@@ -983,9 +1060,33 @@ function sce_database_error_text(string $code): string
         'upload_store_failed', 'upload_database_unsupported', 'upload_hash_failed',
         'database_destination_invalid', 'database_conflict', 'temporary_cleanup_failed',
         'database_install_failed', 'database_verify_failed',
-        'database_lock_failed',
+        'database_lock_failed', 'database_builtin_protected',
     ];
     return in_array($code, $known, true) ? sce_text($code) : ($code !== '' ? $code : sce_text('database_invalid'));
+}
+
+function sce_select_builtin_geo_database(): void
+{
+    if ((sce_local_geo_database_status(SCE_BUILTIN_GEO_DATABASE)['valid'] ?? false) !== true) {
+        throw new DomainException(sce_text('database_invalid'));
+    }
+    sce_change_lookup_context(sce_lookup_mode(), SCE_BUILTIN_GEO_DATABASE);
+}
+
+function sce_remove_selected_local_geo_database(): bool
+{
+    $database = (string)(sce_settings()['local_geo_database'] ?? '');
+    if ($database === SCE_BUILTIN_GEO_DATABASE) {
+        throw new DomainException('database_builtin_protected');
+    }
+    $path = sce_local_geo_database_path($database);
+    $mode = sce_lookup_mode();
+    if ($mode === 'local' && (sce_local_geo_database_status(SCE_BUILTIN_GEO_DATABASE)['valid'] ?? false) !== true) {
+        $mode = 'off';
+    }
+    // Switch first so any in-flight result from the old database is discarded.
+    sce_change_lookup_context($mode, SCE_BUILTIN_GEO_DATABASE);
+    return $path === '' || (!file_exists($path) && !is_link($path)) || sce_delete_local_geo_database($database);
 }
 
 function sce_render_settings_page(): void
@@ -1038,7 +1139,16 @@ function sce_render_settings_page(): void
         <section class="panel admin-list-panel admin-animate admin-animate--3">
           <div class="panel__header"><h2><?= h(sce_text('database_title')) ?></h2><span class="status-badge <?= $databaseValid ? 'status-badge--published' : 'status-badge--draft' ?>"><?= h($databaseValid ? sce_text('database_ready') : ($databaseName === '' ? sce_text('database_missing') : sce_text('database_invalid'))) ?></span></div>
           <div class="panel__body">
+            <p class="field-hint"><?= h($databaseName === SCE_BUILTIN_GEO_DATABASE
+                ? sce_text('database_builtin', ['version' => SCE_BUILTIN_GEO_VERSION])
+                : sce_text('database_custom')) ?></p>
             <?php if ($databaseValid): ?><p class="field-hint"><?= h(sce_database_summary($databaseStatus)) ?></p><?php endif; ?>
+            <p class="field-hint"><?= h(sce_text('database_builtin_hint')) ?> <a href="https://db-ip.com/" rel="external">IP Geolocation by DB-IP</a> · <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a> · <?= h(SCE_BUILTIN_GEO_VERSION) ?></p>
+            <?php if ($databaseName !== SCE_BUILTIN_GEO_DATABASE): ?>
+              <form method="post" action="<?= h(script_url() . '?a=comment_enhancer_database') ?>">
+                <?= csrf_field() ?><input type="hidden" name="operation" value="builtin"><button class="button button--ghost" type="submit"><?= h(sce_text('database_use_builtin')) ?></button>
+              </form>
+            <?php endif; ?>
             <form class="form-stack" method="post" action="<?= h(script_url() . '?a=comment_enhancer_database') ?>" enctype="multipart/form-data">
               <?= csrf_field() ?><input type="hidden" name="operation" value="upload">
               <div class="field"><label for="comment-enhancer-mmdb"><?= h(sce_text('database_upload_label')) ?></label><input id="comment-enhancer-mmdb" type="file" name="database" accept=".mmdb,application/octet-stream" required><p class="field-hint"><?= h(sce_text('database_upload_hint')) ?></p></div>
@@ -1049,7 +1159,7 @@ function sce_render_settings_page(): void
                 <?= csrf_field() ?><input type="hidden" name="operation" value="cleanup"><p class="field-hint"><?= h(sce_text('database_cleanup_pending', ['count' => $staleDatabaseCount])) ?></p><button class="button button--secondary" type="submit"><?= h(sce_text('database_cleanup')) ?></button>
               </form>
             <?php endif; ?>
-            <?php if ($databaseName !== ''): ?>
+            <?php if (sce_local_geo_database_path($databaseName) !== ''): ?>
               <form method="post" action="<?= h(script_url() . '?a=comment_enhancer_database') ?>" onsubmit="return confirm(<?= h(json_encode(sce_text('database_delete_confirm'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>);">
                 <?= csrf_field() ?><input type="hidden" name="operation" value="delete"><button class="button button--danger" type="submit"><?= h(sce_text('database_delete')) ?></button>
               </form>
@@ -1099,11 +1209,7 @@ function sce_handle_request(array $context): void
                 }
                 sce_change_lookup_context($mode, $database);
             };
-            if ($mode === 'local') {
-                sce_with_local_geo_lock($saveMode);
-            } else {
-                sce_with_optional_local_geo_lock($saveMode);
-            }
+            sce_with_optional_local_geo_lock($saveMode);
             set_flash('success', sce_text('saved'));
         } catch (DomainException $exception) {
             set_flash('error', sce_database_error_text($exception->getMessage()));
@@ -1117,7 +1223,7 @@ function sce_handle_request(array $context): void
         require_admin_post($returnUrl);
         try {
             $operation = (string)($_POST['operation'] ?? '');
-            sce_with_local_geo_lock(static function () use ($operation): void {
+            $operate = static function () use ($operation): void {
                 unset($GLOBALS['sce_settings_cache']);
                 $settings = sce_settings();
                 $oldDatabase = (string)($settings['local_geo_database'] ?? '');
@@ -1146,15 +1252,11 @@ function sce_handle_request(array $context): void
                         $cleanupFailed ? 'error' : 'success',
                         sce_text($cleanupFailed ? 'database_replaced_cleanup_failed' : 'database_uploaded')
                     );
+                } elseif ($operation === 'builtin') {
+                    sce_select_builtin_geo_database();
+                    set_flash('success', sce_text('database_builtin_selected'));
                 } elseif ($operation === 'delete') {
-                    $oldPath = sce_local_geo_database_path($oldDatabase);
-                    if (sce_lookup_mode() === 'local') {
-                        sce_change_lookup_context('off', $oldDatabase);
-                    }
-                    $removed = $oldPath === '' || !is_file($oldPath) || sce_delete_local_geo_database($oldDatabase);
-                    if ($removed) {
-                        sce_change_lookup_context(sce_lookup_mode(), '');
-                    }
+                    $removed = sce_remove_selected_local_geo_database();
                     set_flash($removed ? 'success' : 'error', sce_text($removed ? 'database_deleted' : 'database_delete_failed'));
                 } elseif ($operation === 'cleanup') {
                     $result = sce_cleanup_local_geo_databases($oldDatabase);
@@ -1169,7 +1271,12 @@ function sce_handle_request(array $context): void
                 } else {
                     throw new DomainException(sce_text('database_invalid'));
                 }
-            });
+            };
+            if ($operation === 'builtin') {
+                sce_with_optional_local_geo_lock($operate);
+            } else {
+                sce_with_local_geo_lock($operate);
+            }
         } catch (DomainException $exception) {
             set_flash('error', sce_database_error_text($exception->getMessage()));
         } catch (Throwable $exception) {

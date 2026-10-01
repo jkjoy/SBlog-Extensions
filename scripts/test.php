@@ -80,6 +80,10 @@ try {
             'comment-enhancer/vendor/maxmind-db-reader/LICENSE',
             'comment-enhancer/vendor/maxmind-db-reader/composer.json',
             'comment-enhancer/vendor/maxmind-db-reader/src/MaxMind/Db/Reader.php',
+            'comment-enhancer/resources/geo/dbip-city-lite.mmdb.gz',
+            'comment-enhancer/resources/geo/LICENSE.txt',
+            'comment-enhancer/resources/geo/README.md',
+            'comment-enhancer/resources/geo/provenance.json',
         ] as $requiredFile) {
             if (!isset($packageFiles[$requiredFile])) {
                 store_fail('Comment enhancer package is missing ' . $requiredFile . '.');
@@ -87,9 +91,28 @@ try {
         }
         foreach (array_keys($packageFiles) as $name) {
             $normalized = strtolower($name);
-            if (str_ends_with($normalized, '.mmdb') || str_contains($normalized, '/fixtures/')) {
+            if (str_ends_with($normalized, '.mmdb')
+                || (str_ends_with($normalized, '.mmdb.gz') && $name !== 'comment-enhancer/resources/geo/dbip-city-lite.mmdb.gz')
+                || str_contains($normalized, '/fixtures/')) {
                 store_fail('Comment enhancer package contains test data: ' . $name);
             }
+        }
+        if ((int)filesize($commentEnhancerZip) > 67108864) {
+            store_fail('Comment enhancer package exceeds the site installer 64 MiB limit.');
+        }
+        $databaseStream = $archive->getStream('comment-enhancer/resources/geo/dbip-city-lite.mmdb.gz');
+        if (!is_resource($databaseStream)) {
+            store_fail('Unable to verify the packaged built-in database.');
+        }
+        try {
+            $hash = hash_init('sha256');
+            hash_update_stream($hash, $databaseStream);
+            $provenance = json_decode((string)file_get_contents(STORE_ROOT . '/plugins/comment-enhancer/resources/geo/provenance.json'), true);
+            if (!hash_equals((string)($provenance['compressed_sha256'] ?? ''), hash_final($hash))) {
+                store_fail('Packaged built-in database does not match its provenance.');
+            }
+        } finally {
+            fclose($databaseStream);
         }
     } finally {
         $archive->close();
@@ -123,8 +146,20 @@ if ($integrationStatus !== 0) {
     store_fail('Comment enhancer integration tests failed.');
 }
 
+$builtinGeoCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-comment-enhancer-builtin.php');
+passthru($builtinGeoCommand, $builtinGeoStatus);
+if ($builtinGeoStatus !== 0) {
+    store_fail('Comment enhancer built-in database tests failed.');
+}
+
 $galleryCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-gallery.php');
 passthru($galleryCommand, $galleryStatus);
 if ($galleryStatus !== 0) {
     store_fail('Gallery integration tests failed.');
+}
+
+$galleryMediaCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-gallery-media.php');
+passthru($galleryMediaCommand, $galleryMediaStatus);
+if ($galleryMediaStatus !== 0) {
+    store_fail('Gallery thumbnail tests failed.');
 }

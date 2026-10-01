@@ -36,6 +36,10 @@
 
   const isAddedValue = (value) => value === true || value === 1 || value === "1" || value === "true";
 
+  const mediaIds = (values) => Array.from(new Set(
+    (Array.isArray(values) ? values : []).map(Number).filter((id) => Number.isInteger(id) && id > 0),
+  ));
+
   const focusableElements = (container) => Array.from(container.querySelectorAll(
     'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
   )).filter((element) => {
@@ -46,15 +50,19 @@
 
   const initGalleryAdmin = (root) => {
     if (!(root instanceof HTMLElement) || root.dataset.sblogGalleryReady === "1") return;
+    const coverMode = root.hasAttribute("data-sblog-gallery-cover-picker");
+    if (!coverMode && root.querySelector("[data-sblog-gallery-cover-picker]")) return;
     root.dataset.sblogGalleryReady = "1";
 
     const mediaUrl = root.dataset.mediaUrl || "";
     const addUrl = root.dataset.addUrl || "";
     const uploadUrl = root.dataset.uploadUrl || "";
     const csrf = root.dataset.csrf || "";
-    const selectionLimit = Math.max(1, Number(root.dataset.selectionLimit) || 100);
+    const selectionLimit = coverMode ? 1 : Math.max(1, Number(root.dataset.selectionLimit) || 100);
     const dialog = root.querySelector("[data-sblog-gallery-dialog]");
-    const openButtons = Array.from(root.querySelectorAll("[data-sblog-gallery-open]"));
+    const openButtons = Array.from(root.querySelectorAll(coverMode
+      ? "[data-sblog-gallery-cover-open]"
+      : "[data-sblog-gallery-open]"));
     const closeButtons = dialog ? Array.from(dialog.querySelectorAll("[data-sblog-gallery-close]")) : [];
     const searchForm = dialog?.querySelector("[data-sblog-gallery-search]") || null;
     const results = dialog?.querySelector("[data-sblog-gallery-results]") || null;
@@ -76,6 +84,7 @@
       addBusy: false,
       changed: false,
       controller: null,
+      coverForm: null,
       currentItems: new Map(),
       loaded: false,
       loading: false,
@@ -83,7 +92,7 @@
       page: 1,
       pages: 1,
       previousFocus: null,
-      reloadOnClose: root.dataset.refreshOnAdd === "1",
+      reloadOnClose: !coverMode && root.dataset.refreshOnAdd === "1",
       retryButtons: new Set(),
       scrollLock: null,
       selected: new Map(),
@@ -160,7 +169,7 @@
     };
 
     const normalizeItem = (item) => ({
-      added: isAddedValue(item?.added),
+      added: !coverMode && isAddedValue(item?.added),
       height: Math.max(0, Number(item?.height) || 0),
       id: Math.max(0, Number(item?.id) || 0),
       title: String(item?.title || item?.original_name || item?.alt_text || text("gallery_untitled_image", "未命名图片")),
@@ -242,6 +251,12 @@
               state.selected.delete(item.id);
               markButtonSelection(button, false);
             } else {
+              if (coverMode) {
+                state.selected.clear();
+                results.querySelectorAll("[data-media-id]").forEach((candidate) => {
+                  markButtonSelection(candidate, false);
+                });
+              }
               if (state.selected.size >= selectionLimit) {
                 setStatus(text(
                   "gallery_selection_limit",
@@ -479,7 +494,7 @@
     };
 
     const addMedia = async (rawIds, options = {}) => {
-      const ids = Array.from(new Set(rawIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)));
+      const ids = mediaIds(rawIds);
       if (!ids.length) return { added: 0 };
       if (!addUrl || !csrf) {
         throw new Error(text("gallery_add_endpoint_missing", "图库接口不可用。请刷新页面后重试。"));
@@ -505,12 +520,34 @@
       const added = Array.isArray(result.added)
         ? result.added.length
         : Math.max(0, Number(result.added) || 0);
-      markAdded(ids);
+      const hasConfirmedIds = Array.isArray(result.added_media_ids) && Array.isArray(result.existing_media_ids);
+      const confirmedIds = hasConfirmedIds
+        ? mediaIds([...result.added_media_ids, ...result.existing_media_ids]).filter((id) => ids.includes(id))
+        : Number(result.invalid) === 0 && added + Math.max(0, Number(result.existing) || 0) >= ids.length
+          ? ids
+          : [];
+      const pendingIds = ids.filter((id) => !confirmedIds.includes(id));
+      const invalid = Math.max(0, Number(result.invalid) || 0, pendingIds.length);
+      markAdded(confirmedIds);
       state.changed = state.changed || added > 0;
-      root.dispatchEvent(new CustomEvent("sblog:gallery-items-added", {
-        bubbles: true,
-        detail: { added, ids, result },
-      }));
+      if (confirmedIds.length) {
+        root.dispatchEvent(new CustomEvent("sblog:gallery-items-added", {
+          bubbles: true,
+          detail: { added, ids: confirmedIds, result },
+        }));
+      }
+
+      if (invalid > 0) {
+        const error = new Error(confirmedIds.length
+          ? text("gallery_add_partial_failed", "已确认 {count} 张图片在图库中，但 {invalid} 张未能加入。请刷新媒体库后重试。", {
+            count: confirmedIds.length,
+            invalid,
+          })
+          : text("gallery_add_invalid_media", "{count} 张图片已失效，未能加入图库。请刷新媒体库后重试。", { count: invalid }));
+        error.galleryResult = result;
+        error.galleryPendingIds = pendingIds;
+        throw error;
+      }
 
       if (options.announce !== false) {
         setStatus(
@@ -664,7 +701,10 @@
           item.status.textContent = text("gallery_uploaded_and_added", "已上传并加入图库");
           completed += uploaded.length;
         } catch (error) {
-          offerAssociationRetry(item, uploaded);
+          const pending = Array.isArray(error?.galleryPendingIds)
+            ? uploaded.filter((entry) => error.galleryPendingIds.includes(Number(entry.id)))
+            : uploaded;
+          offerAssociationRetry(item, pending);
         }
       }
 
@@ -772,6 +812,15 @@
 
     const openDialog = (trigger) => {
       if (!(dialog instanceof HTMLElement) || state.open) return;
+      if (coverMode) {
+        const form = trigger instanceof HTMLElement ? trigger.closest("form") : null;
+        if (!(form instanceof HTMLFormElement) || !(form.querySelector("[data-sblog-gallery-cover-input]") instanceof HTMLInputElement)) return;
+        state.coverForm = form;
+        state.selected.clear();
+        results?.querySelectorAll("[data-media-id]").forEach((button) => markButtonSelection(button, false));
+        updateSelection();
+        state.loaded = false;
+      }
       state.open = true;
       state.previousFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
       dialog.hidden = false;
@@ -842,6 +891,23 @@
     openButtons.forEach((button) => {
       button.addEventListener("click", () => openDialog(button));
     });
+    if (coverMode) {
+      root.querySelectorAll("[data-sblog-gallery-cover-clear]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const form = button.closest("form");
+          const input = form?.querySelector("[data-sblog-gallery-cover-input]");
+          const preview = form?.querySelector("[data-sblog-gallery-cover-preview]");
+          if (input instanceof HTMLInputElement) input.value = "";
+          if (preview instanceof HTMLImageElement) {
+            preview.removeAttribute("src");
+            preview.hidden = true;
+          }
+          button.hidden = true;
+          const open = form?.querySelector("[data-sblog-gallery-cover-open]");
+          if (open instanceof HTMLElement) open.focus({ preventScroll: true });
+        });
+      });
+    }
     closeButtons.forEach((button) => button.addEventListener("click", closeDialog));
 
     dialog.addEventListener("cancel", (event) => {
@@ -886,6 +952,26 @@
 
     addButton?.addEventListener("click", async () => {
       if (state.addBusy || !state.selected.size) return;
+      if (coverMode) {
+        const item = state.selected.values().next().value;
+        const input = state.coverForm?.querySelector("[data-sblog-gallery-cover-input]");
+        const preview = state.coverForm?.querySelector("[data-sblog-gallery-cover-preview]");
+        if (!(input instanceof HTMLInputElement) || !item) return;
+        input.value = String(item.id);
+        if (preview instanceof HTMLImageElement) {
+          preview.src = item.url;
+          preview.alt = item.title;
+          preview.hidden = false;
+        }
+        const clear = state.coverForm?.querySelector("[data-sblog-gallery-cover-clear]");
+        if (clear instanceof HTMLElement) clear.hidden = false;
+        root.dispatchEvent(new CustomEvent("sblog:gallery-cover-selected", {
+          bubbles: true,
+          detail: { mediaId: item.id, form: state.coverForm },
+        }));
+        closeDialog();
+        return;
+      }
       setAddBusy(true);
       setStatus(text("gallery_adding_images", "正在加入图库…"));
       try {
@@ -925,7 +1011,7 @@
   };
 
   const init = () => {
-    document.querySelectorAll("[data-sblog-gallery-admin]").forEach(initGalleryAdmin);
+    document.querySelectorAll("[data-sblog-gallery-admin], [data-sblog-gallery-cover-picker]").forEach(initGalleryAdmin);
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });

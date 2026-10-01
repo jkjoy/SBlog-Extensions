@@ -1,9 +1,9 @@
 {
   "name": "评论增强",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "Simple PHP Blog",
   "url": "https://github.com/jkjoy/SBlog-Extensions",
-  "description": "为公开评论显示邮箱活跃等级、浏览器、操作系统和 IP 归属地，支持本地 MMDB（IPv4/IPv6）或在线查询。",
+  "description": "为公开评论显示邮箱活跃等级、浏览器、操作系统和 IP 归属地，内置离线 DB-IP City Lite 数据库（IPv4/IPv6），支持上传 MMDB 或在线查询。",
   "requires": "1.14.6",
   "tested": "1.14.6",
   "settings_action": "admin_comment_enhancer"

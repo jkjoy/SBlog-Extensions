@@ -53,6 +53,10 @@ function gallery_handle_request(array $context): void
 {
     $action = (string)($context['action'] ?? '');
     switch ($action) {
+        case 'gallery_thumbnail':
+            gallery_handle_thumbnail_request();
+            return;
+
         case 'gallery':
             try {
                 gallery_render_public_page();
@@ -137,7 +141,9 @@ function gallery_handle_add_items(): never
 {
     $fallback = gallery_admin_url(['tab' => 'images']);
     require_admin_post($fallback);
-    $mediaIds = gallery_request_ids($_POST['media_ids'] ?? [], SBLOG_GALLERY_MAX_BATCH_SIZE + 1);
+    $mediaValues = $_POST['media_ids'] ?? [];
+    $mediaValues = is_array($mediaValues) ? array_values($mediaValues) : [$mediaValues];
+    [$mediaIds] = gallery_normalize_ids($mediaValues, SBLOG_GALLERY_MAX_BATCH_SIZE + 1);
     $categoryValue = $_POST['category_id'] ?? 0;
     $categoryId = max(0, is_scalar($categoryValue) ? (int)$categoryValue : 0);
 
@@ -145,18 +151,29 @@ function gallery_handle_add_items(): never
         if (count($mediaIds) > SBLOG_GALLERY_MAX_BATCH_SIZE) {
             throw new InvalidArgumentException(sblog_t('一次最多只能添加 100 张图片。'));
         }
-        $result = gallery_add_media_items($mediaIds, $categoryId > 0 ? $categoryId : null);
+        $result = gallery_add_media_items($mediaValues, $categoryId > 0 ? $categoryId : null);
         gallery_emit_change('items_added', $result['item_ids'] ?? [], $categoryId > 0 ? [$categoryId] : []);
+        $added = (int)$result['added'];
+        $existing = (int)$result['existing'];
+        $invalid = (int)$result['invalid'];
+        $message = $invalid > 0
+            ? sblog_tn('已加入 {added} 张图片，{invalid} 张图片无效或已被删除。', $added, ['added' => $added, 'invalid' => $invalid])
+            : ($added > 0
+                ? sblog_t('所选图片已加入图库。')
+                : sblog_t($existing > 0 ? '所选图片已经在图库中。' : '没有可加入图库的图片。'));
         if (gallery_wants_json()) {
             json_response([
                 'ok' => true,
-                'added' => (int)($result['added'] ?? 0),
-                'existing' => (int)($result['existing'] ?? 0),
-                'invalid' => (int)($result['invalid'] ?? 0),
-                'message' => sblog_t('所选图片已加入图库。'),
+                'added' => $added,
+                'existing' => $existing,
+                'invalid' => $invalid,
+                'added_media_ids' => $result['added_media_ids'] ?? [],
+                'existing_media_ids' => $result['existing_media_ids'] ?? [],
+                'invalid_media_ids' => $result['invalid_media_ids'] ?? [],
+                'message' => $message,
             ]);
         }
-        gallery_redirect_with_flash('success', sblog_t('所选图片已加入图库。'), ['tab' => 'images']);
+        gallery_redirect_with_flash($invalid === 0 && $added + $existing > 0 ? 'success' : 'error', $message, ['tab' => 'images']);
     } catch (Throwable $exception) {
         $message = gallery_operation_error($exception, sblog_t('图片加入图库失败，请稍后重试。'));
         if (gallery_wants_json()) {
@@ -363,10 +380,11 @@ function gallery_render_admin_page(): never
         <?= render_admin_topbar(sblog_t('图库管理')) ?>
         <div class="media-library sblog-gallery-admin admin-animate admin-animate--2"
              data-sblog-gallery-admin
+             <?= $tab === 'categories' ? 'data-sblog-gallery-cover-picker' : '' ?>
              data-media-url="<?= h(gallery_action_url('gallery_media_search')) ?>"
              data-add-url="<?= h(gallery_action_url('gallery_add_items')) ?>"
              data-upload-url="<?= h(url_for('upload_attachment')) ?>"
-             data-selection-limit="<?= SBLOG_GALLERY_MAX_BATCH_SIZE ?>"
+             data-selection-limit="<?= $tab === 'categories' ? 1 : SBLOG_GALLERY_MAX_BATCH_SIZE ?>"
              data-refresh-on-add="1"
              data-csrf="<?= h(csrf_token()) ?>">
           <nav class="sblog-gallery-admin__tabs" aria-label="<?= h(sblog_t('图库管理')) ?>">
@@ -422,6 +440,7 @@ function gallery_render_admin_page(): never
             <?= gallery_render_picker_dialog($categories) ?>
           <?php elseif ($tab === 'categories'): ?>
             <?= gallery_render_categories_panel($categories) ?>
+            <?= gallery_render_cover_picker_dialog() ?>
           <?php else: ?>
             <?= gallery_render_settings_panel($settings) ?>
           <?php endif; ?>
@@ -471,6 +490,50 @@ function gallery_render_picker_dialog(array $categories): string
     <?php return (string)ob_get_clean();
 }
 
+function gallery_render_category_cover_field(?array $category = null): string
+{
+    $coverId = (int)($category['cover_media_id'] ?? 0);
+    $coverUrl = gallery_safe_media_url((string)($category['cover_url'] ?? ''));
+    $alt = trim((string)($category['cover_alt_text'] ?? '')) ?: trim((string)($category['name'] ?? ''));
+    ob_start(); ?>
+    <div class="field sblog-gallery-admin__cover" role="group" aria-label="<?= h(sblog_t('分类封面')) ?>">
+      <span><?= h(sblog_t('分类封面')) ?></span>
+      <input type="hidden" name="cover_media_id" data-sblog-gallery-cover-input value="<?= $coverId > 0 ? $coverId : '' ?>">
+      <img class="sblog-gallery-admin__cover-preview" data-sblog-gallery-cover-preview width="160" height="100" alt="<?= h($alt) ?>"<?= $coverUrl !== '' ? ' src="' . h($coverUrl) . '"' : ' hidden' ?> loading="lazy">
+      <div class="action-row">
+        <button class="button button--secondary" type="button" data-sblog-gallery-cover-open><?= h(sblog_t('选择封面')) ?></button>
+        <button class="button button--secondary" type="button" data-sblog-gallery-cover-clear<?= $coverId > 0 ? '' : ' hidden' ?>><?= h(sblog_t('清除封面')) ?></button>
+      </div>
+      <p class="field-hint"><?= h(sblog_t('选择封面后，保存分类即可生效。')) ?></p>
+    </div>
+    <?php return (string)ob_get_clean();
+}
+
+function gallery_render_cover_picker_dialog(): string
+{
+    ob_start(); ?>
+    <dialog class="sblog-gallery-admin__dialog" data-sblog-gallery-dialog aria-labelledby="sblog-gallery-cover-picker-title" hidden>
+      <div class="sblog-gallery-admin__dialog-shell">
+        <header class="sblog-gallery-admin__dialog-header"><div><h2 id="sblog-gallery-cover-picker-title"><?= h(sblog_t('选择分类封面')) ?></h2><p><?= h(sblog_t('从媒体库选择一张图片作为封面。')) ?></p></div><button class="admin-icon-btn" type="button" data-sblog-gallery-close aria-label="<?= h(sblog_t('关闭')) ?>" title="<?= h(sblog_t('关闭')) ?>"><?= admin_icon('close') ?></button></header>
+        <div class="sblog-gallery-admin__picker-tabs" role="tablist" aria-label="<?= h(sblog_t('选择分类封面')) ?>">
+          <button type="button" role="tab" aria-selected="true" data-sblog-gallery-picker-tab="library"><?= h(sblog_t('从媒体库选择')) ?></button>
+        </div>
+        <section data-sblog-gallery-picker-panel="library">
+          <form class="sblog-gallery-admin__picker-search" data-sblog-gallery-search><label class="sr-only" for="sblog-gallery-cover-search"><?= h(sblog_t('搜索图片')) ?></label><input id="sblog-gallery-cover-search" type="search" name="q" placeholder="<?= h(sblog_t('搜索图片')) ?>"><button class="button button--secondary" type="submit"><?= h(sblog_t('搜索')) ?></button></form>
+          <p class="sblog-gallery-admin__picker-status" data-sblog-gallery-picker-status aria-live="polite"></p>
+          <div class="sblog-gallery-admin__picker-results" data-sblog-gallery-results aria-busy="false"></div>
+          <div data-sblog-gallery-pagination></div>
+        </section>
+        <footer class="sblog-gallery-admin__dialog-footer">
+          <span data-sblog-gallery-selected-count aria-live="polite"><?= h(sblog_t('已选择 0 张')) ?></span>
+          <button class="button button--secondary" type="button" data-sblog-gallery-close><?= h(sblog_t('取消')) ?></button>
+          <button class="button" type="button" data-sblog-gallery-add disabled><?= h(sblog_t('设为封面')) ?></button>
+        </footer>
+      </div>
+    </dialog>
+    <?php return (string)ob_get_clean();
+}
+
 function gallery_render_categories_panel(array $categories): string
 {
     ob_start(); ?>
@@ -481,6 +544,7 @@ function gallery_render_categories_panel(array $categories): string
           <div class="field"><label for="gallery-new-category-name"><?= h(sblog_t('分类名称')) ?></label><input id="gallery-new-category-name" name="name" maxlength="100" required></div>
           <div class="field"><label for="gallery-new-category-slug"><?= h(sblog_t('Slug')) ?></label><input id="gallery-new-category-slug" name="slug" maxlength="100" pattern="[a-z0-9]+(?:-[a-z0-9]+)*"><p class="field-hint"><?= h(sblog_t('留空时根据分类名称自动生成。')) ?></p></div>
           <div class="field"><label for="gallery-new-category-description"><?= h(sblog_t('分类描述')) ?></label><textarea id="gallery-new-category-description" name="description" rows="4" maxlength="1000"></textarea></div>
+          <?= gallery_render_category_cover_field() ?>
           <div class="field"><label for="gallery-new-category-order"><?= h(sblog_t('排序')) ?></label><input id="gallery-new-category-order" name="sort_order" type="number" min="-999999" max="999999" value="0"></div>
           <div class="action-row"><button class="button" type="submit"><?= h(sblog_t('新建分类')) ?></button></div>
         </form></div>
@@ -493,6 +557,7 @@ function gallery_render_categories_panel(array $categories): string
               <form class="form-stack" method="post" action="<?= h(gallery_action_url('save_gallery_category')) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$category['id'] ?>">
                 <div class="field-grid"><div class="field"><label for="gallery-category-name-<?= (int)$category['id'] ?>"><?= h(sblog_t('分类名称')) ?></label><input id="gallery-category-name-<?= (int)$category['id'] ?>" name="name" maxlength="100" value="<?= h((string)$category['name']) ?>" required></div><div class="field"><label for="gallery-category-slug-<?= (int)$category['id'] ?>"><?= h(sblog_t('Slug')) ?></label><input id="gallery-category-slug-<?= (int)$category['id'] ?>" name="slug" maxlength="100" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value="<?= h((string)$category['slug']) ?>" required></div></div>
                 <div class="field"><label for="gallery-category-description-<?= (int)$category['id'] ?>"><?= h(sblog_t('分类描述')) ?></label><textarea id="gallery-category-description-<?= (int)$category['id'] ?>" name="description" rows="3" maxlength="1000"><?= h((string)$category['description']) ?></textarea></div>
+                <?= gallery_render_category_cover_field($category) ?>
                 <div class="field"><label for="gallery-category-order-<?= (int)$category['id'] ?>"><?= h(sblog_t('排序')) ?></label><input id="gallery-category-order-<?= (int)$category['id'] ?>" name="sort_order" type="number" min="-999999" max="999999" value="<?= (int)$category['sort_order'] ?>"></div>
                 <div class="action-row"><button class="button button--secondary" type="submit"><?= h(sblog_t('保存修改')) ?></button></div>
               </form>

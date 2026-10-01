@@ -50,6 +50,24 @@ function gallery_item_display_values(array $item): array
     return ['title' => $title, 'description' => $description, 'alt' => $alt];
 }
 
+function gallery_render_category_filters(array $categories, string $categorySlug): string
+{
+    if ($categories === []) {
+        return '';
+    }
+    ob_start(); ?>
+    <nav class="sblog-gallery__filters" aria-label="<?= h(sblog_t('图库分类')) ?>">
+      <a class="sblog-gallery__filter" href="<?= h(gallery_public_url()) ?>"<?= $categorySlug === '' ? ' aria-current="page"' : '' ?>><?= h(sblog_t('全部')) ?></a>
+      <?php foreach ($categories as $category): $coverUrl = gallery_category_thumbnail_url($category); ?>
+        <a class="sblog-gallery__filter<?= $coverUrl !== '' ? ' sblog-gallery__filter--with-cover' : '' ?>" href="<?= h(gallery_public_url((string)$category['slug'])) ?>"<?= $categorySlug === (string)$category['slug'] ? ' aria-current="page"' : '' ?>>
+          <?php if ($coverUrl !== ''): ?><img class="sblog-gallery__filter-cover" src="<?= h($coverUrl) ?>" alt="" width="36" height="36" loading="lazy" decoding="async"><?php endif; ?>
+          <?= h((string)$category['name']) ?><span><?= (int)($category['published_count'] ?? $category['item_count'] ?? 0) ?></span>
+        </a>
+      <?php endforeach; ?>
+    </nav>
+    <?php return (string)ob_get_clean();
+}
+
 function gallery_render_public_pagination(array $result, string $categorySlug): string
 {
     $page = max(1, (int)($result['page'] ?? 1));
@@ -117,22 +135,17 @@ function gallery_render_public_page(): never
         <h1 id="sblog-gallery-title"><?= h($pageTitle) ?></h1>
         <?php if ($pageDescription !== ''): ?><p class="sblog-gallery__description"><?= nl2br(h($pageDescription)) ?></p><?php endif; ?>
       </header>
-      <?php if ($categories): ?>
-        <nav class="sblog-gallery__filters" aria-label="<?= h(sblog_t('图库分类')) ?>">
-          <a class="sblog-gallery__filter" href="<?= h(gallery_public_url()) ?>"<?= $categorySlug === '' ? ' aria-current="page"' : '' ?>><?= h(sblog_t('全部')) ?></a>
-          <?php foreach ($categories as $filterCategory): ?><a class="sblog-gallery__filter" href="<?= h(gallery_public_url((string)$filterCategory['slug'])) ?>"<?= $categorySlug === (string)$filterCategory['slug'] ? ' aria-current="page"' : '' ?>><?= h((string)$filterCategory['name']) ?><span><?= (int)($filterCategory['published_count'] ?? $filterCategory['item_count'] ?? 0) ?></span></a><?php endforeach; ?>
-        </nav>
-      <?php endif; ?>
+      <?= gallery_render_category_filters($categories, $categorySlug) ?>
 
       <?php if ($missingCategory): ?>
         <div class="sblog-gallery__status" role="status"><h2><?= h(sblog_t('找不到图库分类')) ?></h2><p><a href="<?= h(gallery_public_url()) ?>"><?= h(sblog_t('查看全部图片')) ?></a></p></div>
       <?php elseif (!empty($result['items'])): ?>
         <div class="sblog-gallery__grid">
-          <?php foreach ($result['items'] as $item): $display = gallery_item_display_values($item); $mediaUrl = gallery_safe_media_url((string)($item['url'] ?? '')); ?>
+          <?php foreach ($result['items'] as $item): $display = gallery_item_display_values($item); $mediaUrl = gallery_safe_media_url((string)($item['url'] ?? '')); $thumbnailUrl = gallery_thumbnail_url($item); ?>
             <article class="sblog-gallery__item">
               <?php if ($mediaUrl !== ''): ?><a class="sblog-gallery__open" href="<?= h($mediaUrl) ?>" data-sblog-gallery-open-item data-title="<?= h($display['title']) ?>" data-description="<?= h($display['description']) ?>"><?php else: ?><span class="sblog-gallery__open sblog-gallery__open--unavailable"><?php endif; ?>
                 <span class="sblog-gallery__media">
-                  <?php if ($mediaUrl !== ''): ?><img class="sblog-gallery__image" src="<?= h($mediaUrl) ?>" alt="<?= h($display['alt']) ?>" loading="lazy" decoding="async"<?= (int)($item['width'] ?? 0) > 0 ? ' width="' . (int)$item['width'] . '"' : '' ?><?= (int)($item['height'] ?? 0) > 0 ? ' height="' . (int)$item['height'] . '"' : '' ?>><?php endif; ?>
+                  <?php if ($mediaUrl !== ''): ?><img class="sblog-gallery__image" src="<?= h($thumbnailUrl) ?>" alt="<?= h($display['alt']) ?>" loading="lazy" decoding="async"<?= (int)($item['width'] ?? 0) > 0 ? ' width="' . (int)$item['width'] . '"' : '' ?><?= (int)($item['height'] ?? 0) > 0 ? ' height="' . (int)$item['height'] . '"' : '' ?>><?php endif; ?>
                   <span class="sblog-gallery__image-error"<?= $mediaUrl !== '' ? ' hidden' : '' ?>><?= h(sblog_t('图片暂时无法加载')) ?></span>
                 </span>
               <?= $mediaUrl !== '' ? '</a>' : '</span>' ?>

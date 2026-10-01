@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_GALLERY_VERSION = '1.0.0';
+const SBLOG_GALLERY_VERSION = '1.0.1';
 const SBLOG_GALLERY_SLUG = 'gallery';
 
 require_once __DIR__ . '/includes/data.php';
 require_once __DIR__ . '/includes/admin.php';
+require_once __DIR__ . '/includes/media.php';
 require_once __DIR__ . '/includes/public.php';
 
 function gallery_register_translations(): void
@@ -31,6 +32,9 @@ function gallery_register_translations(): void
         '图片信息已保存。' => 'Image details saved.',
         '图片已从图库移除，媒体库中的原文件仍然保留。' => 'Image removed from the gallery. The original media file was kept.',
         '所选图片已加入图库。' => 'Selected images added to the gallery.',
+        '已加入 {added} 张图片，{invalid} 张图片无效或已被删除。' => 'Added {added} images; {invalid} images are invalid or were deleted.',
+        '所选图片已经在图库中。' => 'The selected images are already in the gallery.',
+        '没有可加入图库的图片。' => 'There are no images to add to the gallery.',
         '图库页面' => 'Gallery page',
         '页面标题' => 'Page title',
         '页面描述' => 'Page description',
@@ -38,6 +42,13 @@ function gallery_register_translations(): void
         '每页图片数' => 'Images per page',
         '保存设置' => 'Save settings',
         '新建分类' => 'New category',
+        '分类封面' => 'Category cover',
+        '选择封面' => 'Choose cover',
+        '清除封面' => 'Clear cover',
+        '选择封面后，保存分类即可生效。' => 'Save the category to apply the selected cover.',
+        '选择分类封面' => 'Choose category cover',
+        '从媒体库选择一张图片作为封面。' => 'Choose an image from the media library as the cover.',
+        '设为封面' => 'Use as cover',
         '分类名称' => 'Category name',
         '分类描述' => 'Category description',
         '排序' => 'Order',
@@ -115,6 +126,8 @@ function gallery_register_translations(): void
         'gallery_add_endpoint_missing' => 'The gallery endpoint is unavailable. Refresh the page and try again.',
         'gallery_add_failed' => 'Could not add the images to the gallery. Try again.',
         'gallery_add_success' => 'Added {count} images to the gallery.',
+        'gallery_add_partial_failed' => 'Confirmed {count} images in the gallery, but {invalid} could not be added. Refresh the media library and try again.',
+        'gallery_add_invalid_media' => '{count} images are no longer available and could not be added. Refresh the media library and try again.',
         'gallery_images_already_added' => 'The selected images are already in the gallery.',
         'gallery_waiting_to_upload' => 'Waiting to upload',
         'gallery_image_type_required' => 'Choose JPEG, PNG, GIF, or WebP images.',

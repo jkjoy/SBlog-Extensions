@@ -88,6 +88,13 @@
   overflow-wrap: anywhere;
 }
 
+.comment-enhancer-meta__credit {
+  color: inherit;
+  font-size: 0.65rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .comment-enhancer-meta__item::before {
   margin-right: 7px;
   color: var(--muted, #98a2b3);

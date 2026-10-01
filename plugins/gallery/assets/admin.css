@@ -10,6 +10,19 @@
   padding: 24px;
 }
 
+.theme-admin .sblog-gallery-admin__cover-preview {
+  display: block;
+  max-width: 100%;
+  width: 160px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.theme-admin .sblog-gallery-admin__cover-preview[hidden] {
+  display: none;
+}
+
 .theme-admin .sblog-gallery-admin__toolbar,
 .theme-admin .sblog-gallery-admin__heading,
 .theme-admin .sblog-gallery-admin__actions,

@@ -124,6 +124,7 @@ function gallery_test_insert_media(array $values): int
         'alt_text' => '',
         'caption' => '',
         'url' => '/uploads/image.jpg',
+        'local_path' => '',
         'mime_type' => 'image/jpeg',
         'file_size' => 1024,
         'is_image' => 1,
@@ -135,11 +136,11 @@ function gallery_test_insert_media(array $values): int
     $media = array_merge($defaults, $values);
     q(
         'INSERT INTO media'
-        . '(original_name, title, alt_text, caption, url, mime_type, file_size, is_image, width, height, created_at, updated_at) '
-        . 'VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+        . '(original_name, title, alt_text, caption, url, local_path, mime_type, file_size, is_image, width, height, created_at, updated_at) '
+        . 'VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
         [
             $media['original_name'], $media['title'], $media['alt_text'], $media['caption'],
-            $media['url'], $media['mime_type'], $media['file_size'], $media['is_image'],
+            $media['url'], $media['local_path'], $media['mime_type'], $media['file_size'], $media['is_image'],
             $media['width'], $media['height'], $media['created_at'], $media['updated_at'],
         ]
     );
@@ -168,6 +169,7 @@ db()->exec(
         alt_text TEXT NOT NULL DEFAULT '',
         caption TEXT NOT NULL DEFAULT '',
         url TEXT NOT NULL,
+        local_path TEXT NOT NULL DEFAULT '',
         mime_type TEXT NOT NULL,
         file_size INTEGER NOT NULL DEFAULT 0,
         is_image INTEGER NOT NULL DEFAULT 0,
@@ -347,14 +349,54 @@ try {
         'slug' => 'travel',
         'description' => 'Travel photographs',
         'sort_order' => '10',
+        'cover_media_id' => $mediaOne,
     ]);
     $firstAdd = gallery_add_media_items([$mediaOne], $travelId);
     gallery_test_same(1, $firstAdd['added'], 'Initial gallery item was not added');
+    gallery_test_same([$mediaOne], $firstAdd['added_media_ids'], 'Initial add returned the wrong media IDs');
+    gallery_test_same([], $firstAdd['existing_media_ids'], 'Initial add reported an existing media ID');
+    gallery_test_same([], $firstAdd['invalid_media_ids'], 'Initial add reported an invalid media ID');
 
     gallery_install();
     gallery_test_same('Portfolio', gallery_setting('title'), 'Repeated install replaced saved settings');
     gallery_test_same(1, (int)val('SELECT COUNT(*) FROM sblog_gallery_categories'), 'Repeated install changed categories');
     gallery_test_same(1, (int)val('SELECT COUNT(*) FROM sblog_gallery_items'), 'Repeated install changed gallery items');
+    gallery_save_category_record([
+        'name' => 'Travel',
+        'slug' => 'travel',
+        'description' => 'Edited travel photographs',
+        'sort_order' => '10',
+    ], $travelId);
+    gallery_test_same(
+        $mediaOne,
+        (int)val('SELECT cover_media_id FROM sblog_gallery_categories WHERE id = ?', [$travelId]),
+        'Editing a category without a cover field cleared its existing cover'
+    );
+    gallery_save_category_record([
+        'name' => 'Travel', 'slug' => 'travel', 'sort_order' => '10', 'cover_media_id' => '',
+    ], $travelId);
+    gallery_test_same(
+        null,
+        val('SELECT cover_media_id FROM sblog_gallery_categories WHERE id = ?', [$travelId]),
+        'An explicit empty cover value did not clear the category cover'
+    );
+    gallery_save_category_record([
+        'name' => 'Travel', 'slug' => 'travel', 'sort_order' => '10', 'cover_media_id' => $mediaOne,
+    ], $travelId);
+    gallery_test_expect_exception(
+        InvalidArgumentException::class,
+        static fn() => gallery_save_category_record([
+            'name' => 'Invalid cover', 'slug' => 'invalid-cover', 'cover_media_id' => $nonImage,
+        ]),
+        'A category accepted a non-image cover'
+    );
+    gallery_test_expect_exception(
+        InvalidArgumentException::class,
+        static fn() => gallery_save_category_record([
+            'name' => 'Missing cover', 'slug' => 'missing-cover', 'cover_media_id' => '999999',
+        ]),
+        'A category accepted a nonexistent cover'
+    );
 
     [, $emptyCategoryErrors] = gallery_validate_category(['name' => '', 'slug' => '']);
     gallery_test_assert($emptyCategoryErrors !== [], 'An empty category name passed validation');
@@ -388,17 +430,35 @@ try {
         'A non-ASCII category name did not receive a stable ASCII slug'
     );
 
-    $mixedAdd = gallery_add_media_items([$mediaThree, $nonImage, 999999, 'bad', $mediaThree], $travelId);
+    $mixedAdd = gallery_add_media_items([$mediaThree, $nonImage, 999999, 'bad', $mediaThree, $mediaOne], $travelId);
     gallery_test_same(1, $mixedAdd['added'], 'A valid image was not added from a mixed selection');
-    gallery_test_same(0, $mixedAdd['existing'], 'A duplicate input was counted as an existing gallery item');
+    gallery_test_same(1, $mixedAdd['existing'], 'An existing gallery image was not counted correctly in a mixed selection');
     gallery_test_same(3, $mixedAdd['invalid'], 'Invalid or non-image media was not counted correctly');
     gallery_test_same(1, count($mixedAdd['item_ids']), 'The add result returned the wrong new item IDs');
+    gallery_test_same([$mediaThree], $mixedAdd['added_media_ids'], 'Mixed add returned incorrect added media IDs');
+    gallery_test_same([$mediaOne], $mixedAdd['existing_media_ids'], 'Mixed add returned incorrect existing media IDs');
+    gallery_test_same([$nonImage, 999999], $mixedAdd['invalid_media_ids'], 'Mixed add returned incorrect invalid media IDs');
     gallery_test_same(0, (int)val('SELECT COUNT(*) FROM sblog_gallery_items WHERE media_id = ?', [$nonImage]), 'A non-image entered the gallery');
 
     $repeatAdd = gallery_add_media_items([$mediaThree], $travelId);
     gallery_test_same(0, $repeatAdd['added'], 'An existing image was inserted twice');
     gallery_test_same(1, $repeatAdd['existing'], 'An existing image was not reported');
+    gallery_test_same([], $repeatAdd['added_media_ids'], 'Repeat add reported an inserted media ID');
+    gallery_test_same([$mediaThree], $repeatAdd['existing_media_ids'], 'Repeat add lost the existing media ID');
+    gallery_test_same([], $repeatAdd['invalid_media_ids'], 'Repeat add reported an invalid media ID');
     gallery_test_same(1, (int)val('SELECT COUNT(*) FROM sblog_gallery_items WHERE media_id = ?', [$mediaThree]), 'Gallery media uniqueness was not preserved');
+
+    $invalidOnlyAdd = gallery_add_media_items([$nonImage, 999999, 'bad']);
+    gallery_test_same(0, $invalidOnlyAdd['added'], 'An invalid-only selection added an image');
+    gallery_test_same(0, $invalidOnlyAdd['existing'], 'An invalid-only selection was reported as already added');
+    gallery_test_same(3, $invalidOnlyAdd['invalid'], 'An invalid-only selection lost malformed input counts');
+    gallery_test_same([], $invalidOnlyAdd['added_media_ids'], 'Invalid-only add reported an added media ID');
+    gallery_test_same([], $invalidOnlyAdd['existing_media_ids'], 'Invalid-only add reported an existing media ID');
+    gallery_test_same([$nonImage, 999999], $invalidOnlyAdd['invalid_media_ids'], 'Invalid-only add lost rejected media IDs');
+
+    $malformedOnlyAdd = gallery_add_media_items(['bad', []]);
+    gallery_test_same(2, $malformedOnlyAdd['invalid'], 'Malformed-only add lost invalid inputs');
+    gallery_test_same([], $malformedOnlyAdd['invalid_media_ids'], 'Malformed inputs were assigned media IDs');
 
     $removedItemId = (int)$mixedAdd['item_ids'][0];
     gallery_test_same(1, gallery_remove_items([$removedItemId, $removedItemId, 'bad']), 'Gallery item removal returned the wrong count');
@@ -411,8 +471,16 @@ try {
 
     $cascadeAdd = gallery_add_media_items([$mediaCascade], $travelId);
     $cascadeItemId = (int)$cascadeAdd['item_ids'][0];
+    gallery_save_category_record([
+        'name' => 'Travel', 'slug' => 'travel-2', 'cover_media_id' => $mediaCascade,
+    ], $draftCategoryId);
     q('DELETE FROM media WHERE id = ?', [$mediaCascade]);
     gallery_test_same(0, (int)val('SELECT COUNT(*) FROM sblog_gallery_items WHERE id = ?', [$cascadeItemId]), 'Deleting media did not cascade to the gallery item');
+    gallery_test_same(
+        null,
+        val('SELECT cover_media_id FROM sblog_gallery_categories WHERE id = ?', [$draftCategoryId]),
+        'Deleting a cover image did not clear the category cover'
+    );
 
     $orderedAdd = gallery_add_media_items([$mediaFive, $mediaSix], $travelId);
     gallery_test_same(2, $orderedAdd['added'], 'Published ordering fixtures were not added');
@@ -497,6 +565,19 @@ try {
     gallery_test_assert(!isset($searchById[$nonImage]), 'Media picker included a non-image');
     gallery_test_same(true, $searchById[$mediaOne]['added'], 'Media picker did not mark an added image');
     gallery_test_same(false, $searchById[$mediaUnused]['added'], 'Media picker marked an unused image as added');
+
+    $removedCategoryId = gallery_save_category_record([
+        'name' => 'Temporary', 'slug' => 'temporary', 'cover_media_id' => $mediaUnused,
+    ]);
+    $removedCategoryAdd = gallery_add_media_items([$mediaUnused], $removedCategoryId);
+    $removedCategoryItemId = (int)$removedCategoryAdd['item_ids'][0];
+    gallery_test_same(true, gallery_delete_category_record($removedCategoryId), 'Category deletion did not succeed');
+    gallery_test_same(
+        null,
+        val('SELECT category_id FROM sblog_gallery_items WHERE id = ?', [$removedCategoryItemId]),
+        'Deleting a category did not make its gallery image uncategorized'
+    );
+    gallery_test_same(1, (int)val('SELECT COUNT(*) FROM media WHERE id = ?', [$mediaUnused]), 'Deleting a category deleted its cover media');
 
     echo "Gallery integration tests passed.\n";
 } catch (Throwable $exception) {
