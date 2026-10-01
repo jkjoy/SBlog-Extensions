@@ -350,6 +350,58 @@ function gallery_categories(bool $includeEmpty = true): array
     return all_rows($sql);
 }
 
+/** Return public albums with their first image in the same order as the public image list. */
+function gallery_public_albums(): array
+{
+    $rows = all_rows(
+        "WITH album_counts AS (
+            SELECT gi.category_id, COUNT(*) AS published_count
+            FROM sblog_gallery_items gi JOIN media m ON m.id = gi.media_id
+            WHERE gi.status = 'published' AND m.is_image = 1
+            GROUP BY gi.category_id
+         ), albums AS (
+            SELECT c.id AS album_id, c.name AS album_name, c.slug AS album_slug,
+                   c.description AS album_description, c.sort_order AS album_sort_order,
+                   counts.published_count, 0 AS uncategorized
+            FROM sblog_gallery_categories c JOIN album_counts counts ON counts.category_id = c.id
+            UNION ALL
+            SELECT 0, '未分类', '', '', 0, counts.published_count, 1
+            FROM album_counts counts WHERE counts.category_id IS NULL
+         )
+         SELECT albums.*, gi.id, gi.media_id, gi.category_id, gi.title, gi.description,
+                gi.sort_order, gi.created_at, gi.updated_at,
+                m.original_name, m.title AS media_title, m.alt_text, m.caption,
+                m.url, m.width, m.height, m.local_path, m.mime_type, m.file_size, m.is_image,
+                COALESCE(NULLIF(gi.title, ''), NULLIF(m.title, ''), m.original_name) AS display_title
+         FROM albums
+         JOIN sblog_gallery_items gi ON gi.id = (
+            SELECT first_item.id
+            FROM sblog_gallery_items first_item JOIN media first_media ON first_media.id = first_item.media_id
+            WHERE first_item.category_id IS (CASE WHEN albums.uncategorized = 1 THEN NULL ELSE albums.album_id END)
+              AND first_item.status = 'published' AND first_media.is_image = 1
+            ORDER BY first_item.sort_order ASC, first_item.id DESC LIMIT 1
+         )
+         JOIN media m ON m.id = gi.media_id
+         ORDER BY albums.uncategorized ASC, albums.album_sort_order ASC, albums.album_id ASC"
+    );
+    $albums = [];
+    foreach ($rows as $row) {
+        $album = [
+            'id' => (int)$row['album_id'],
+            'name' => (string)$row['album_name'],
+            'slug' => (string)$row['album_slug'],
+            'description' => (string)$row['album_description'],
+            'published_count' => (int)$row['published_count'],
+            'uncategorized' => (bool)$row['uncategorized'],
+        ];
+        unset($row['album_id'], $row['album_name'], $row['album_slug'], $row['album_description'],
+            $row['album_sort_order'], $row['published_count'], $row['uncategorized']);
+        $album['first_item'] = $row;
+        $albums[] = $album;
+    }
+    return $albums;
+}
+
 function gallery_unique_category_slug(string $seed, ?int $excludeId = null): string
 {
     $candidate = trim(str_sub_u(slugify($seed), 0, 100), '-');
@@ -855,6 +907,7 @@ function gallery_public_items(array $filters = []): array
         ? (string)$filters['category_slug']
         : '');
     $categoryRequested = $categorySlug !== '';
+    $uncategorized = !$categoryRequested && !empty($filters['uncategorized']);
     $category = null;
 
     if ($categoryRequested) {
@@ -865,7 +918,7 @@ function gallery_public_items(array $filters = []): array
         if ($category === null) {
             return [
                 'items' => [], 'page' => $page, 'pages' => 1, 'total' => 0,
-                'category' => null, 'category_requested' => true,
+                'category' => null, 'category_requested' => true, 'uncategorized' => false,
             ];
         }
     }
@@ -875,6 +928,8 @@ function gallery_public_items(array $filters = []): array
     if ($category !== null) {
         $where[] = 'gi.category_id = ?';
         $params[] = (int)$category['id'];
+    } elseif ($uncategorized) {
+        $where[] = 'gi.category_id IS NULL';
     }
     $from = ' FROM sblog_gallery_items gi '
         . 'JOIN media m ON m.id = gi.media_id '
@@ -903,5 +958,6 @@ function gallery_public_items(array $filters = []): array
         'total' => $total,
         'category' => $category,
         'category_requested' => $categoryRequested,
+        'uncategorized' => $uncategorized,
     ];
 }

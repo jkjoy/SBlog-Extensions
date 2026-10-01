@@ -34,7 +34,13 @@ function gallery_route_conflicts(string $slug): array { return []; }
 function use_pretty_url(): bool { return false; }
 function url_with_query(string $url, array $parameters): string { return $url . '&' . http_build_query($parameters); }
 function h(string $value): string { return htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); }
-function sblog_t(string $value): string { return $value; }
+function sblog_t(string $value, array $parameters = []): string
+{
+    foreach ($parameters as $name => $replacement) {
+        $value = str_replace('{' . $name . '}', (string)$replacement, $value);
+    }
+    return $value;
+}
 
 function safe_link_url(string $url): string
 {
@@ -102,13 +108,116 @@ try {
     }
     gallery_media_test_assert(gallery_thumbnail_url(['id' => 1, 'url' => 'https://example.com/image.png', 'local_path' => '']) === 'https://example.com/image.png', 'Remote image did not fall back to its original URL');
     gallery_media_test_assert(gallery_thumbnail_url(['id' => 1, 'url' => '/uploads/2026/small.png'] + $local) === '/uploads/2026/small.png', 'Small original image was needlessly upscaled');
-    $filters = gallery_render_category_filters([
-        ['name' => '<Travel>', 'slug' => 'travel', 'cover_url' => '/uploads/cover.png', 'published_count' => 2],
-        ['name' => 'Unsafe', 'slug' => 'unsafe', 'cover_url' => 'javascript:alert(1)', 'published_count' => 1],
-    ], 'travel');
-    gallery_media_test_assert(str_contains($filters, 'src="/uploads/cover.png"') && str_contains($filters, '&lt;Travel&gt;'), 'Category cover or escaped name is missing');
-    gallery_media_test_assert(!str_contains($filters, 'javascript:') && substr_count($filters, '<img') === 1, 'Unsafe category cover URL was rendered');
-    gallery_media_test_assert(str_contains($filters, 'aria-current="page"'), 'Selected category is not identified');
+    $albums = [
+        [
+            'name' => '<Travel> & "Family"', 'slug' => 'travel',
+            'description' => '<script>alert("description")</script> & trip', 'published_count' => 2,
+            'cover_url' => '/uploads/unused-cover.png',
+            'first_item' => ['id' => 1, 'url' => '/uploads/first.png?x=1&label="photo"', 'local_path' => ''],
+        ],
+        [
+            'name' => 'Unsafe', 'slug' => 'unsafe', 'description' => '', 'published_count' => 1,
+            'first_item' => ['id' => 2, 'url' => 'javascript:alert(1)', 'local_path' => ''],
+        ],
+        [
+            'name' => 'Named uncategorized', 'slug' => 'uncategorized', 'description' => '', 'published_count' => 3,
+            'first_item' => ['id' => 3, 'url' => '/uploads/named.png', 'local_path' => ''],
+        ],
+        [
+            'name' => '', 'slug' => '', 'description' => '', 'published_count' => 4, 'uncategorized' => true,
+            'first_item' => ['id' => 4, 'url' => '/uploads/unassigned.png', 'local_path' => ''],
+        ],
+    ];
+    $albumList = gallery_render_album_list($albums);
+    gallery_media_test_assert(str_contains($albumList, 'class="sblog-gallery__albums"')
+        && substr_count($albumList, 'class="sblog-gallery__album"') === 4,
+        'Album list or navigation card classes are missing');
+    gallery_media_test_assert(str_contains($albumList, 'src="' . h($albums[0]['first_item']['url']) . '"')
+        && !str_contains($albumList, 'unused-cover.png'), 'Album does not use its escaped first image URL');
+    gallery_media_test_assert(str_contains($albumList, h($albums[0]['name']))
+        && str_contains($albumList, h($albums[0]['description']))
+        && !str_contains($albumList, '<script>'), 'Album name or description is not escaped');
+    gallery_media_test_assert(!str_contains($albumList, 'javascript:') && substr_count($albumList, '<img') === 3,
+        'Unsafe first image URL was rendered');
+    gallery_media_test_assert(!str_contains($albumList, 'data-sblog-gallery-open-item')
+        && !str_contains($albumList, 'sblog-gallery__open'), 'Album navigation is incorrectly a lightbox opener');
+    foreach ([2, 1, 3, 4] as $count) {
+        gallery_media_test_assert(str_contains($albumList, '<span>' . $count . ' 张图片</span>'),
+            'Album published image count is missing: ' . $count);
+    }
+    gallery_media_test_assert(str_contains($albumList, 'href="' . h(gallery_public_url('travel')) . '"'),
+        'Named album does not link to its category');
+    gallery_media_test_assert(str_contains($albumList, 'href="/index.php?a=gallery&amp;category=uncategorized"')
+        && str_contains($albumList, 'href="/index.php?a=gallery&amp;uncategorized=1"')
+        && str_contains($albumList, '<strong>未分类</strong>'),
+        'Uncategorized album collides with a category named uncategorized');
+
+    $rootView = [
+        'title' => '<Gallery>', 'description' => 'Albums & photos', 'category_slug' => '',
+        'uncategorized' => false, 'index' => true, 'missing_category' => false,
+        'result' => [], 'albums' => $albums,
+    ];
+    $rootContent = gallery_render_public_content($rootView);
+    gallery_media_test_assert(str_contains($rootContent, 'class="sblog-gallery__albums"')
+        && str_contains($rootContent, '&lt;Gallery&gt;') && str_contains($rootContent, 'Albums &amp; photos'),
+        'Gallery root does not render album navigation with escaped heading and description');
+    gallery_media_test_assert(!str_contains($rootContent, 'class="sblog-gallery__grid"')
+        && !str_contains($rootContent, 'data-sblog-gallery-open-item')
+        && !str_contains($rootContent, '<dialog') && !str_contains($rootContent, 'sblog-gallery__back'),
+        'Gallery root includes photo view controls');
+    $emptyRoot = gallery_render_public_content(array_replace($rootView, ['albums' => []]));
+    gallery_media_test_assert(str_contains($emptyRoot, '图库中还没有公开图片。')
+        && !str_contains($emptyRoot, '<dialog'), 'Empty gallery root does not render its empty state');
+
+    $publicItem = [
+        'id' => 1, 'url' => '/uploads/2026/small.png', 'local_path' => '2026/small.png',
+        'title' => '<Photo> & "one"', 'description' => '<Description> & text',
+        'alt_text' => '<Alt> & "one"', 'width' => 1, 'height' => 1,
+    ];
+    $categoryView = array_replace($rootView, [
+        'title' => '<Travel> · Gallery', 'description' => 'Category <description>', 'category_slug' => 'travel',
+        'index' => false, 'albums' => [],
+        'result' => ['items' => [$publicItem], 'page' => 2, 'pages' => 3],
+    ]);
+    $categoryContent = gallery_render_public_content($categoryView);
+    gallery_media_test_assert(str_contains($categoryContent, 'class="sblog-gallery__grid"')
+        && str_contains($categoryContent, 'data-sblog-gallery-open-item')
+        && str_contains($categoryContent, '<dialog')
+        && !str_contains($categoryContent, 'class="sblog-gallery__albums"'),
+        'Category view does not render photos and their lightbox');
+    gallery_media_test_assert(str_contains($categoryContent, 'data-title="' . h($publicItem['title']) . '"')
+        && str_contains($categoryContent, 'data-description="' . h($publicItem['description']) . '"')
+        && str_contains($categoryContent, 'alt="' . h($publicItem['alt_text']) . '"'),
+        'Category photo metadata is not escaped');
+    gallery_media_test_assert(str_contains($categoryContent, 'class="sblog-gallery__back" href="/index.php?a=gallery"')
+        && str_contains($categoryContent, '返回分类列表'), 'Category view does not link back to the album list');
+    gallery_media_test_assert(str_contains($categoryContent, 'href="/index.php?a=gallery&amp;category=travel&amp;p=3"')
+        && str_contains($categoryContent, 'aria-current="page">2</span>'),
+        'Category photo pagination lost its category or current page');
+
+    $uncategorizedView = array_replace($categoryView, [
+        'title' => '未分类 · Gallery', 'category_slug' => '', 'uncategorized' => true,
+    ]);
+    $uncategorizedContent = gallery_render_public_content($uncategorizedView);
+    gallery_media_test_assert(str_contains($uncategorizedContent, 'href="/index.php?a=gallery&amp;uncategorized=1"')
+        && str_contains($uncategorizedContent, 'href="/index.php?a=gallery&amp;uncategorized=1&amp;p=3"')
+        && !str_contains($uncategorizedContent, 'category=uncategorized'),
+        'Uncategorized photo pagination does not preserve its distinct query flag');
+    gallery_media_test_assert(str_contains($uncategorizedContent, 'class="sblog-gallery__back" href="/index.php?a=gallery"'),
+        'Uncategorized photo view does not link back to the album list');
+    $namedPagination = gallery_render_public_pagination(['page' => 2, 'pages' => 3], 'uncategorized');
+    gallery_media_test_assert(str_contains($namedPagination, 'category=uncategorized&amp;p=3')
+        && !str_contains($namedPagination, 'uncategorized=1'),
+        'Named uncategorized category pagination was converted into the uncategorized query flag');
+    $emptyCategory = gallery_render_public_content(array_replace($categoryView, ['result' => ['items' => []]]));
+    gallery_media_test_assert(str_contains($emptyCategory, '此分类中还没有公开图片。')
+        && !str_contains($emptyCategory, '<dialog') && str_contains($emptyCategory, 'sblog-gallery__back'),
+        'Empty category does not render its empty state and album backlink');
+    $missingCategory = gallery_render_public_content(array_replace($categoryView, [
+        'missing_category' => true, 'result' => ['items' => []],
+    ]));
+    gallery_media_test_assert(str_contains($missingCategory, '找不到图库分类')
+        && !str_contains($missingCategory, '<dialog'), 'Missing category does not render its unavailable state');
 
     if (function_exists('imagecreatetruecolor') && function_exists('imagepng')) {
         $image = imagecreatetruecolor(1200, 800);

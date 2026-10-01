@@ -579,6 +579,84 @@ try {
     );
     gallery_test_same(1, (int)val('SELECT COUNT(*) FROM media WHERE id = ?', [$mediaUnused]), 'Deleting a category deleted its cover media');
 
+    $albums = gallery_public_albums();
+    gallery_test_same([$travelId, 0], array_column($albums, 'id'), 'Public albums included an empty or draft-only category, or misplaced uncategorized images');
+    gallery_test_same([false, true], array_column($albums, 'uncategorized'), 'Public album kinds were not distinguished');
+    gallery_test_same(3, $albums[0]['published_count'], 'Public album count differs from its published image list');
+    gallery_test_same($mediaSix, (int)$albums[0]['first_item']['media_id'], 'Album first image did not break sort-order ties by descending item ID');
+    gallery_test_same($mediaOne, (int)val('SELECT cover_media_id FROM sblog_gallery_categories WHERE id = ?', [$travelId]), 'Album selection changed the custom category cover');
+    gallery_test_assert((int)$albums[0]['first_item']['media_id'] !== $mediaOne, 'A custom category cover replaced the first public image');
+    gallery_test_same(2, $albums[1]['published_count'], 'Uncategorized album omitted images from a deleted category');
+    gallery_test_same($mediaSeven, (int)$albums[1]['first_item']['media_id'], 'Uncategorized album selected the wrong first image');
+
+    gallery_update_item_record($itemSix, ['status' => 'draft']);
+    $albums = gallery_public_albums();
+    gallery_test_same($mediaFive, (int)$albums[0]['first_item']['media_id'], 'Drafting an album first image did not select the next public image');
+    gallery_test_same(2, $albums[0]['published_count'], 'A draft image remained in the public album count');
+    gallery_update_item_record($itemSix, ['status' => 'published']);
+    gallery_update_item_record($itemFive, ['sort_order' => '5']);
+    gallery_test_same($mediaFive, (int)gallery_public_albums()[0]['first_item']['media_id'], 'Changing image order did not update the album first image');
+    gallery_update_item_record($itemFive, ['sort_order' => '10']);
+
+    q('UPDATE media SET is_image = 0 WHERE id = ?', [$mediaSix]);
+    $albums = gallery_public_albums();
+    gallery_test_same($mediaFive, (int)$albums[0]['first_item']['media_id'], 'Album first image used media that is no longer an image');
+    gallery_test_same(2, $albums[0]['published_count'], 'Non-image media remained in the public album count');
+    gallery_test_same($albums[0]['published_count'], gallery_public_items(['category_slug' => 'travel'])['total'], 'Album and image list apply different media validity rules');
+    q('UPDATE media SET is_image = 1 WHERE id = ?', [$mediaSix]);
+
+    gallery_update_item_record($itemSix, ['category_id' => '']);
+    $albums = gallery_public_albums();
+    gallery_test_same($mediaFive, (int)$albums[0]['first_item']['media_id'], 'Moving the first image out of a category did not update its album');
+    gallery_test_same($mediaSix, (int)$albums[1]['first_item']['media_id'], 'Moving an image to uncategorized did not update its first image');
+    gallery_update_item_record($itemSix, ['category_id' => $travelId]);
+
+    $namedUncategorized = gallery_save_category_record([
+        'name' => 'Named Uncategorized', 'slug' => 'uncategorized', 'description' => 'A real category', 'sort_order' => '-10',
+    ]);
+    $namedMedia = gallery_test_insert_media([
+        'original_name' => 'named.jpg', 'title' => 'Named media', 'alt_text' => 'Named alt',
+        'url' => '/uploads/named.jpg', 'local_path' => '2026/named.jpg', 'file_size' => 3210,
+    ]);
+    gallery_add_media_items([$namedMedia], $namedUncategorized);
+    $sameOrderCategory = gallery_save_category_record([
+        'name' => 'Same order', 'slug' => 'same-order', 'sort_order' => '-10',
+    ]);
+    $sameOrderMedia = gallery_test_insert_media(['original_name' => 'same-order.jpg']);
+    gallery_add_media_items([$sameOrderMedia], $sameOrderCategory);
+    $albums = gallery_public_albums();
+    gallery_test_same([$namedUncategorized, $sameOrderCategory, $travelId, 0], array_column($albums, 'id'), 'Public categories did not preserve category ordering or keep uncategorized last');
+    gallery_test_same('uncategorized', $albums[0]['slug'], 'The real uncategorized slug was lost');
+    gallery_test_same(false, $albums[0]['uncategorized'], 'A real category slug collided with the uncategorized album');
+    gallery_test_same('A real category', $albums[0]['description'], 'Album category description was lost');
+    gallery_test_same('/uploads/named.jpg', $albums[0]['first_item']['url'], 'Album first image URL was lost');
+    gallery_test_same('2026/named.jpg', $albums[0]['first_item']['local_path'], 'Album first image local path was lost');
+    gallery_test_same(3210, (int)$albums[0]['first_item']['file_size'], 'Album first image file size was lost');
+    gallery_test_same('Named media', $albums[0]['first_item']['media_title'], 'Album first image media title was lost');
+    gallery_test_same('Named alt', $albums[0]['first_item']['alt_text'], 'Album first image alternative text was lost');
+
+    $uncategorizedResult = gallery_public_items(['uncategorized' => true, 'per_page' => 60]);
+    gallery_test_same(2, $uncategorizedResult['total'], 'Uncategorized filtering returned categorized images');
+    gallery_test_same(true, $uncategorizedResult['uncategorized'], 'Uncategorized filter was not recorded');
+    gallery_test_same([$mediaSeven, $mediaUnused], array_column($uncategorizedResult['items'], 'media_id'), 'Uncategorized images are not in public image order');
+    $namedResult = gallery_public_items(['category_slug' => 'uncategorized', 'uncategorized' => true]);
+    gallery_test_same([$namedMedia], array_column($namedResult['items'], 'media_id'), 'A named category did not take precedence over the uncategorized filter');
+    gallery_test_same(false, $namedResult['uncategorized'], 'Named category filtering was marked as uncategorized');
+    gallery_test_same($namedUncategorized, (int)$namedResult['category']['id'], 'The real category named uncategorized was not resolved');
+    $missingWithUncategorized = gallery_public_items(['category_slug' => 'missing', 'uncategorized' => true]);
+    gallery_test_same([], $missingWithUncategorized['items'], 'A missing named category fell back to uncategorized images');
+
+    q('DELETE FROM media WHERE id = ?', [$mediaSix]);
+    $albumsById = array_column(gallery_public_albums(), null, 'id');
+    gallery_test_same($mediaFive, (int)$albumsById[$travelId]['first_item']['media_id'], 'Deleting the album first media did not select its next image');
+    gallery_test_same(2, $albumsById[$travelId]['published_count'], 'Deleted media remained in the public album count');
+    gallery_update_item_record($draftItemId, ['category_id' => '', 'sort_order' => '-100']);
+    gallery_test_same($mediaSeven, (int)gallery_public_albums()[3]['first_item']['media_id'], 'Uncategorized album selected a draft image with an earlier sort order');
+
+    q("UPDATE sblog_gallery_items SET status = 'draft'");
+    gallery_test_same([], gallery_public_albums(), 'Draft-only albums were still public');
+    gallery_test_same(0, gallery_public_items(['uncategorized' => true])['total'], 'Draft-only uncategorized images were still public');
+
     echo "Gallery integration tests passed.\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Gallery integration tests failed: ' . $exception->getMessage() . "\n");

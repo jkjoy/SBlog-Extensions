@@ -13,8 +13,21 @@
   };
 
   const gallery = document.querySelector("#sblog-gallery");
+  if (!(gallery instanceof HTMLElement)) return;
+
+  gallery.querySelectorAll(".sblog-gallery__album .sblog-gallery__image").forEach((thumbnail) => {
+    if (!(thumbnail instanceof HTMLImageElement)) return;
+    const showError = () => {
+      thumbnail.closest(".sblog-gallery__album")?.classList.add("is-image-error");
+      const fallback = thumbnail.parentElement?.querySelector(".sblog-gallery__image-error");
+      if (fallback instanceof HTMLElement) fallback.hidden = false;
+    };
+    thumbnail.addEventListener("error", showError, { once: true });
+    if (thumbnail.complete && thumbnail.naturalWidth === 0) showError();
+  });
+
   const lightbox = document.querySelector("[data-sblog-gallery-lightbox]");
-  if (!(gallery instanceof HTMLElement) || !(lightbox instanceof HTMLElement)) return;
+  if (!(lightbox instanceof HTMLElement)) return;
 
   const openers = Array.from(gallery.querySelectorAll("[data-sblog-gallery-open-item]"));
   if (!openers.length) return;

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_GALLERY_VERSION = '1.0.1';
+const SBLOG_GALLERY_VERSION = '1.0.2';
 const SBLOG_GALLERY_SLUG = 'gallery';
 
 require_once __DIR__ . '/includes/data.php';
@@ -77,6 +77,9 @@ function gallery_register_translations(): void
         '删除此分类？分类中的图片会保留并改为未分类。' => 'Delete this category? Its images will be kept and made uncategorized.',
         '删除分类' => 'Delete category',
         '图库分类' => 'Gallery categories',
+        '返回分类列表' => 'Back to categories',
+        '{count} 张图片' => '{count} images',
+        '分类缩略图自动使用第一张已发布图片，可在图片列表中调整排序。' => 'The category thumbnail uses its first published image. Adjust the order in the image list.',
         '图库管理页面加载失败，请检查服务器日志。' => 'Could not load gallery management. Check the server log.',
         '图库管理暂时无法访问' => 'Gallery management is unavailable',
         '图库加载失败，请稍后重试。' => 'Could not load the gallery. Try again shortly.',

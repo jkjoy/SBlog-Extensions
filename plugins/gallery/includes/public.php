@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-function gallery_public_url(string $categorySlug = '', int $page = 1): string
+function gallery_public_url(string $categorySlug = '', int $page = 1, bool $uncategorized = false): string
 {
     $routeSlug = gallery_setting('route_slug', 'gallery');
     static $routeAvailability = [];
@@ -14,6 +14,8 @@ function gallery_public_url(string $categorySlug = '', int $page = 1): string
     $params = [];
     if ($categorySlug !== '') {
         $params['category'] = $categorySlug;
+    } elseif ($uncategorized) {
+        $params['uncategorized'] = 1;
     }
     if ($page > 1) {
         $params['p'] = $page;
@@ -50,25 +52,30 @@ function gallery_item_display_values(array $item): array
     return ['title' => $title, 'description' => $description, 'alt' => $alt];
 }
 
-function gallery_render_category_filters(array $categories, string $categorySlug): string
+function gallery_render_album_list(array $albums): string
 {
-    if ($categories === []) {
-        return '';
-    }
     ob_start(); ?>
-    <nav class="sblog-gallery__filters" aria-label="<?= h(sblog_t('图库分类')) ?>">
-      <a class="sblog-gallery__filter" href="<?= h(gallery_public_url()) ?>"<?= $categorySlug === '' ? ' aria-current="page"' : '' ?>><?= h(sblog_t('全部')) ?></a>
-      <?php foreach ($categories as $category): $coverUrl = gallery_category_thumbnail_url($category); ?>
-        <a class="sblog-gallery__filter<?= $coverUrl !== '' ? ' sblog-gallery__filter--with-cover' : '' ?>" href="<?= h(gallery_public_url((string)$category['slug'])) ?>"<?= $categorySlug === (string)$category['slug'] ? ' aria-current="page"' : '' ?>>
-          <?php if ($coverUrl !== ''): ?><img class="sblog-gallery__filter-cover" src="<?= h($coverUrl) ?>" alt="" width="36" height="36" loading="lazy" decoding="async"><?php endif; ?>
-          <?= h((string)$category['name']) ?><span><?= (int)($category['published_count'] ?? $category['item_count'] ?? 0) ?></span>
+    <div class="sblog-gallery__albums" aria-label="<?= h(sblog_t('图库分类')) ?>">
+      <?php foreach ($albums as $album):
+          $uncategorized = !empty($album['uncategorized']);
+          $name = $uncategorized ? sblog_t('未分类') : (string)$album['name'];
+          $thumbnail = gallery_thumbnail_url($album['first_item']);
+          $description = trim((string)($album['description'] ?? ''));
+      ?>
+        <a class="sblog-gallery__album" href="<?= h(gallery_public_url((string)$album['slug'], 1, $uncategorized)) ?>">
+          <span class="sblog-gallery__media">
+            <?php if ($thumbnail !== ''): ?><img class="sblog-gallery__image" src="<?= h($thumbnail) ?>" alt="" width="640" height="480" loading="lazy" decoding="async"><?php endif; ?>
+            <span class="sblog-gallery__image-error"<?= $thumbnail !== '' ? ' hidden' : '' ?>><?= h(sblog_t('图片暂时无法加载')) ?></span>
+          </span>
+          <span class="sblog-gallery__album-info"><strong><?= h($name) ?></strong><span><?= h(sblog_t('{count} 张图片', ['count' => (int)$album['published_count']])) ?></span></span>
+          <?php if ($description !== ''): ?><span class="sblog-gallery__description-text"><?= h($description) ?></span><?php endif; ?>
         </a>
       <?php endforeach; ?>
-    </nav>
+    </div>
     <?php return (string)ob_get_clean();
 }
 
-function gallery_render_public_pagination(array $result, string $categorySlug): string
+function gallery_render_public_pagination(array $result, string $categorySlug, bool $uncategorized = false): string
 {
     $page = max(1, (int)($result['page'] ?? 1));
     $pages = max(1, (int)($result['pages'] ?? 1));
@@ -79,11 +86,11 @@ function gallery_render_public_pagination(array $result, string $categorySlug): 
     $end = min($pages, $page + 2);
     ob_start(); ?>
     <nav class="sblog-gallery__pagination" aria-label="<?= h(sblog_t('分页')) ?>">
-      <?php if ($page > 1): ?><a rel="prev" href="<?= h(gallery_public_url($categorySlug, $page - 1)) ?>"><?= h(sblog_t('上一页')) ?></a><?php endif; ?>
+      <?php if ($page > 1): ?><a rel="prev" href="<?= h(gallery_public_url($categorySlug, $page - 1, $uncategorized)) ?>"><?= h(sblog_t('上一页')) ?></a><?php endif; ?>
       <?php for ($number = $start; $number <= $end; $number++): ?>
-        <?php if ($number === $page): ?><span aria-current="page"><?= $number ?></span><?php else: ?><a href="<?= h(gallery_public_url($categorySlug, $number)) ?>"><?= $number ?></a><?php endif; ?>
+        <?php if ($number === $page): ?><span aria-current="page"><?= $number ?></span><?php else: ?><a href="<?= h(gallery_public_url($categorySlug, $number, $uncategorized)) ?>"><?= $number ?></a><?php endif; ?>
       <?php endfor; ?>
-      <?php if ($page < $pages): ?><a rel="next" href="<?= h(gallery_public_url($categorySlug, $page + 1)) ?>"><?= h(sblog_t('下一页')) ?></a><?php endif; ?>
+      <?php if ($page < $pages): ?><a rel="next" href="<?= h(gallery_public_url($categorySlug, $page + 1, $uncategorized)) ?>"><?= h(sblog_t('下一页')) ?></a><?php endif; ?>
     </nav>
     <?php return (string)ob_get_clean();
 }
@@ -106,39 +113,58 @@ function gallery_render_lightbox(): string
     <?php return (string)ob_get_clean();
 }
 
-function gallery_render_public_page(): never
+function gallery_public_page_view(array $query): array
 {
     $settings = gallery_settings();
     $title = trim((string)($settings['title'] ?? '')) ?: sblog_t('图库');
     $description = trim((string)($settings['description'] ?? ''));
-    $categoryValue = $_GET['category'] ?? '';
+    $categoryValue = $query['category'] ?? '';
     $categorySlug = trim(is_scalar($categoryValue) ? (string)$categoryValue : '');
-    $pageValue = $_GET['p'] ?? $_GET['page'] ?? 1;
+    $uncategorized = $categorySlug === '' && ($query['uncategorized'] ?? null) === '1';
+    $index = $categorySlug === '' && !$uncategorized;
+    $pageValue = $query['p'] ?? $query['page'] ?? 1;
     $page = max(1, is_scalar($pageValue) ? (int)$pageValue : 1);
     $perPage = min(60, max(6, (int)($settings['per_page'] ?? 12)));
-    $result = gallery_public_items([
+    $result = $index ? [] : gallery_public_items([
         'category_slug' => $categorySlug,
+        'uncategorized' => $uncategorized,
         'page' => $page,
         'per_page' => $perPage,
     ]);
-    $categories = gallery_categories(false);
     $category = $result['category'] ?? null;
     $missingCategory = $categorySlug !== '' && !is_array($category);
-    $pageTitle = is_array($category) ? (string)$category['name'] . ' · ' . $title : $title;
+    $pageTitle = is_array($category) ? (string)$category['name'] . ' · ' . $title
+        : ($uncategorized ? sblog_t('未分类') . ' · ' . $title : $title);
     $pageDescription = is_array($category) && trim((string)($category['description'] ?? '')) !== ''
         ? trim((string)$category['description'])
         : $description;
+    return [
+        'title' => $pageTitle,
+        'description' => $pageDescription,
+        'category_slug' => $categorySlug,
+        'uncategorized' => $uncategorized,
+        'index' => $index,
+        'missing_category' => $missingCategory,
+        'result' => $result,
+        'albums' => $index ? gallery_public_albums() : [],
+    ];
+}
 
+function gallery_render_public_content(array $view): string
+{
+    $result = $view['result'];
     ob_start(); ?>
     <section id="sblog-gallery" class="sblog-gallery" aria-labelledby="sblog-gallery-title">
       <header class="sblog-gallery__header">
-        <h1 id="sblog-gallery-title"><?= h($pageTitle) ?></h1>
-        <?php if ($pageDescription !== ''): ?><p class="sblog-gallery__description"><?= nl2br(h($pageDescription)) ?></p><?php endif; ?>
+        <?php if (!$view['index']): ?><a class="sblog-gallery__back" href="<?= h(gallery_public_url()) ?>">&larr; <?= h(sblog_t('返回分类列表')) ?></a><?php endif; ?>
+        <h1 id="sblog-gallery-title"><?= h($view['title']) ?></h1>
+        <?php if ($view['description'] !== ''): ?><p class="sblog-gallery__description"><?= nl2br(h($view['description'])) ?></p><?php endif; ?>
       </header>
-      <?= gallery_render_category_filters($categories, $categorySlug) ?>
 
-      <?php if ($missingCategory): ?>
-        <div class="sblog-gallery__status" role="status"><h2><?= h(sblog_t('找不到图库分类')) ?></h2><p><a href="<?= h(gallery_public_url()) ?>"><?= h(sblog_t('查看全部图片')) ?></a></p></div>
+      <?php if ($view['index'] && $view['albums'] !== []): ?>
+        <?= gallery_render_album_list($view['albums']) ?>
+      <?php elseif ($view['missing_category']): ?>
+        <div class="sblog-gallery__status" role="status"><h2><?= h(sblog_t('找不到图库分类')) ?></h2><p><a href="<?= h(gallery_public_url()) ?>"><?= h(sblog_t('返回分类列表')) ?></a></p></div>
       <?php elseif (!empty($result['items'])): ?>
         <div class="sblog-gallery__grid">
           <?php foreach ($result['items'] as $item): $display = gallery_item_display_values($item); $mediaUrl = gallery_safe_media_url((string)($item['url'] ?? '')); $thumbnailUrl = gallery_thumbnail_url($item); ?>
@@ -153,18 +179,24 @@ function gallery_render_public_page(): never
             </article>
           <?php endforeach; ?>
         </div>
-        <?= gallery_render_public_pagination($result, $categorySlug) ?>
+        <?= gallery_render_public_pagination($result, $view['category_slug'], $view['uncategorized']) ?>
       <?php else: ?>
-        <div class="sblog-gallery__status" role="status"><p><?= h($categorySlug === '' ? sblog_t('图库中还没有公开图片。') : sblog_t('此分类中还没有公开图片。')) ?></p></div>
+        <div class="sblog-gallery__status" role="status"><p><?= h($view['index'] ? sblog_t('图库中还没有公开图片。') : sblog_t('此分类中还没有公开图片。')) ?></p></div>
       <?php endif; ?>
     </section>
-    <?= gallery_render_lightbox() ?>
+    <?= !$view['index'] && !empty($result['items']) ? gallery_render_lightbox() : '' ?>
     <?php
-    render_layout($pageTitle, (string)ob_get_clean(), [
+    return (string)ob_get_clean();
+}
+
+function gallery_render_public_page(): never
+{
+    $view = gallery_public_page_view($_GET);
+    render_layout($view['title'], gallery_render_public_content($view), [
         'mode' => 'public',
         'active' => 'gallery',
-        'description' => $pageDescription !== '' ? $pageDescription : $title,
-        'status' => $missingCategory ? 404 : 200,
+        'description' => $view['description'] !== '' ? $view['description'] : $view['title'],
+        'status' => $view['missing_category'] ? 404 : 200,
     ]);
     exit;
 }

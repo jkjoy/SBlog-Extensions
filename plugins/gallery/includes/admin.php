@@ -380,7 +380,6 @@ function gallery_render_admin_page(): never
         <?= render_admin_topbar(sblog_t('图库管理')) ?>
         <div class="media-library sblog-gallery-admin admin-animate admin-animate--2"
              data-sblog-gallery-admin
-             <?= $tab === 'categories' ? 'data-sblog-gallery-cover-picker' : '' ?>
              data-media-url="<?= h(gallery_action_url('gallery_media_search')) ?>"
              data-add-url="<?= h(gallery_action_url('gallery_add_items')) ?>"
              data-upload-url="<?= h(url_for('upload_attachment')) ?>"
@@ -440,7 +439,6 @@ function gallery_render_admin_page(): never
             <?= gallery_render_picker_dialog($categories) ?>
           <?php elseif ($tab === 'categories'): ?>
             <?= gallery_render_categories_panel($categories) ?>
-            <?= gallery_render_cover_picker_dialog() ?>
           <?php else: ?>
             <?= gallery_render_settings_panel($settings) ?>
           <?php endif; ?>
@@ -544,7 +542,7 @@ function gallery_render_categories_panel(array $categories): string
           <div class="field"><label for="gallery-new-category-name"><?= h(sblog_t('分类名称')) ?></label><input id="gallery-new-category-name" name="name" maxlength="100" required></div>
           <div class="field"><label for="gallery-new-category-slug"><?= h(sblog_t('Slug')) ?></label><input id="gallery-new-category-slug" name="slug" maxlength="100" pattern="[a-z0-9]+(?:-[a-z0-9]+)*"><p class="field-hint"><?= h(sblog_t('留空时根据分类名称自动生成。')) ?></p></div>
           <div class="field"><label for="gallery-new-category-description"><?= h(sblog_t('分类描述')) ?></label><textarea id="gallery-new-category-description" name="description" rows="4" maxlength="1000"></textarea></div>
-          <?= gallery_render_category_cover_field() ?>
+          <p class="field-hint"><?= h(sblog_t('分类缩略图自动使用第一张已发布图片，可在图片列表中调整排序。')) ?></p>
           <div class="field"><label for="gallery-new-category-order"><?= h(sblog_t('排序')) ?></label><input id="gallery-new-category-order" name="sort_order" type="number" min="-999999" max="999999" value="0"></div>
           <div class="action-row"><button class="button" type="submit"><?= h(sblog_t('新建分类')) ?></button></div>
         </form></div>
@@ -557,7 +555,7 @@ function gallery_render_categories_panel(array $categories): string
               <form class="form-stack" method="post" action="<?= h(gallery_action_url('save_gallery_category')) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$category['id'] ?>">
                 <div class="field-grid"><div class="field"><label for="gallery-category-name-<?= (int)$category['id'] ?>"><?= h(sblog_t('分类名称')) ?></label><input id="gallery-category-name-<?= (int)$category['id'] ?>" name="name" maxlength="100" value="<?= h((string)$category['name']) ?>" required></div><div class="field"><label for="gallery-category-slug-<?= (int)$category['id'] ?>"><?= h(sblog_t('Slug')) ?></label><input id="gallery-category-slug-<?= (int)$category['id'] ?>" name="slug" maxlength="100" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value="<?= h((string)$category['slug']) ?>" required></div></div>
                 <div class="field"><label for="gallery-category-description-<?= (int)$category['id'] ?>"><?= h(sblog_t('分类描述')) ?></label><textarea id="gallery-category-description-<?= (int)$category['id'] ?>" name="description" rows="3" maxlength="1000"><?= h((string)$category['description']) ?></textarea></div>
-                <?= gallery_render_category_cover_field($category) ?>
+                <p class="field-hint"><?= h(sblog_t('分类缩略图自动使用第一张已发布图片，可在图片列表中调整排序。')) ?></p>
                 <div class="field"><label for="gallery-category-order-<?= (int)$category['id'] ?>"><?= h(sblog_t('排序')) ?></label><input id="gallery-category-order-<?= (int)$category['id'] ?>" name="sort_order" type="number" min="-999999" max="999999" value="<?= (int)$category['sort_order'] ?>"></div>
                 <div class="action-row"><button class="button button--secondary" type="submit"><?= h(sblog_t('保存修改')) ?></button></div>
               </form>
