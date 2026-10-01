@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $themeVersion = (string)($theme['version'] ?? '1.0.0');
@@ -51,7 +53,11 @@ foreach ($navPages as $page) {
         </form>
         <nav class="site--nav" aria-label="<?= h(sblog_t('主导航')) ?>">
           <ul class="nav--list">
-            <?php foreach ($navItems as $item): ?><li class="menu-item"><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"<?= $item['active'] ? ' aria-current="page"' : '' ?>><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+            <?php if ($managedMenu): ?>
+              <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'item_class' => 'menu-item', 'active_class' => 'current']) ?>
+            <?php else: ?>
+              <?php foreach ($navItems as $item): ?><li class="menu-item"><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"<?= $item['active'] ? ' aria-current="page"' : '' ?>><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+            <?php endif; ?>
           </ul>
           <span class="u-xs-show nav--copyright"><?= h($siteName) ?> <?= h(date('Y')) ?></span>
         </nav>

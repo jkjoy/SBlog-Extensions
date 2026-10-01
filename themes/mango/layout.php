@@ -2,6 +2,18 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+$managedMenuOptions = [
+    'item_tag' => 'li',
+    'active_class' => 'current',
+    'label_tag' => 'span',
+    'icon' => static function (array $item): string {
+        $icons = ['home' => 'home', 'archives' => 'archive', 'tags' => 'tag', 'categories' => 'folder', 'links' => 'link'];
+        $typeIcons = ['category' => 'folder', 'tag' => 'tag', 'page' => 'archive'];
+        return mango_icon($icons[(string)($item['route'] ?? '')] ?? $typeIcons[(string)($item['type'] ?? '')] ?? 'link');
+    },
+];
+
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $themeVersion = (string)($theme['version'] ?? '1.0.0');
@@ -52,7 +64,13 @@ $homeLike = $active === 'home' && (string)($_GET['a'] ?? '') !== 'post';
       <div class="top_l">
         <a class="logo" href="<?= h(url_for('home')) ?>" title="<?= h($siteName) ?>"><span class="logo-mark"><img src="<?= h($logoUrl) ?>" alt=""></span><strong><?= h($siteName) ?></strong></a>
         <nav class="header-menu" aria-label="<?= h(sblog_t('主导航')) ?>">
-          <ul><?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"<?= $item['active'] ? ' aria-current="page"' : '' ?>><?= mango_icon((string)$item['icon']) ?><span><?= h((string)$item['label']) ?></span></a></li><?php endforeach; ?></ul>
+          <ul>
+            <?php if ($managedMenu): ?>
+              <?= sblog_menu_render($themeContext, $managedMenuOptions) ?>
+            <?php else: ?>
+              <?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"<?= $item['active'] ? ' aria-current="page"' : '' ?>><?= mango_icon((string)$item['icon']) ?><span><?= h((string)$item['label']) ?></span></a></li><?php endforeach; ?>
+            <?php endif; ?>
+          </ul>
         </nav>
       </div>
       <div class="top_r">
@@ -76,7 +94,13 @@ $homeLike = $active === 'home' && (string)($_GET['a'] ?? '') !== 'post';
 
   <aside class="mobile_nav" aria-hidden="true">
     <div class="mobile_head"><a class="logo" href="<?= h(url_for('home')) ?>"><span class="logo-mark"><img src="<?= h($logoUrl) ?>" alt=""></span><strong><?= h($siteName) ?></strong></a><button class="mobile-close" type="button" aria-label="<?= h(sblog_t('关闭菜单')) ?>"><?= mango_icon('close') ?></button></div>
-    <nav aria-label="<?= h(sblog_t('主导航')) ?>"><ul><?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"><?= mango_icon((string)$item['icon']) ?><span><?= h((string)$item['label']) ?></span></a></li><?php endforeach; ?></ul></nav>
+    <nav aria-label="<?= h(sblog_t('主导航')) ?>"><ul>
+      <?php if ($managedMenu): ?>
+        <?= sblog_menu_render($themeContext, $managedMenuOptions) ?>
+      <?php else: ?>
+        <?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"><?= mango_icon((string)$item['icon']) ?><span><?= h((string)$item['label']) ?></span></a></li><?php endforeach; ?>
+      <?php endif; ?>
+    </ul></nav>
     <?php if ($categories): ?><div class="mobile-categories"><h2><?= h(sblog_t('分类')) ?></h2><?php foreach ($categories as $category): ?><a href="<?= h(url_for('category', ['slug' => (string)$category['slug']])) ?>"><?= h((string)$category['name']) ?><span><?= h((string)$category['post_count']) ?></span></a><?php endforeach; ?></div><?php endif; ?>
   </aside>
   <button class="mango-mask" type="button" tabindex="-1" aria-label="<?= h(sblog_t('关闭菜单')) ?>"></button>

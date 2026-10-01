@@ -34,11 +34,15 @@ $tagline = trim(setting('site_tagline'));
         <div class="brand"><a class="brand-link" href="<?= h(url_for('home')) ?>" aria-label="<?= h($siteName) ?>"><span class="brand-copy"><span class="brand-title"><?= h($siteName) ?></span><span class="brand-description"><?= h($tagline) ?></span></span></a></div>
         <div class="header-actions">
           <nav class="site-nav" aria-label="<?= h(sblog_t('主导航')) ?>">
+            <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+              <?= sblog_menu_render($themeContext, ['active_class' => 'is-current']) ?>
+            <?php else: ?>
             <a<?= $active === 'home' ? ' class="is-current"' : '' ?> href="<?= h(url_for('home')) ?>"><?= h(sblog_t('首页')) ?></a>
             <a<?= $active === 'archives' ? ' class="is-current"' : '' ?> href="<?= h(url_for('archives')) ?>"><?= h(sblog_t('归档')) ?></a>
             <a<?= $active === 'tags' ? ' class="is-current"' : '' ?> href="<?= h(url_for('tags')) ?>"><?= h(sblog_t('标签')) ?></a>
             <a<?= $active === 'links' ? ' class="is-current"' : '' ?> href="<?= h(url_for('links')) ?>"><?= h(sblog_t('友链')) ?></a>
             <?php foreach ($navPages as $page): ?><a<?= $active === 'page:' . $page['slug'] ? ' class="is-current"' : '' ?> href="<?= h(content_permalink($page)) ?>"><?= h((string)$page['title']) ?></a><?php endforeach; ?>
+            <?php endif; ?>
           </nav>
           <div class="header-tools">
             <button type="button" class="search-toggle" data-search-toggle aria-expanded="false" aria-controls="site-search-panel" title="<?= h(sblog_t('搜索')) ?>"><span class="screen-reader-text"><?= h(sblog_t('打开搜索')) ?></span><?= timellow_icon('search') ?></button>

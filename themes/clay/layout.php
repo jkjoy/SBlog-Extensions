@@ -51,6 +51,9 @@ $viewClass = match (true) {
       </a>
 
       <nav class="clay-nav__links" id="clay-nav-links" aria-label="<?= h(sblog_t('主导航')) ?>">
+        <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+          <?= sblog_menu_render($themeContext, ['active_class' => 'is-active']) ?>
+        <?php else: ?>
         <a href="<?= h(url_for('home')) ?>" class="<?= $active === 'home' && $action !== 'category' ? 'is-active' : '' ?>"><?= h(sblog_t('首页')) ?></a>
         <a href="<?= h(url_for('archives')) ?>" class="<?= $active === 'archives' ? 'is-active' : '' ?>"><?= h(sblog_t('归档')) ?></a>
         <a href="<?= h(url_for('tags')) ?>" class="<?= $active === 'tags' ? 'is-active' : '' ?>"><?= h(sblog_t('标签')) ?></a>
@@ -58,6 +61,7 @@ $viewClass = match (true) {
         <?php foreach ($navPages as $page): ?>
           <a href="<?= h(content_permalink($page)) ?>" class="<?= $active === 'page:' . $page['slug'] ? 'is-active' : '' ?>"><?= h((string)$page['title']) ?></a>
         <?php endforeach; ?>
+        <?php endif; ?>
       </nav>
 
       <div class="clay-nav__tools">

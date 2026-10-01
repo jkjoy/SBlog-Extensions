@@ -163,3 +163,11 @@ passthru($galleryMediaCommand, $galleryMediaStatus);
 if ($galleryMediaStatus !== 0) {
     store_fail('Gallery thumbnail tests failed.');
 }
+
+foreach (['test-menu-manager.php', 'test-menu-manager-themes.php'] as $menuTest) {
+    $menuCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/' . $menuTest);
+    passthru($menuCommand, $menuStatus);
+    if ($menuStatus !== 0) {
+        store_fail('Menu manager tests failed: ' . $menuTest);
+    }
+}

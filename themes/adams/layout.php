@@ -92,6 +92,9 @@ if ($action === 'post') {
 
       <nav class="header_nav" aria-label="<?= h(sblog_t('主导航')) ?>">
         <ul class="menu">
+          <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+            <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'active_item_class' => 'current-menu-item']) ?>
+          <?php else: ?>
           <li class="<?= $active === 'home' && $action !== 'category' ? 'current-menu-item' : '' ?>"><a href="<?= h(url_for('home')) ?>"><?= h(sblog_t('首页')) ?></a></li>
           <li class="<?= $active === 'archives' ? 'current-menu-item' : '' ?>"><a href="<?= h(url_for('archives')) ?>"><?= h(sblog_t('归档')) ?></a></li>
           <li class="<?= $active === 'tags' ? 'current-menu-item' : '' ?>"><a href="<?= h(url_for('tags')) ?>"><?= h(sblog_t('标签')) ?></a></li>
@@ -99,6 +102,7 @@ if ($action === 'post') {
           <?php foreach ($navPages as $page): ?>
             <li class="<?= $active === 'page:' . $page['slug'] ? 'current-menu-item' : '' ?>"><a href="<?= h(content_permalink($page)) ?>"><?= h((string)$page['title']) ?></a></li>
           <?php endforeach; ?>
+          <?php endif; ?>
         </ul>
       </nav>
     </section>

@@ -1,0 +1,10 @@
+{
+  "name": "菜单管理",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/Simple-PHP-Blog",
+  "description": "统一管理所有官方主题的主导航，支持内置页面、独立页面、分类和自定义链接、排序、显示开关及新窗口打开。",
+  "settings_action": "admin_menus"
+}

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $owner = one('SELECT nickname, username, avatar_url, website_url, github_url, qq_url, wechat_url, weibo_url, x_url, telegram_url, mastodon_url, bilibili_url, instagram_url, tiktok_url, signature FROM users ORDER BY id ASC LIMIT 1') ?? [];
 $ownerName = trim((string)($owner['nickname'] ?? '')) ?: trim((string)($owner['username'] ?? '')) ?: $siteName;
 $signature = trim((string)($owner['signature'] ?? '')) ?: trim(setting('site_tagline'));
@@ -79,13 +81,17 @@ $viewClass = (string)($_GET['a'] ?? '') === 'category' ? 'ying-view-category'
           <div class="menu-backdrop" id="menu-backdrop"></div>
           <ul class="flex gap-3 items-center flex-gap-adjust main-menu" id="main-menu">
             <li class="close-btn"><button id="close-menu" type="button" aria-label="<?= h(sblog_t('关闭菜单')) ?>"><i class="ri-close-line" aria-hidden="true"></i></button></li>
-            <li class="navli"><a class="<?= $active === 'home' ? 'is-active' : '' ?>" href="<?= h(url_for('home')) ?>"><?= h(sblog_t('首页')) ?></a></li>
-            <li class="navli"><a class="<?= $active === 'archives' ? 'is-active' : '' ?>" href="<?= h(url_for('archives')) ?>"><?= h(sblog_t('归档')) ?></a></li>
-            <li class="navli"><a class="<?= $active === 'tags' ? 'is-active' : '' ?>" href="<?= h(url_for('tags')) ?>"><?= h(sblog_t('标签')) ?></a></li>
-            <li class="navli"><a class="<?= $active === 'links' ? 'is-active' : '' ?>" href="<?= h(url_for('links')) ?>"><?= h(sblog_t('友链')) ?></a></li>
-            <?php foreach ($navPages as $page): ?>
-              <li class="navli"><a class="<?= $active === 'page:' . $page['slug'] ? 'is-active' : '' ?>" href="<?= h(content_permalink($page)) ?>"><?= h((string)$page['title']) ?></a></li>
-            <?php endforeach; ?>
+            <?php if ($managedMenu): ?>
+              <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'item_class' => 'navli', 'active_class' => 'is-active']) ?>
+            <?php else: ?>
+              <li class="navli"><a class="<?= $active === 'home' ? 'is-active' : '' ?>" href="<?= h(url_for('home')) ?>"><?= h(sblog_t('首页')) ?></a></li>
+              <li class="navli"><a class="<?= $active === 'archives' ? 'is-active' : '' ?>" href="<?= h(url_for('archives')) ?>"><?= h(sblog_t('归档')) ?></a></li>
+              <li class="navli"><a class="<?= $active === 'tags' ? 'is-active' : '' ?>" href="<?= h(url_for('tags')) ?>"><?= h(sblog_t('标签')) ?></a></li>
+              <li class="navli"><a class="<?= $active === 'links' ? 'is-active' : '' ?>" href="<?= h(url_for('links')) ?>"><?= h(sblog_t('友链')) ?></a></li>
+              <?php foreach ($navPages as $page): ?>
+                <li class="navli"><a class="<?= $active === 'page:' . $page['slug'] ? 'is-active' : '' ?>" href="<?= h(content_permalink($page)) ?>"><?= h((string)$page['title']) ?></a></li>
+              <?php endforeach; ?>
+            <?php endif; ?>
           </ul>
           <ul class="flex items-center gap-4 other-icons">
             <li class="flex items-center"><button id="toggle-dark-mode" class="ying-icon-button" type="button" title="<?= h(sblog_t('黑夜模式')) ?>" aria-label="<?= h(sblog_t('切换深色模式')) ?>" aria-pressed="false"><i class="ri-moon-line" aria-hidden="true"></i></button></li>

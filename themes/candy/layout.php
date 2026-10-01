@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $action = (string)($_GET['a'] ?? 'home');
 $isHome = $active === 'home' && $action === 'home';
 $tagline = trim(setting('site_tagline')) ?: trim(setting('site_description'));
@@ -50,7 +52,11 @@ foreach ($navPages as $page) {
         <strong><?= h($siteName) ?></strong><span class="candy-brand__dot">.</span>
       </a>
       <nav class="candy-nav" id="candy-navigation" aria-label="<?= h(sblog_t('主导航')) ?>">
-        <?php foreach ($navItems as $item): ?><a href="<?= h((string)$item['url']) ?>"<?= $item['current'] ? ' aria-current="page"' : '' ?>><?= h((string)$item['label']) ?></a><?php endforeach; ?>
+        <?php if ($managedMenu): ?>
+          <?= sblog_menu_render($themeContext, ['active_class' => '']) ?>
+        <?php else: ?>
+          <?php foreach ($navItems as $item): ?><a href="<?= h((string)$item['url']) ?>"<?= $item['current'] ? ' aria-current="page"' : '' ?>><?= h((string)$item['label']) ?></a><?php endforeach; ?>
+        <?php endif; ?>
         <?php if ($admin): ?><a href="<?= h(url_for('admin')) ?>"><?= h(sblog_t('管理')) ?></a><?php endif; ?>
       </nav>
       <a class="candy-header__rss" href="<?= h(url_for('rss')) ?>" aria-label="RSS" title="RSS"><?= candy_icon('rss') ?></a>

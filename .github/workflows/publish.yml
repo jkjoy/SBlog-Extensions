@@ -41,6 +41,7 @@ jobs:
       - name: Validate extension sources
         run: |
           node scripts/test-gallery-admin.cjs
+          node scripts/test-menu-manager-admin.cjs
           php scripts/test.php
           php scripts/validate.php
 

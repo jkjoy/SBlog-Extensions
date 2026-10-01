@@ -1,0 +1,21 @@
+.menu-manager-mode{padding:18px 20px;background:var(--admin-panel-muted,#f4f6f8);border:1px solid var(--admin-border,#e4e7eb);border-radius:12px}
+.menu-manager-mode>label,.menu-manager-row__flags>label{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.menu-manager-mode p{margin:8px 0 0}
+.menu-manager-list{list-style:none;padding:0;margin:0;display:grid;gap:14px;counter-reset:menu-item}
+.menu-manager-row{border:1px solid var(--admin-border,#e4e7eb);border-radius:12px;padding:16px;display:grid;gap:14px;counter-increment:menu-item;background:var(--admin-panel,#fff)}
+.menu-manager-row__head{display:flex;align-items:center;gap:10px}
+.menu-manager-row__number{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:6px;background:var(--admin-panel-subtle,#f4f6f8);font-size:12px;font-weight:600}
+.menu-manager-row__number:before{content:counter(menu-item)}
+.menu-manager-row__actions{display:flex;gap:6px;margin-left:auto}
+.menu-manager-row__actions .button{min-height:32px;padding:4px 10px}
+.menu-manager-row__fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.menu-manager-row__url{grid-column:1/-1}
+.menu-manager-row__flags{display:flex;flex-wrap:wrap;gap:14px;font-size:13px}
+.menu-manager-row__flags input,.menu-manager-mode input{width:auto;min-height:auto;margin:0}
+.menu-manager-warning{color:var(--admin-muted,#667085)}
+.menu-manager-add{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0}
+.menu-manager-add select{flex:1;min-width:180px}
+.menu-manager-save{position:sticky;bottom:0;z-index:2;padding:16px 0;background:var(--admin-panel,#fff);border-top:1px solid var(--admin-border,#e4e7eb)}
+.menu-manager-empty{padding:24px;text-align:center;border:1px dashed var(--admin-border,#e4e7eb);border-radius:12px;color:var(--admin-muted,#667085)}
+[data-menu-manager] [hidden]{display:none!important}
+@media(max-width:640px){[data-menu-manager] .panel__header{flex-direction:column;align-items:flex-start;gap:8px}[data-menu-manager] .panel__meta{text-align:left}.menu-manager-row__fields{grid-template-columns:1fr}.menu-manager-row{padding:12px}.menu-manager-add{align-items:stretch}.menu-manager-add>label{width:100%}.menu-manager-save{flex-wrap:wrap}}

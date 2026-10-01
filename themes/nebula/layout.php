@@ -52,6 +52,9 @@ $viewClass = match (true) {
       <a class="brand" href="<?= h(url_for('home')) ?>"><?= h($siteName) ?></a>
 
       <nav class="site-nav">
+        <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+          <?= sblog_menu_render($themeContext, ['active_class' => 'active']) ?>
+        <?php else: ?>
         <a href="<?= h(url_for('home')) ?>" class="<?= $active === 'home' ? 'active' : '' ?>"><?= h(sblog_t('首页')) ?></a>
         <a href="<?= h(url_for('archives')) ?>" class="<?= $active === 'archives' ? 'active' : '' ?>"><?= h(sblog_t('归档')) ?></a>
         <a href="<?= h(url_for('tags')) ?>" class="<?= $active === 'tags' ? 'active' : '' ?>"><?= h(sblog_t('标签')) ?></a>
@@ -59,6 +62,7 @@ $viewClass = match (true) {
         <?php foreach ($navPages as $page): ?>
           <a href="<?= h(content_permalink($page)) ?>" class="<?= $active === 'page:' . $page['slug'] ? 'active' : '' ?>"><?= h((string)$page['title']) ?></a>
         <?php endforeach; ?>
+        <?php endif; ?>
         <?php if ($admin): ?><a href="<?= h(url_for('admin')) ?>" class="<?= $active === 'admin' ? 'active' : '' ?>"><?= h(sblog_t('管理')) ?></a><?php endif; ?>
       </nav>
 

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $themeVersion = (string)($theme['version'] ?? '1.0.0');
@@ -43,7 +45,13 @@ foreach ($navPages as $page) {
       <button class="photo-menu-toggle" type="button" data-menu-toggle aria-label="<?= h(sblog_t('打开菜单')) ?>" aria-expanded="false"><?= photograph_icon('menu') ?></button>
       <a class="photo-brand" href="<?= h(url_for('home')) ?>"><?php $logo = theme_logo_url(); if ($logo !== ''): ?><img src="<?= h($logo) ?>" alt="<?= h($siteName) ?>"><?php else: ?><?= h($siteName) ?><?php endif; ?></a>
       <div class="photo-navbar__collapse" data-menu>
-        <ul class="photo-nav-list"><?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'is-active' : '' ?>" href="<?= h((string)$item['url']) ?>"<?= $item['active'] ? ' aria-current="page"' : '' ?>><?= h((string)$item['label']) ?></a></li><?php endforeach; ?></ul>
+        <ul class="photo-nav-list">
+          <?php if ($managedMenu): ?>
+            <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'active_class' => 'is-active']) ?>
+          <?php else: ?>
+            <?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'is-active' : '' ?>" href="<?= h((string)$item['url']) ?>"<?= $item['active'] ? ' aria-current="page"' : '' ?>><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+          <?php endif; ?>
+        </ul>
         <form class="photo-search" action="<?= h(url_for('home')) ?>" method="get" role="search"><?php if (!use_pretty_url()): ?><input type="hidden" name="a" value="home"><?php endif; ?><label><span class="sr-only"><?= h(sblog_t('搜索')) ?></span><input name="s" type="search" value="<?= h((string)($_GET['s'] ?? '')) ?>" placeholder="<?= h(sblog_t('输入关键字搜索')) ?>"></label><button type="submit" aria-label="<?= h(sblog_t('搜索')) ?>"><?= photograph_icon('search') ?></button></form>
         <a class="photo-admin-link" href="<?= h(url_for('admin')) ?>"><?= photograph_icon('settings') ?><span><?= h(sblog_t('管理')) ?></span></a>
       </div>

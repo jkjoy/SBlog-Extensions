@@ -42,6 +42,9 @@ $beian = trim(setting('footer_beian'));
       <div class="boot-banner"><b><?= h($siteName) ?> <?= h(APP_VERSION) ?> — <?= h(public_quote()) ?></b><br><span>type "help" to begin · type "ls" to look around</span></div>
       <nav class="terminal-menu" aria-label="<?= h(sblog_t('主菜单')) ?>">
         <span class="terminal-menu__label">menu:</span>
+        <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+          <?= sblog_menu_render($themeContext, ['active_class' => 'is-active', 'label_prefix' => '[', 'label_suffix' => ']']) ?>
+        <?php else: ?>
         <a class="<?= $active === 'home' ? 'is-active' : '' ?>" href="<?= h(url_for('home')) ?>">[<?= h(sblog_t('首页')) ?>]</a>
         <a class="<?= $active === 'tags' ? 'is-active' : '' ?>" href="<?= h(url_for('tags')) ?>">[<?= h(sblog_t('标签')) ?>]</a>
         <a class="<?= $active === 'archives' ? 'is-active' : '' ?>" href="<?= h(url_for('archives')) ?>">[<?= h(sblog_t('归档')) ?>]</a>
@@ -49,6 +52,7 @@ $beian = trim(setting('footer_beian'));
         <?php foreach ($navPages as $page): ?>
           <a class="<?= $active === 'page:' . $page['slug'] ? 'is-active' : '' ?>" href="<?= h(content_permalink($page)) ?>">[<?= h((string)$page['title']) ?>]</a>
         <?php endforeach; ?>
+        <?php endif; ?>
         <?php if ($admin): ?><a href="<?= h(url_for('admin')) ?>">[<?= h(sblog_t('管理')) ?>]</a><?php endif; ?>
       </nav>
       <div class="cmd-echo"><span class="prompt-part">visitor@<?= h($siteName) ?></span><span class="path-part">:~</span>$ cat <?= h(strtolower(str_replace(' ', '-', $title))) ?>.md</div>

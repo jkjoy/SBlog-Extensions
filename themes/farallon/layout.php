@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $action = (string)($_GET['a'] ?? '');
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
@@ -55,7 +57,11 @@ foreach ($navPages as $page) {
       <div class="site--header__center">
         <div class="inner">
           <nav aria-label="<?= h(sblog_t('主导航')) ?>"><ul>
-            <?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+            <?php if ($managedMenu): ?>
+              <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'active_class' => 'current']) ?>
+            <?php else: ?>
+              <?php foreach ($navItems as $item): ?><li><a class="<?= $item['active'] ? 'current' : '' ?>" href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+            <?php endif; ?>
           </ul></nav>
           <div class="search--area">
             <form method="get" action="<?= h(url_for('home')) ?>" role="search" class="search-form">

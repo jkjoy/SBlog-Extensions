@@ -38,12 +38,16 @@ $scriptFile = __DIR__ . '/script.js';
         <span class="header__subtitle"><?= h(setting('site_tagline')) ?></span>
         <nav class="header__menu" aria-label="<?= h(sblog_t('主导航')) ?>">
           <ul class="header__list">
+            <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+              <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'item_class' => 'header__list-item']) ?>
+            <?php else: ?>
             <li class="header__list-item"><a href="<?= h(url_for('home')) ?>">首页</a></li>
             <li class="header__list-item"><a href="<?= h(url_for('archives')) ?>">归档<sup><?= h((string)$totalPosts) ?></sup></a></li>
             <li class="header__list-item"><a href="<?= h(url_for('tags')) ?>">标签<sup><?= h((string)$totalTags) ?></sup></a></li>
             <li class="header__list-item"><a href="<?= h(url_for('categories')) ?>">分类<sup><?= h((string)$totalCategories) ?></sup></a></li>
             <li class="header__list-item"><a href="<?= h(url_for('links')) ?>">好友<sup><?= h((string)$totalLinks) ?></sup></a></li>
             <?php foreach ($navPages as $page): ?><?php if (!in_array(strtolower((string)$page['slug']), ['archives', 'tags', 'categories', 'links'], true)): ?><li class="header__list-item"><a href="<?= h(content_permalink($page)) ?>"><?= h((string)$page['title']) ?></a></li><?php endif; ?><?php endforeach; ?>
+            <?php endif; ?>
             <li class="header__list-item"><a href="<?= h($admin ? url_for('admin') : url_for('login')) ?>"<?= $admin ? '' : ' target="_blank"' ?>><?= $admin ? '管理' : '登录' ?></a></li>
           </ul>
         </nav>

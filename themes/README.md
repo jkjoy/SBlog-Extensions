@@ -85,3 +85,7 @@ add_theme_filter('content', $callback, 20);
 ```
 
 若 `functions.php`、钩子回调或 `layout.php` 抛出异常，程序会记录到 PHP error log，并尽可能使用内置布局继续响应。主题被删除或清单失效时会自动回退到内置主题。
+
+## 统一菜单管理
+
+本仓库所有主题已接入「菜单管理」插件，启用并保存接管配置后，桌面与移动主导航共用站点级菜单。插件未启用或未接管时继续使用主题原菜单。第三方主题可在自己的导航容器中调用 `sblog_menu_render($themeContext, $options)`；接口与样式选项见 [菜单管理插件说明](../plugins/menu-manager/README.md)。

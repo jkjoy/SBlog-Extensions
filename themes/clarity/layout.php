@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $scriptFile = __DIR__ . '/script.js';
@@ -42,7 +44,12 @@ foreach ($navPages as $page) {
       <span class="nav_site_name"><?= h($siteName) ?></span>
       <span class="nav_close" aria-hidden="true"><?= clarity_icon('menu') ?><?= clarity_icon('close') ?></span>
     </a>
-    <div class="nav_body nav_body_left"><?php foreach ($navItems as $item): ?><div class="nav_parent<?= $item['active'] ? ' nav_active' : '' ?>"><a class="nav_item" href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></div><?php endforeach; ?>
+    <div class="nav_body nav_body_left">
+      <?php if ($managedMenu): ?>
+        <?= sblog_menu_render($themeContext, ['item_tag' => 'div', 'item_class' => 'nav_parent', 'link_class' => 'nav_item', 'active_class' => '', 'active_item_class' => 'nav_active']) ?>
+      <?php else: ?>
+        <?php foreach ($navItems as $item): ?><div class="nav_parent<?= $item['active'] ? ' nav_active' : '' ?>"><a class="nav_item" href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></div><?php endforeach; ?>
+      <?php endif; ?>
       <div class="follow"><a href="<?= h(url_for('rss')) ?>" aria-label="RSS" title="RSS"><?= clarity_icon('rss') ?></a><div class="color_mode"><input id="mode" class="color_choice" type="checkbox" aria-label="切换深浅色模式"></div></div>
     </div>
   </nav></header>

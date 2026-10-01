@@ -57,6 +57,12 @@ $viewClass = match (true) {
 
       <div class="paper-nav-panel" id="paper-nav-panel">
         <nav class="paper-primary-nav" aria-label="<?= h(sblog_t('主导航')) ?>">
+          <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+            <?= sblog_menu_render($themeContext, [
+                'active_class' => 'is-active',
+                'link_class' => static fn(array $item): string => ($item['route'] ?? '') === 'home' ? 'paper-home-link' : '',
+            ]) ?>
+          <?php else: ?>
           <a class="paper-home-link <?= $active === 'home' ? 'is-active' : '' ?>" href="<?= h(url_for('home')) ?>"><?= h(sblog_t('首页')) ?></a>
           <a class="<?= $active === 'archives' ? 'is-active' : '' ?>" href="<?= h(url_for('archives')) ?>"><?= h(sblog_t('归档')) ?></a>
           <a class="<?= $active === 'tags' ? 'is-active' : '' ?>" href="<?= h(url_for('tags')) ?>"><?= h(sblog_t('标签')) ?></a>
@@ -64,6 +70,7 @@ $viewClass = match (true) {
           <?php foreach ($navPages as $page): ?>
             <a class="<?= $active === 'page:' . $page['slug'] ? 'is-active' : '' ?>" href="<?= h(content_permalink($page)) ?>"><?= h((string)$page['title']) ?></a>
           <?php endforeach; ?>
+          <?php endif; ?>
         </nav>
 
         <nav class="paper-social-nav" aria-label="<?= h(sblog_t('个人链接')) ?>">

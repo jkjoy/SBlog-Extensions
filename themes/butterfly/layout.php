@@ -2,6 +2,22 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+$managedMenuOptions = [
+    'item_tag' => 'div',
+    'item_class' => 'menus_item',
+    'link_class' => 'site-page',
+    'active_class' => '',
+    'label_tag' => 'span',
+    'url' => static fn(string $url, array $item): string => $item['type'] === 'custom' ? $url : butterfly_url($url),
+    'icon' => static function (array $item): string {
+        $icons = ['home' => 'ri-home-4-line', 'archives' => 'ri-archive-line', 'tags' => 'ri-price-tag-3-line', 'categories' => 'ri-folder-2-line', 'links' => 'ri-links-line'];
+        $typeIcons = ['category' => 'ri-folder-2-line', 'tag' => 'ri-price-tag-3-line', 'page' => 'ri-article-line'];
+        $icon = $icons[(string)($item['route'] ?? '')] ?? $typeIcons[(string)($item['type'] ?? '')] ?? 'ri-links-line';
+        return '<i class="' . h($icon) . ' fa-fw" aria-hidden="true"></i>';
+    },
+];
+
 $isHome = butterfly_is_home($themeContext) && butterfly_query() === '';
 $isSearch = butterfly_is_home($themeContext) && butterfly_query() !== '';
 $post = butterfly_current_post();
@@ -74,8 +90,12 @@ $headerStyle = $headerClass === 'not-top-img' ? '' : ' style="background-image:u
       <nav id="nav" class="show" aria-label="<?= h(sblog_t('主菜单')) ?>">
         <span id="blog-info"><a href="<?= h(butterfly_url(url_for('home'))) ?>"><span class="site-name"><?= h($siteName) ?></span></a></span>
         <div id="menus"><div id="search-button"><button class="site-page social-icon search" type="button" data-bf-search-open aria-label="<?= h(sblog_t('搜索')) ?>" title="<?= h(sblog_t('搜索')) ?>"><i class="ri-search-line fa-fw" aria-hidden="true"></i><span><?= h(sblog_t('搜索')) ?></span></button></div><div id="toggle-menu"><button class="site-page" id="bf-menu-toggle" type="button" aria-controls="sidebar-menus" aria-expanded="false" aria-label="<?= h(sblog_t('打开菜单')) ?>" title="<?= h(sblog_t('打开菜单')) ?>"><i class="ri-menu-line fa-fw" aria-hidden="true"></i></button></div><div class="menus_items" id="bf-menu">
-          <?php foreach ($navItems as [$route, $icon, $label]): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(url_for($route))) ?>"<?= $active === $route && !$isSearch ? ' aria-current="page"' : '' ?>><i class="<?= h($icon) ?> fa-fw" aria-hidden="true"></i><span><?= h($label) ?></span></a></div><?php endforeach; ?>
-          <?php foreach ($navPages as $navPage): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(content_permalink($navPage))) ?>"<?= $active === 'page:' . $navPage['slug'] ? ' aria-current="page"' : '' ?>><i class="ri-article-line fa-fw" aria-hidden="true"></i><span><?= h((string)$navPage['title']) ?></span></a></div><?php endforeach; ?>
+          <?php if ($managedMenu): ?>
+            <?= sblog_menu_render(array_merge($themeContext, ['is_search' => $isSearch]), $managedMenuOptions) ?>
+          <?php else: ?>
+            <?php foreach ($navItems as [$route, $icon, $label]): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(url_for($route))) ?>"<?= $active === $route && !$isSearch ? ' aria-current="page"' : '' ?>><i class="<?= h($icon) ?> fa-fw" aria-hidden="true"></i><span><?= h($label) ?></span></a></div><?php endforeach; ?>
+            <?php foreach ($navPages as $navPage): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(content_permalink($navPage))) ?>"<?= $active === 'page:' . $navPage['slug'] ? ' aria-current="page"' : '' ?>><i class="ri-article-line fa-fw" aria-hidden="true"></i><span><?= h((string)$navPage['title']) ?></span></a></div><?php endforeach; ?>
+          <?php endif; ?>
           <?php if ($admin): ?><div class="menus_item"><a class="site-page" href="<?= h(url_for('admin')) ?>"><i class="ri-user-line fa-fw" aria-hidden="true"></i><span><?= h(sblog_t('管理')) ?></span></a></div><?php endif; ?>
         </div></div>
       </nav>
@@ -115,8 +135,12 @@ $headerStyle = $headerClass === 'not-top-img' ? '' : ' style="background-image:u
     <div class="sidebar-site-data"><div class="site-data is-center"><a href="<?= h(butterfly_url(url_for('archives'))) ?>"><div class="headline"><?= h(sblog_t('文章')) ?></div><div class="length-num"><?= (int)($siteStats['total'] ?? 0) ?></div></a><a href="<?= h(butterfly_url(url_for('tags'))) ?>"><div class="headline"><?= h(sblog_t('标签')) ?></div><div class="length-num"><?= count($tags) ?></div></a><a href="<?= h(butterfly_url(url_for('categories'))) ?>"><div class="headline"><?= h(sblog_t('分类')) ?></div><div class="length-num"><?= count($categories) ?></div></a></div></div>
     <hr>
     <div class="menus_items">
-      <?php foreach ($navItems as [$route, $icon, $label]): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(url_for($route))) ?>"<?= $active === $route && !$isSearch ? ' aria-current="page"' : '' ?>><i class="<?= h($icon) ?> fa-fw" aria-hidden="true"></i><span><?= h($label) ?></span></a></div><?php endforeach; ?>
-      <?php foreach ($navPages as $navPage): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(content_permalink($navPage))) ?>"<?= $active === 'page:' . $navPage['slug'] ? ' aria-current="page"' : '' ?>><i class="ri-article-line fa-fw" aria-hidden="true"></i><span><?= h((string)$navPage['title']) ?></span></a></div><?php endforeach; ?>
+      <?php if ($managedMenu): ?>
+        <?= sblog_menu_render(array_merge($themeContext, ['is_search' => $isSearch]), $managedMenuOptions) ?>
+      <?php else: ?>
+        <?php foreach ($navItems as [$route, $icon, $label]): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(url_for($route))) ?>"<?= $active === $route && !$isSearch ? ' aria-current="page"' : '' ?>><i class="<?= h($icon) ?> fa-fw" aria-hidden="true"></i><span><?= h($label) ?></span></a></div><?php endforeach; ?>
+        <?php foreach ($navPages as $navPage): ?><div class="menus_item"><a class="site-page" href="<?= h(butterfly_url(content_permalink($navPage))) ?>"<?= $active === 'page:' . $navPage['slug'] ? ' aria-current="page"' : '' ?>><i class="ri-article-line fa-fw" aria-hidden="true"></i><span><?= h((string)$navPage['title']) ?></span></a></div><?php endforeach; ?>
+      <?php endif; ?>
       <?php if ($admin): ?><div class="menus_item"><a class="site-page" href="<?= h(url_for('admin')) ?>"><i class="ri-user-line fa-fw" aria-hidden="true"></i><span><?= h(sblog_t('管理')) ?></span></a></div><?php endif; ?>
     </div>
   </div></div>

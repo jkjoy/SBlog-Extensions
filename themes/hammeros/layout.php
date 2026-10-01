@@ -65,6 +65,9 @@ $adminStatusText = $adminOnline ? sblog_t('ONLINE') : sblog_t('OFFLINE');
       </a>
 
       <nav class="hammer-nav" id="hammer-nav" aria-label="<?= h(sblog_t('主导航')) ?>">
+        <?php if (function_exists('sblog_menu_is_managed') && sblog_menu_is_managed()): ?>
+          <?= sblog_menu_render($themeContext, ['active_class' => 'is-active']) ?>
+        <?php else: ?>
         <a href="<?= h(url_for('home')) ?>" class="<?= $active === 'home' && $action !== 'category' ? 'is-active' : '' ?>"><?= h(sblog_t('首页')) ?></a>
         <a href="<?= h(url_for('archives')) ?>" class="<?= $active === 'archives' ? 'is-active' : '' ?>"><?= h(sblog_t('归档')) ?></a>
         <a href="<?= h(url_for('tags')) ?>" class="<?= $active === 'tags' ? 'is-active' : '' ?>"><?= h(sblog_t('标签')) ?></a>
@@ -72,6 +75,7 @@ $adminStatusText = $adminOnline ? sblog_t('ONLINE') : sblog_t('OFFLINE');
         <?php foreach ($navPages as $page): ?>
           <a href="<?= h(content_permalink($page)) ?>" class="<?= $active === 'page:' . $page['slug'] ? 'is-active' : '' ?>"><?= h((string)$page['title']) ?></a>
         <?php endforeach; ?>
+        <?php endif; ?>
         <?php if ($admin): ?><a class="hammer-nav__account <?= $active === 'admin' ? 'is-active' : '' ?>" href="<?= h(url_for('admin')) ?>"><?= h(sblog_t('管理')) ?></a><?php endif; ?>
       </nav>
 

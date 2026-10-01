@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+$managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed();
+
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $themeVersion = (string)($theme['version'] ?? '1.0.0');
@@ -43,7 +45,13 @@ foreach ($navPages as $page) {
       <div class="once-container once-header__inner">
         <div class="once-header__left">
           <a class="once-logo" href="<?= h(url_for('home')) ?>" aria-label="<?= h($siteName) ?>"><img src="<?= h($logoUrl) ?>" width="30" height="30" alt=""><strong><?= h($siteName) ?></strong></a>
-          <nav class="once-desktop-nav" aria-label="<?= h(sblog_t('主导航')) ?>"><ul><?php foreach ($navItems as $item): ?><li><a<?= $item['active'] ? ' class="is-active" aria-current="page"' : '' ?> href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></li><?php endforeach; ?></ul></nav>
+          <nav class="once-desktop-nav" aria-label="<?= h(sblog_t('主导航')) ?>"><ul>
+            <?php if ($managedMenu): ?>
+              <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'active_class' => 'is-active']) ?>
+            <?php else: ?>
+              <?php foreach ($navItems as $item): ?><li><a<?= $item['active'] ? ' class="is-active" aria-current="page"' : '' ?> href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+            <?php endif; ?>
+          </ul></nav>
         </div>
         <div class="once-header__actions">
           <button class="once-icon-button" type="button" data-once-theme-toggle aria-label="<?= h(sblog_t('切换主题')) ?>" title="<?= h(sblog_t('切换主题')) ?>"><span class="once-theme-icon once-theme-icon--moon"><?= once_icon('moon', 15) ?></span><span class="once-theme-icon once-theme-icon--sun"><?= once_icon('sun', 15) ?></span></button>
@@ -58,7 +66,13 @@ foreach ($navPages as $page) {
     <div class="once-drawer-backdrop" data-once-menu-close hidden></div>
     <aside class="once-drawer" id="once-mobile-drawer" aria-hidden="true">
       <div class="once-drawer__head"><a class="once-logo" href="<?= h(url_for('home')) ?>"><img src="<?= h($logoUrl) ?>" width="28" height="28" alt=""><strong><?= h($siteName) ?></strong></a><button class="once-icon-button" type="button" data-once-menu-close aria-label="<?= h(sblog_t('关闭菜单')) ?>" title="<?= h(sblog_t('关闭菜单')) ?>"><?= once_icon('close', 20) ?></button></div>
-      <nav aria-label="<?= h(sblog_t('移动导航')) ?>"><ul><?php foreach ($navItems as $item): ?><li><a<?= $item['active'] ? ' class="is-active" aria-current="page"' : '' ?> href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></li><?php endforeach; ?></ul></nav>
+      <nav aria-label="<?= h(sblog_t('移动导航')) ?>"><ul>
+        <?php if ($managedMenu): ?>
+          <?= sblog_menu_render($themeContext, ['item_tag' => 'li', 'active_class' => 'is-active']) ?>
+        <?php else: ?>
+          <?php foreach ($navItems as $item): ?><li><a<?= $item['active'] ? ' class="is-active" aria-current="page"' : '' ?> href="<?= h((string)$item['url']) ?>"><?= h((string)$item['label']) ?></a></li><?php endforeach; ?>
+        <?php endif; ?>
+      </ul></nav>
     </aside>
 
     <div class="once-container once-main">
