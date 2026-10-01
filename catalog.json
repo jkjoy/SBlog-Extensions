@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-01T23:03:32+00:00",
+    "updated_at": "2026-10-01T23:35:04+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -104,15 +104,15 @@
             "type": "plugin",
             "slug": "gallery",
             "name": "图库",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "author": "Simple PHP Blog",
             "description": "从媒体库或本地上传图片，按分类发布自适应图库与无障碍灯箱。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.8",
             "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-gallery-v1.0.1/plugin-gallery-1.0.1.zip",
-            "sha256": "19cfe5bde75a7064864316ba2da0daefbbd2b51197e959eb657d22abe39cc26a",
-            "source_sha256": "e86d5c57d2455c5d7e3f53097378be31832627750214ff49cfcf955969721a23"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-gallery-v1.0.2/plugin-gallery-1.0.2.zip",
+            "sha256": "af182c1757bfbb7c1ae193bcc19c2944650af7cbc6d761be0a5998d7b799bad7",
+            "source_sha256": "91d87d58a9ffba58ff57e34b4950b18a724dc0d526225cb2823eda0bdc8d2bc7"
         },
         {
             "type": "plugin",
