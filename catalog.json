@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-02T03:04:59+00:00",
+    "updated_at": "2026-10-02T03:08:35+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -225,6 +225,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-typecho-importer-v1.0.1/plugin-typecho-importer-1.0.1.zip",
             "sha256": "49a448a61eb65e3f2cb9ed5c7659e98b4db70cb72f4bb12c1aa6680e292f4ab5",
             "source_sha256": "8a42b3db10cd75d7302fabd4f0a2a81a1f3c04955bc5e48c64647a7b465169a9"
+        },
+        {
+            "type": "plugin",
+            "slug": "visit-log",
+            "name": "访问日志",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "在后台查看每日访问统计、小时分布和详细访问日志，支持日期、IP、页面与访客类型筛选及自动清理。",
+            "homepage": "https://github.com/jkjoy/Simple-PHP-Blog",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-visit-log-v1.0.0/plugin-visit-log-1.0.0.zip",
+            "sha256": "62c067abdfd304a0b8381711f49f10b56186c04c71517640933f67a3a2f3e4fd",
+            "source_sha256": "6afbc41b7935dc2306f9b18cd0a63315185cb307525ede84042ea2cc67401784"
         },
         {
             "type": "theme",
