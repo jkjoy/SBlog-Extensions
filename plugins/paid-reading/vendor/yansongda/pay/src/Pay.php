@@ -1,0 +1,185 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Yansongda\Pay;
+
+use Closure;
+use Psr\Container\ContainerInterface;
+use Yansongda\Artful\Artful;
+use Yansongda\Artful\Contract\ConfigInterface;
+use Yansongda\Artful\Event\ArtfulEnd;
+use Yansongda\Artful\Event\ArtfulStart;
+use Yansongda\Artful\Event\HttpEnd;
+use Yansongda\Artful\Event\HttpStart;
+use Yansongda\Artful\Exception\ContainerException;
+use Yansongda\Artful\Exception\ServiceNotFoundException;
+use Yansongda\Pay\Provider\Airwallex;
+use Yansongda\Pay\Provider\Alipay;
+use Yansongda\Pay\Provider\Allinpay;
+use Yansongda\Pay\Provider\Bestpay;
+use Yansongda\Pay\Provider\Douyin;
+use Yansongda\Pay\Provider\Jsb;
+use Yansongda\Pay\Provider\Paypal;
+use Yansongda\Pay\Provider\Stripe;
+use Yansongda\Pay\Provider\Unipay;
+use Yansongda\Pay\Provider\Wechat;
+use Yansongda\Pay\Service\AirwallexServiceProvider;
+use Yansongda\Pay\Service\AlipayServiceProvider;
+use Yansongda\Pay\Service\AllinpayServiceProvider;
+use Yansongda\Pay\Service\BestpayServiceProvider;
+use Yansongda\Pay\Service\DouyinServiceProvider;
+use Yansongda\Pay\Service\JsbServiceProvider;
+use Yansongda\Pay\Service\PaypalServiceProvider;
+use Yansongda\Pay\Service\StripeServiceProvider;
+use Yansongda\Pay\Service\UnipayServiceProvider;
+use Yansongda\Pay\Service\WechatServiceProvider;
+
+/**
+ * @method static Alipay    alipay(array<string, mixed> $config = [], $container = null)
+ * @method static Airwallex airwallex(array<string, mixed> $config = [], $container = null)
+ * @method static Wechat    wechat(array<string, mixed> $config = [], $container = null)
+ * @method static Unipay    unipay(array<string, mixed> $config = [], $container = null)
+ * @method static Jsb       jsb(array<string, mixed> $config = [], $container = null)
+ * @method static Douyin    douyin(array<string, mixed> $config = [], $container = null)
+ * @method static Paypal    paypal(array<string, mixed> $config = [], $container = null)
+ * @method static Stripe    stripe(array<string, mixed> $config = [], $container = null)
+ * @method static Allinpay  allinpay(array<string, mixed> $config = [], $container = null)
+ * @method static Bestpay   bestpay(array<string, mixed> $config = [], $container = null)
+ */
+class Pay
+{
+    /**
+     * Provider 名称常量.
+     */
+    public const PROVIDER_WECHAT = 'wechat';
+    public const PROVIDER_ALIPAY = 'alipay';
+    public const PROVIDER_AIRWALLEX = 'airwallex';
+    public const PROVIDER_UNIPAY = 'unipay';
+    public const PROVIDER_JSB = 'jsb';
+    public const PROVIDER_DOUYIN = 'douyin';
+    public const PROVIDER_PAYPAL = 'paypal';
+    public const PROVIDER_STRIPE = 'stripe';
+    public const PROVIDER_ALLINPAY = 'allinpay';
+    public const PROVIDER_BESTPAY = 'bestpay';
+
+    /**
+     * 正常模式.
+     */
+    public const MODE_NORMAL = 0;
+
+    /**
+     * 沙箱模式.
+     */
+    public const MODE_SANDBOX = 1;
+
+    /**
+     * 服务商模式.
+     */
+    public const MODE_SERVICE = 2;
+
+    /**
+     * @var array<class-string>
+     */
+    protected static array $providers = [
+        AlipayServiceProvider::class,
+        AirwallexServiceProvider::class,
+        WechatServiceProvider::class,
+        UnipayServiceProvider::class,
+        JsbServiceProvider::class,
+        DouyinServiceProvider::class,
+        PaypalServiceProvider::class,
+        StripeServiceProvider::class,
+        AllinpayServiceProvider::class,
+        BestpayServiceProvider::class,
+    ];
+
+    /**
+     * @param array<string, mixed> $config
+     *
+     * @return mixed
+     *
+     * @throws ContainerException
+     * @throws ServiceNotFoundException
+     */
+    public static function __callStatic(string $service, array $config = [])
+    {
+        if (!empty($config)) {
+            self::config(...$config);
+        }
+
+        return Artful::get($service);
+    }
+
+    /**
+     * @param array<string, mixed>|Config $config
+     *
+     * @throws ContainerException
+     */
+    public static function config(array|Config $config = [], Closure|ContainerInterface|null $container = null): bool
+    {
+        $force = is_array($config) && ($config['_force'] ?? false);
+
+        if (!$force && self::isAlreadyConfigured()) {
+            return false;
+        }
+
+        $configObject = is_array($config) ? new Config($config) : $config;
+        $runtimeConfig = $configObject->all();
+
+        // Force Artful::config() to execute by setting _force in runtime config
+        $runtimeConfig['_force'] = true;
+
+        $result = Artful::config($runtimeConfig, $container);
+
+        if ($result) {
+            Event::addListener(ArtfulStart::class, [PayListener::class, 'artfulStart']);
+            Event::addListener(ArtfulEnd::class, [PayListener::class, 'artfulEnd']);
+            Event::addListener(HttpStart::class, [PayListener::class, 'httpStart']);
+            Event::addListener(HttpEnd::class, [PayListener::class, 'httpEnd']);
+        }
+
+        foreach (self::$providers as $provider) {
+            Artful::load($provider);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @throws ContainerException
+     */
+    public static function set(string $name, mixed $value): void
+    {
+        Artful::set($name, $value);
+    }
+
+    /**
+     * @throws ContainerException
+     * @throws ServiceNotFoundException
+     */
+    public static function get(string $service): mixed
+    {
+        return Artful::get($service);
+    }
+
+    public static function setContainer(Closure|ContainerInterface|null $container): void
+    {
+        Artful::setContainer($container);
+    }
+
+    public static function clear(): void
+    {
+        Artful::clear();
+        CertManager::clearCache();
+    }
+
+    private static function isAlreadyConfigured(): bool
+    {
+        try {
+            return Artful::has(ConfigInterface::class);
+        } catch (ContainerException) {
+            return false;
+        }
+    }
+}

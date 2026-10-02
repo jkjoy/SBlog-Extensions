@@ -1,0 +1,28 @@
+{
+    "name": "sblog/paid-reading",
+    "description": "SBlog paid article access with the jkjoy/pay SDK",
+    "type": "project",
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/jkjoy/pay"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "ext-openssl": "*",
+        "ext-json": "*",
+        "ext-bcmath": "*",
+        "ext-simplexml": "*",
+        "ext-libxml": "*",
+        "yansongda/pay": "dev-master#d1b354bc7808d00b75dd7b2038eb5359e90bafec",
+        "guzzlehttp/guzzle": "^7.9",
+        "hyperf/pimple": "^2.2"
+    },
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": false,
+        "sort-packages": true
+    }
+}

@@ -171,3 +171,11 @@ foreach (['test-menu-manager.php', 'test-menu-manager-themes.php'] as $menuTest)
         store_fail('Menu manager tests failed: ' . $menuTest);
     }
 }
+
+foreach (['test-paid-reading.php', 'test-paid-reading-payment.php'] as $paidReadingTest) {
+    $paidReadingCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/' . $paidReadingTest);
+    passthru($paidReadingCommand, $paidReadingStatus);
+    if ($paidReadingStatus !== 0) {
+        store_fail('Paid reading tests failed: ' . $paidReadingTest);
+    }
+}
