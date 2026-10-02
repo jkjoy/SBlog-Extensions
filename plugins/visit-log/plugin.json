@@ -1,0 +1,10 @@
+{
+  "name": "访问日志",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/Simple-PHP-Blog",
+  "description": "在后台查看每日访问统计、小时分布和详细访问日志，支持日期、IP、页面与访客类型筛选及自动清理。",
+  "settings_action": "admin_visit_log"
+}

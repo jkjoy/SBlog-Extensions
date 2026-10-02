@@ -185,3 +185,9 @@ passthru($snsLoginCommand, $snsLoginStatus);
 if ($snsLoginStatus !== 0) {
     store_fail('SNS login tests failed.');
 }
+
+$visitLogCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-visit-log.php');
+passthru($visitLogCommand, $visitLogStatus);
+if ($visitLogStatus !== 0) {
+    store_fail('Visit log tests failed.');
+}
