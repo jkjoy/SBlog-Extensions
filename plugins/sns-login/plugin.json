@@ -1,0 +1,10 @@
+{
+  "name": "第三方 SNS 登录",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "为已有后台账号绑定 GitHub、Google、Linux.do、QQ 等第三方身份，支持安全授权登录和独立解绑。",
+  "settings_action": "admin_sns_login"
+}

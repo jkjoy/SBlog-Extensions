@@ -179,3 +179,9 @@ foreach (['test-paid-reading.php', 'test-paid-reading-payment.php', 'test-paid-r
         store_fail('Paid reading tests failed: ' . $paidReadingTest);
     }
 }
+
+$snsLoginCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-sns-login.php');
+passthru($snsLoginCommand, $snsLoginStatus);
+if ($snsLoginStatus !== 0) {
+    store_fail('SNS login tests failed.');
+}
