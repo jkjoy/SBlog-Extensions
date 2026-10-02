@@ -140,6 +140,8 @@ function pr_render_admin(): void
     $pageValue = $_GET['page'] ?? 1;
     $page = max(1, is_scalar($pageValue) ? (int)$pageValue : 1);
     $orders = $tab === 'orders' ? pr_orders($page) : [];
+    $sdkBundled = is_file(dirname(__DIR__) . '/vendor/autoload.php')
+        && is_file(dirname(__DIR__) . '/vendor/yansongda/pay/src/Pay.php');
     ob_start(); ?>
     <div class="admin-shell">
       <?= render_admin_sidebar('plugins') ?>
@@ -149,7 +151,9 @@ function pr_render_admin(): void
           <nav class="pr-admin__tabs" aria-label="<?= h(sblog_t('付费阅读管理')) ?>"><a href="<?= h(pr_url('admin_paid_reading')) ?>"<?= $tab === 'settings' ? ' aria-current="page"' : '' ?>><?= h(sblog_t('支付设置')) ?></a><a href="<?= h(pr_url('admin_paid_reading', ['tab' => 'orders'])) ?>"<?= $tab === 'orders' ? ' aria-current="page"' : '' ?>><?= h(sblog_t('订单与权限')) ?></a></nav>
           <?php if ($tab === 'settings'): ?>
             <section class="panel pr-admin__setup"><div class="panel__header"><h2><?= h(sblog_t('收款准备')) ?></h2><p class="panel__meta"><?= h(sblog_t('支持支付宝电脑网站 / 手机网站支付和微信 H5 支付。付款确认后解锁当前文章。')) ?></p></div><div class="panel__body">
-              <p class="field-hint"><?= h(sblog_t('插件已附带支付 SDK，需要 PHP 8.2 或更新版本。手动部署或恢复依赖时，可在插件目录执行：')) ?></p><pre class="pr-admin__command"><code>composer install --no-dev --prefer-dist</code></pre>
+              <?php if (!$sdkBundled): ?>
+              <p class="field-hint"><?= h(sblog_t('支付 SDK 尚未安装，需要 PHP 8.2 或更新版本。请在插件目录执行：')) ?></p><pre class="pr-admin__command"><code>composer install --no-dev --prefer-dist --no-plugins --no-scripts</code></pre>
+              <?php endif; ?>
               <p class="field-hint"><?= h(sblog_t('站点地址必须在站点设置中配置为可公网访问的 HTTPS 地址，支付平台会向此地址发送付款通知。证书文件建议存放在网站公开目录之外。')) ?></p>
               <div class="pr-admin__readiness"><?php foreach (['alipay' => '支付宝', 'wechat' => '微信支付'] as $channel => $label): $ready = pr_payment_ready($settings, $channel); ?><span class="pr-badge <?= $ready ? 'pr-badge--paid' : 'pr-badge--pending' ?>"><?= h(sblog_t($label)) ?> · <?= h(sblog_t($ready ? '已就绪' : '待配置')) ?></span><?php endforeach; ?></div>
             </div></section>
