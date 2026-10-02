@@ -12,6 +12,23 @@ function pr_admin_request(array $context): void
         pr_save_settings();
         exit;
     }
+    if ($action === 'bind_paid_reading_order_email') {
+        $fallback = pr_url('admin_paid_reading', ['tab' => 'orders']);
+        require_admin_post($fallback);
+        try {
+            if (pr_scalar($_POST['payment_checked'] ?? '') !== '1') {
+                throw new DomainException('请先核实购买者的支付凭证，再补录邮箱。');
+            }
+            pr_bind_order_email_admin(pr_scalar($_POST['order_no'] ?? ''), pr_scalar($_POST['buyer_email'] ?? ''));
+            set_flash('success', '订单邮箱已补录，购买者可通过该邮箱验证码恢复阅读。');
+        } catch (DomainException $exception) {
+            set_flash('error', $exception->getMessage());
+        } catch (Throwable $exception) {
+            error_log('Paid reading legacy email binding failed (' . get_class($exception) . ').');
+            set_flash('error', '邮箱补录失败，请稍后重试。');
+        }
+        redirect_to($fallback, 303);
+    }
     if ($action !== 'revoke_paid_reading_order') {
         return;
     }
@@ -155,6 +172,8 @@ function pr_render_admin(): void
               <p class="field-hint"><?= h(sblog_t('支付 SDK 尚未安装，需要 PHP 8.2 或更新版本。请在插件目录执行：')) ?></p><pre class="pr-admin__command"><code>composer install --no-dev --prefer-dist --no-plugins --no-scripts</code></pre>
               <?php endif; ?>
               <p class="field-hint"><?= h(sblog_t('站点地址必须在站点设置中配置为可公网访问的 HTTPS 地址，支付平台会向此地址发送付款通知。证书文件建议存放在网站公开目录之外。')) ?></p>
+              <p class="field-hint">购买前需要验证邮箱，以便换设备或清除 Cookie 后找回已购文章。请启用「邮件通知」插件并配置 SMTP 邮件服务。</p>
+              <p class="field-hint"><?= pr_recovery_mail_ready() ? '邮箱恢复服务已配置。' : '邮箱恢复服务尚未配置，新购买暂不开放；已有购买仍可阅读。' ?> <a href="<?= h(script_url() . '?a=admin_mail') ?>">配置邮件服务</a></p>
               <div class="pr-admin__readiness"><?php foreach (['alipay' => '支付宝', 'wechat' => '微信支付'] as $channel => $label): $ready = pr_payment_ready($settings, $channel); ?><span class="pr-badge <?= $ready ? 'pr-badge--paid' : 'pr-badge--pending' ?>"><?= h(sblog_t($label)) ?> · <?= h(sblog_t($ready ? '已就绪' : '待配置')) ?></span><?php endforeach; ?></div>
             </div></section>
             <form class="form-stack pr-admin__settings" method="post" action="<?= h(pr_url('save_paid_reading_settings')) ?>">
@@ -182,7 +201,9 @@ function pr_render_admin(): void
             <section class="panel"><div class="panel__header"><h2><?= h(sblog_t('阅读订单')) ?> <span class="pr-admin__count"><?= (int)($orders['total'] ?? 0) ?></span></h2><p class="panel__meta"><?= h(sblog_t('撤销权限会立即停止该订单的阅读授权。退款需在支付平台处理。')) ?></p></div>
               <?php if (($orders['items'] ?? []) === []): ?><div class="panel__body pr-admin__empty"><strong><?= h(sblog_t('还没有阅读订单')) ?></strong><p><?= h(sblog_t('读者购买文章后，可在这里查看支付状态和管理权限。')) ?></p></div><?php else: ?>
                 <div class="table-wrap pr-admin__orders"><table><thead><tr><th><?= h(sblog_t('订单 / 文章')) ?></th><th><?= h(sblog_t('金额 / 渠道')) ?></th><th><?= h(sblog_t('状态')) ?></th><th><?= h(sblog_t('创建 / 付款时间')) ?></th><th><?= h(sblog_t('权限')) ?></th></tr></thead><tbody><?php foreach ($orders['items'] as $order): $status = (string)$order['status']; $statusLabel = ['pending' => '待支付', 'paid' => '已支付', 'revoked' => '已撤销'][$status] ?? '未知'; ?>
-                  <tr><td><strong><?= h((string)($order['title'] ?? '')) ?></strong><br><code><?= h((string)$order['order_no']) ?></code><small class="pr-admin__post-id"><?= h(sblog_t('文章')) ?> #<?= (int)$order['post_id'] ?></small></td><td><strong>¥<?= h(pr_format_money((int)$order['amount_cents'])) ?></strong><br><small><?= h(sblog_t($order['channel'] === 'alipay' ? '支付宝' : '微信支付')) ?></small></td><td><span class="pr-badge pr-badge--<?= h(in_array($status, ['pending', 'paid', 'revoked'], true) ? $status : 'revoked') ?>"><?= h(sblog_t($statusLabel)) ?></span></td><td><span><?= h(date('Y-m-d H:i', (int)$order['created_at'])) ?></span><br><small><?= (int)($order['paid_at'] ?? 0) > 0 ? h(date('Y-m-d H:i', (int)$order['paid_at'])) : '—' ?></small></td><td><?php if ($status === 'paid'): ?><form method="post" action="<?= h(pr_url('revoke_paid_reading_order')) ?>"><?= csrf_field() ?><input type="hidden" name="order_no" value="<?= h((string)$order['order_no']) ?>"><button class="button button--secondary button--compact" type="submit"><?= h(sblog_t('撤销权限')) ?></button></form><?php else: ?><span class="field-hint">—</span><?php endif; ?></td></tr>
+                  <tr><td><strong><?= h((string)($order['title'] ?? '')) ?></strong><br><code><?= h((string)$order['order_no']) ?></code><small class="pr-admin__post-id"><?= h(sblog_t('文章')) ?> #<?= (int)$order['post_id'] ?></small><small class="pr-admin__post-id">购买邮箱：<?= (string)$order['buyer_email'] !== '' ? h((string)$order['buyer_email']) : '尚未绑定' ?></small></td><td><strong>¥<?= h(pr_format_money((int)$order['amount_cents'])) ?></strong><br><small><?= h(sblog_t($order['channel'] === 'alipay' ? '支付宝' : '微信支付')) ?></small></td><td><span class="pr-badge pr-badge--<?= h(in_array($status, ['pending', 'paid', 'revoked'], true) ? $status : 'revoked') ?>"><?= h(sblog_t($statusLabel)) ?></span></td><td><span><?= h(date('Y-m-d H:i', (int)$order['created_at'])) ?></span><br><small><?= (int)($order['paid_at'] ?? 0) > 0 ? h(date('Y-m-d H:i', (int)$order['paid_at'])) : '—' ?></small></td><td><?php if ($status === 'paid'): ?><form method="post" action="<?= h(pr_url('revoke_paid_reading_order')) ?>"><?= csrf_field() ?><input type="hidden" name="order_no" value="<?= h((string)$order['order_no']) ?>"><button class="button button--secondary button--compact" type="submit"><?= h(sblog_t('撤销权限')) ?></button></form>
+                    <?php if ((string)$order['buyer_email'] === ''): ?><details class="pr-admin__legacy-email"><summary>为旧订单补录邮箱</summary><form class="form-stack" method="post" action="<?= h(pr_url('bind_paid_reading_order_email')) ?>"><?= csrf_field() ?><input type="hidden" name="order_no" value="<?= h((string)$order['order_no']) ?>"><input type="email" name="buyer_email" maxlength="254" aria-label="购买者邮箱" placeholder="购买者邮箱" required><label><input type="checkbox" name="payment_checked" value="1" required> 已核实购买者的支付凭证</label><small class="field-hint">仅用于旧订单。补录后，购买者仍须验证邮箱；已绑定邮箱不能替换。</small><button class="button button--secondary button--compact" type="submit">补录邮箱</button></form></details><?php endif; ?>
+                    <?php else: ?><span class="field-hint">—</span><?php endif; ?></td></tr>
                 <?php endforeach; ?></tbody></table></div>
               <?php endif; ?>
               <?php $pages = max(1, (int)ceil((int)($orders['total'] ?? 0) / max(1, (int)($orders['per_page'] ?? 20)))); $currentPage = max(1, (int)($orders['page'] ?? $page)); if ($pages > 1): ?><nav class="admin-pagination pr-admin__pagination" aria-label="<?= h(sblog_t('订单分页')) ?>"><?php if ($currentPage > 1): ?><a href="<?= h(pr_url('admin_paid_reading', ['tab' => 'orders', 'page' => $currentPage - 1])) ?>"><?= h(sblog_t('上一页')) ?></a><?php endif; ?><span aria-current="page"><?= $currentPage ?> / <?= $pages ?></span><?php if ($currentPage < $pages): ?><a href="<?= h(pr_url('admin_paid_reading', ['tab' => 'orders', 'page' => $currentPage + 1])) ?>"><?= h(sblog_t('下一页')) ?></a><?php endif; ?></nav><?php endif; ?>

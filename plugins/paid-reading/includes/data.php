@@ -20,33 +20,71 @@ function pr_settings(): array
 
 function pr_install(): void
 {
-    db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_content (
-        reference TEXT PRIMARY KEY,
-        post_id INTEGER,
-        source_markdown TEXT NOT NULL,
-        public_markdown TEXT NOT NULL,
-        paid_markdown TEXT NOT NULL,
-        price_cents INTEGER NOT NULL CHECK(price_cents > 0),
-        updated_at INTEGER NOT NULL
-    )");
-    db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_orders (
-        order_no TEXT PRIMARY KEY,
-        post_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        buyer_hash TEXT NOT NULL,
-        amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
-        channel TEXT NOT NULL CHECK(channel IN ('alipay', 'wechat')),
-        merchant_id TEXT NOT NULL,
-        app_id TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'paid', 'revoked')),
-        trade_no TEXT,
-        created_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        paid_at INTEGER,
-        UNIQUE(channel, trade_no)
-    )");
-    db()->exec('CREATE INDEX IF NOT EXISTS idx_pr_reader ON sblog_paid_reading_orders(buyer_hash, post_id, status)');
-    db()->exec('CREATE INDEX IF NOT EXISTS idx_pr_created ON sblog_paid_reading_orders(created_at)');
+    pr_transaction(static function (): void {
+        db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_content (
+            reference TEXT PRIMARY KEY,
+            post_id INTEGER,
+            source_markdown TEXT NOT NULL,
+            public_markdown TEXT NOT NULL,
+            paid_markdown TEXT NOT NULL,
+            price_cents INTEGER NOT NULL CHECK(price_cents > 0),
+            updated_at INTEGER NOT NULL
+        )");
+        db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_orders (
+            order_no TEXT PRIMARY KEY,
+            post_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            buyer_hash TEXT NOT NULL,
+            buyer_email TEXT NOT NULL DEFAULT '',
+            amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+            channel TEXT NOT NULL CHECK(channel IN ('alipay', 'wechat')),
+            merchant_id TEXT NOT NULL,
+            app_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'paid', 'revoked')),
+            trade_no TEXT,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            paid_at INTEGER,
+            UNIQUE(channel, trade_no)
+        )");
+        $columns = db()->query('PRAGMA table_info(sblog_paid_reading_orders)')->fetchAll(PDO::FETCH_ASSOC);
+        if (!in_array('buyer_email', array_column($columns, 'name'), true)) {
+            db()->exec("ALTER TABLE sblog_paid_reading_orders ADD COLUMN buyer_email TEXT NOT NULL DEFAULT ''");
+        }
+        db()->exec('CREATE INDEX IF NOT EXISTS idx_pr_reader ON sblog_paid_reading_orders(buyer_hash, post_id, status)');
+        db()->exec('CREATE INDEX IF NOT EXISTS idx_pr_created ON sblog_paid_reading_orders(created_at)');
+        db()->exec('CREATE INDEX IF NOT EXISTS idx_pr_email ON sblog_paid_reading_orders(buyer_email, status, post_id)');
+        db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_devices (
+            buyer_hash TEXT NOT NULL,
+            email TEXT NOT NULL,
+            verified_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            PRIMARY KEY(buyer_hash, email)
+        )");
+        db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_retired_devices (
+            buyer_hash TEXT PRIMARY KEY,
+            retired_at INTEGER NOT NULL
+        )");
+        db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_challenges (
+            id TEXT PRIMARY KEY,
+            buyer_hash TEXT NOT NULL,
+            email TEXT NOT NULL,
+            code_hash TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            consumed_at INTEGER
+        )");
+        db()->exec('CREATE INDEX IF NOT EXISTS idx_pr_challenge_expiry ON sblog_paid_reading_challenges(expires_at)');
+        db()->exec("CREATE TABLE IF NOT EXISTS sblog_paid_reading_recovery_rate (
+            scope TEXT NOT NULL,
+            key_hash TEXT NOT NULL,
+            window_start INTEGER NOT NULL,
+            hits INTEGER NOT NULL,
+            last_sent INTEGER NOT NULL,
+            PRIMARY KEY(scope, key_hash)
+        )");
+    });
 }
 
 function pr_transaction(callable $callback): mixed
@@ -142,6 +180,10 @@ function pr_error(string $message, int $status = 400): never
 function pr_buyer_hash(bool $create = false): string
 {
     $token = pr_scalar($_COOKIE['sblog_paid_reader'] ?? '');
+    if (preg_match('/^[a-f0-9]{64}$/D', $token)
+        && val('SELECT 1 FROM sblog_paid_reading_retired_devices WHERE buyer_hash = ?', [hash('sha256', $token)])) {
+        $token = '';
+    }
     if (!preg_match('/^[a-f0-9]{64}$/D', $token)) {
         if (!$create || headers_sent() || pr_base_url() === '') {
             return '';
@@ -173,8 +215,12 @@ function pr_can_read(int $postId): bool
     }
     $buyer = pr_buyer_hash();
     return $buyer !== '' && (bool)val(
-        "SELECT 1 FROM sblog_paid_reading_orders WHERE post_id = ? AND buyer_hash = ? AND status = 'paid' LIMIT 1",
-        [$postId, $buyer]
+        "SELECT 1 FROM sblog_paid_reading_orders o WHERE o.post_id = ? AND o.status = 'paid'
+         AND (o.buyer_hash = ? OR EXISTS (
+             SELECT 1 FROM sblog_paid_reading_devices d WHERE d.buyer_hash = ?
+             AND d.email = o.buyer_email AND d.expires_at > ?
+         )) LIMIT 1",
+        [$postId, $buyer, $buyer, time()]
     );
 }
 
@@ -184,7 +230,12 @@ function pr_owned_order(string $orderNo): ?array
         return null;
     }
     $order = one('SELECT * FROM sblog_paid_reading_orders WHERE order_no = ?', [$orderNo]);
-    if ($order === null || (!is_admin() && !hash_equals((string)$order['buyer_hash'], pr_buyer_hash()))) {
+    $buyer = pr_buyer_hash();
+    $emailOwner = $order !== null && $buyer !== '' && (string)$order['buyer_email'] !== '' && (bool)val(
+        'SELECT 1 FROM sblog_paid_reading_devices WHERE buyer_hash = ? AND email = ? AND expires_at > ? LIMIT 1',
+        [$buyer, $order['buyer_email'], time()]
+    );
+    if ($order === null || (!is_admin() && !hash_equals((string)$order['buyer_hash'], $buyer) && !$emailOwner)) {
         return null;
     }
     return $order;
@@ -197,6 +248,9 @@ function pr_create_order(array $post, array $record, string $channel): array
         || pr_base_url() === '') {
         throw new DomainException('所选支付方式尚未配置完成。');
     }
+    if (!pr_recovery_mail_ready()) {
+        throw new DomainException('站点邮箱服务暂未就绪，暂时无法创建新购买。');
+    }
     if (!is_live_content($post) || !content_password_is_unlocked($post)) {
         throw new DomainException('此内容暂时无法购买。');
     }
@@ -204,22 +258,104 @@ function pr_create_order(array $post, array $record, string $channel): array
     if ($buyer === '') {
         throw new DomainException('请允许浏览器 Cookie，重新打开文章后购买。');
     }
-    return pr_transaction(static function () use ($post, $record, $channel, $settings, $buyer): array {
+    $email = pr_verified_email();
+    if ($email === '') {
+        throw new DomainException('请先验证购买邮箱，以便换设备后恢复阅读权限。');
+    }
+    return pr_transaction(static function () use ($post, $record, $channel, $settings, $buyer, $email): array {
         if ((int)val('SELECT COUNT(*) FROM sblog_paid_reading_orders WHERE buyer_hash = ? AND created_at > ?', [$buyer, time() - 60]) >= 5) {
             throw new DomainException('创建订单过于频繁，请一分钟后重试。');
         }
         $order = [
             'order_no' => 'PR' . bin2hex(random_bytes(15)), 'post_id' => (int)$post['id'],
-            'title' => mb_substr((string)$post['title'], 0, 80, 'UTF-8'), 'buyer_hash' => $buyer,
+            'title' => mb_substr((string)$post['title'], 0, 80, 'UTF-8'), 'buyer_hash' => $buyer, 'buyer_email' => $email,
             'amount_cents' => (int)$record['price_cents'], 'channel' => $channel,
             'merchant_id' => $channel === 'alipay' ? $settings['alipay_seller_id'] : $settings['wechat_mch_id'],
             'app_id' => $channel === 'alipay' ? $settings['alipay_app_id'] : $settings['wechat_app_id'],
             'status' => 'pending', 'created_at' => time(),
             'expires_at' => time() + max(5, min(120, (int)$settings['order_ttl'])) * 60,
         ];
-        q('INSERT INTO sblog_paid_reading_orders(order_no, post_id, title, buyer_hash, amount_cents, channel, merchant_id, app_id, status, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', array_values($order));
+        q('INSERT INTO sblog_paid_reading_orders(order_no, post_id, title, buyer_hash, buyer_email, amount_cents, channel, merchant_id, app_id, status, created_at, expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', array_values($order));
         return $order;
     });
+}
+
+/** Bind only purchases proven by the current browser and a verified email. */
+function pr_bind_legacy_orders(string $email, string $buyer): int
+{
+    if ($buyer === '' || !hash_equals($buyer, pr_buyer_hash()) || !preg_match('/^[a-f0-9]{64}$/D', $buyer) || pr_normalize_email($email) !== $email
+        || !val('SELECT 1 FROM sblog_paid_reading_devices WHERE buyer_hash = ? AND email = ? AND expires_at > ?', [$buyer, $email, time()])) {
+        throw new DomainException('请先验证邮箱后绑定购买记录。');
+    }
+    return q("UPDATE sblog_paid_reading_orders SET buyer_email = ?
+        WHERE buyer_hash = ? AND buyer_email = '' AND status = 'paid'", [$email, $buyer])->rowCount();
+}
+
+/** Administrator-assisted migration when the original browser cookie is lost. */
+function pr_bind_order_email_admin(string $orderNo, string $email): void
+{
+    if (!is_admin()) {
+        throw new DomainException('没有管理购买记录的权限。');
+    }
+    $email = pr_normalize_email($email) ?? '';
+    if ($email === '') {
+        throw new DomainException('请输入有效的购买者邮箱。');
+    }
+    $updated = q("UPDATE sblog_paid_reading_orders SET buyer_email = ?
+        WHERE order_no = ? AND buyer_email = '' AND status = 'paid'", [$email, $orderNo]);
+    if ($updated->rowCount() !== 1) {
+        throw new DomainException('仅可为尚未绑定邮箱的已付款订单补录邮箱。');
+    }
+}
+
+function pr_forget_reader(): void
+{
+    if (headers_sent()) {
+        throw new RuntimeException('Cannot clear reader cookie after output.');
+    }
+    $buyer = pr_buyer_hash();
+    if ($buyer !== '') {
+        pr_transaction(static function () use ($buyer): void {
+            q('INSERT OR IGNORE INTO sblog_paid_reading_retired_devices(buyer_hash, retired_at) VALUES(?,?)', [$buyer, time()]);
+            q('DELETE FROM sblog_paid_reading_devices WHERE buyer_hash = ?', [$buyer]);
+            q('UPDATE sblog_paid_reading_challenges SET consumed_at = ? WHERE buyer_hash = ? AND consumed_at IS NULL', [time(), $buyer]);
+        });
+    }
+    $path = (string)(parse_url(pr_base_url(), PHP_URL_PATH) ?: '');
+    if (!setcookie('sblog_paid_reader', '', [
+        'expires' => time() - 3600, 'path' => rtrim($path, '/') . '/',
+        'secure' => true, 'httponly' => true, 'samesite' => 'Lax',
+    ])) {
+        throw new RuntimeException('Could not clear reader cookie.');
+    }
+    unset($_COOKIE['sblog_paid_reader']);
+}
+
+function pr_reader_purchases(): array
+{
+    $buyer = pr_buyer_hash();
+    if ($buyer === '') {
+        return [];
+    }
+    $rows = all_rows("SELECT o.order_no, o.post_id, o.title AS order_title,
+            p.title, p.slug, p.kind, p.status, p.published_at
+        FROM sblog_paid_reading_orders o LEFT JOIN posts p ON p.id = o.post_id
+        WHERE o.status = 'paid' AND (o.buyer_hash = ? OR EXISTS (
+            SELECT 1 FROM sblog_paid_reading_devices d WHERE d.buyer_hash = ?
+            AND d.email = o.buyer_email AND d.expires_at > ?
+        )) ORDER BY o.paid_at DESC, o.created_at DESC, o.order_no DESC", [$buyer, $buyer, time()]);
+    $items = [];
+    foreach ($rows as $row) {
+        if (isset($items[(int)$row['post_id']])) {
+            continue;
+        }
+        $row['id'] = (int)$row['post_id'];
+        $row['title'] = (string)($row['title'] ?? $row['order_title']);
+        $row['url'] = isset($row['status']) && is_live_content($row) ? content_permalink($row) : '';
+        unset($row['order_title']);
+        $items[(int)$row['post_id']] = $row;
+    }
+    return array_values($items);
 }
 
 /** Called only with a signature-verified, decrypted SDK notification. */
@@ -257,7 +393,17 @@ function pr_settle_order(string $channel, array $payment): bool
             // A retried callback cannot restore an entitlement revoked by the administrator.
             return hash_equals((string)$order['trade_no'], $trade);
         }
-        q("UPDATE sblog_paid_reading_orders SET status = 'paid', trade_no = ?, paid_at = ? WHERE order_no = ? AND status = 'pending'", [$trade, time(), $orderNo]);
+        $email = (string)$order['buyer_email'];
+        if ($email === '') {
+            // A pre-upgrade payment can arrive after its original browser has
+            // verified an email. Use that stored proof, never callback inputs.
+            $verified = val('SELECT d.email FROM sblog_paid_reading_devices d
+                WHERE d.buyer_hash = ? AND d.expires_at > ? AND NOT EXISTS (
+                    SELECT 1 FROM sblog_paid_reading_retired_devices r WHERE r.buyer_hash = d.buyer_hash
+                ) ORDER BY d.verified_at DESC, d.rowid DESC LIMIT 1', [$order['buyer_hash'], time()]);
+            $email = is_string($verified) ? (pr_normalize_email($verified) ?? '') : '';
+        }
+        q("UPDATE sblog_paid_reading_orders SET status = 'paid', trade_no = ?, paid_at = ?, buyer_email = ? WHERE order_no = ? AND status = 'pending'", [$trade, time(), $email, $orderNo]);
         return true;
     });
 }

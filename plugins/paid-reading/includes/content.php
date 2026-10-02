@@ -242,7 +242,9 @@ function pr_filter_output(string $html, array $context): string
             if (is_admin() || pr_can_read((int)$post['id'])) {
                 $privatePost = $post;
                 $privatePost['content'] = (string)$record['paid_markdown'];
-                return '<section class="paid-reading-unlocked">' . render_content_html($privatePost) . '</section>';
+                $link = !is_admin() ? '<p class="paid-reading-reader-link"><a href="'
+                    . h(pr_reader_url((int)$post['id'])) . '">我的已购文章 · 绑定或恢复购买邮箱</a></p>' : '';
+                return '<section class="paid-reading-unlocked">' . render_content_html($privatePost) . '</section>' . $link;
             }
             return pr_paywall($post, $record);
         }, $html);

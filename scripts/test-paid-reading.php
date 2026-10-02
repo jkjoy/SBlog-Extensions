@@ -43,11 +43,15 @@ function fetch_content_by_identifier(string $kind, string $identifier, bool $pre
     return $post !== null && ($preview || is_live_content($post)) ? $post : null;
 }
 function pr_payment_ready(array $settings, string $channel): bool { return true; }
+function send_site_mail(string $recipient, string $subject, string $body): bool { return false; }
+function sblog_mail_settings(): array { return ['smtp_enabled' => '1', 'smtp_host' => 'smtp.example.test', 'smtp_port' => '465', 'smtp_from_email' => 'blog@example.test']; }
 function csrf_field(): string { return '<input type="hidden" name="csrf_token" value="test-csrf">'; }
 function add_plugin_action(string $hook, callable $callback, int $priority = 10): void {}
 function add_plugin_filter(string $hook, callable $callback, int $priority = 10): void {}
 define('CACHE_DIR', sys_get_temp_dir() . '/pr-unused-test-cache');
 require dirname(__DIR__) . '/plugins/paid-reading/includes/data.php';
+require dirname(__DIR__) . '/plugins/paid-reading/includes/recovery.php';
+require dirname(__DIR__) . '/plugins/paid-reading/includes/reader.php';
 require dirname(__DIR__) . '/plugins/paid-reading/includes/content.php';
 require dirname(__DIR__) . '/plugins/paid-reading/includes/public.php';
 require dirname(__DIR__) . '/plugins/static-page-cache/plugin.php';
@@ -235,6 +239,7 @@ try {
     $public = pr_before_save(['content' => $source, 'excerpt' => 'Free preview'], ['post_id' => 1]);
     pr_test_assert(str_contains($public['content'], 'private-secret') && pr_reference($public['content']) === null, 'Deliberately disabling protection did not publish the source.');
 
+    q('INSERT INTO sblog_paid_reading_devices(buyer_hash,email,verified_at,expires_at) VALUES(?,?,?,?)', [pr_buyer_hash(), 'buyer@example.test', time(), time() + 600]);
     $created = pr_create_order(one('SELECT * FROM posts WHERE id = 1'), $record, 'alipay');
     pr_test_assert(strlen($created['order_no']) <= 32 && pr_owned_order($created['order_no']) !== null, 'Created order exceeds provider order-number limits or cannot be retrieved.');
     $bufferOutput = [];

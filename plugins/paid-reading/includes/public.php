@@ -5,8 +5,9 @@ function pr_paywall(array $post, array $record): string
 {
     $settings = pr_settings();
     $channels = [];
+    $email = pr_verified_email();
     foreach (['alipay' => '支付宝', 'wechat' => '微信 H5'] as $channel => $label) {
-        if (pr_base_url() !== '' && pr_payment_ready($settings, $channel)) {
+        if (pr_base_url() !== '' && pr_recovery_mail_ready() && pr_payment_ready($settings, $channel)) {
             $channels[$channel] = $label;
         }
     }
@@ -16,8 +17,9 @@ function pr_paywall(array $post, array $record): string
         . '<span class="paid-reading-wall__badge">付费阅读</span>'
         . '<h2 class="paid-reading-wall__title">解锁完整内容</h2>'
         . '<p class="paid-reading-wall__price"><small>¥</small>' . h(pr_format_money((int)$record['price_cents'])) . '</p>'
-        . '<p class="paid-reading-wall__hint">一次购买，在当前浏览器阅读此文章及后续更新。</p>';
-    if ($channels && is_live_content($post)) {
+        . '<p class="paid-reading-wall__hint">一次购买，邮箱验证后可在其他设备继续阅读。</p>';
+    if ($channels && is_live_content($post) && $email !== '') {
+        $html .= '<p class="paid-reading-wall__hint">购买邮箱：' . h($email) . '</p>';
         $html .= '<form class="paid-reading-wall__actions" method="post" action="' . h(pr_url('paid_reading_create')) . '">'
             . csrf_field() . '<input type="hidden" name="post_id" value="' . (int)$post['id'] . '">';
         foreach ($channels as $channel => $label) {
@@ -25,10 +27,13 @@ function pr_paywall(array $post, array $record): string
                 . h($channel) . '">' . h($label) . '购买</button>';
         }
         $html .= '</form>';
+    } elseif ($channels && is_live_content($post)) {
+        $html .= '<a class="paid-reading-button" href="' . h(pr_reader_url((int)$post['id'])) . '">验证邮箱并购买</a>';
     } else {
         $html .= '<p class="paid-reading-wall__status" role="status">支付暂未开放，请稍后再来。</p>';
     }
-    return $html . '<small class="paid-reading-wall__hint">请保留浏览器 Cookie。微信 H5 支付请在手机系统浏览器中打开。</small></aside>';
+    return $html . '<a class="paid-reading-reader-link" href="' . h(pr_reader_url((int)$post['id'])) . '">已购买？恢复阅读权限</a>'
+        . '<small class="paid-reading-wall__hint">微信 H5 支付请在手机系统浏览器中打开。</small></aside>';
 }
 
 function pr_order_state(array $order): string
@@ -65,7 +70,13 @@ function pr_render_return(array $order): void
         <?php if ($postUrl !== ''): ?><a class="paid-reading-button" href="<?= h($postUrl) ?>"><?= $state === 'paid' ? '阅读文章' : '返回文章' ?></a><?php endif; ?>
         <a class="paid-reading-button paid-reading-button--secondary" href="<?= h(pr_url('paid_reading_return', ['order' => $order['order_no']])) ?>">刷新订单状态</a>
       </div>
-      <small class="paid-reading-checkout__hint">购买权限保存在当前浏览器，请保留 Cookie。订单问题请向站点管理员提供订单号。</small>
+      <?php if ((string)$order['buyer_email'] !== ''): ?>
+      <p class="paid-reading-checkout__hint">购买邮箱：<?= h((string)$order['buyer_email']) ?>。换设备后，通过此邮箱验证即可恢复阅读。</p>
+      <?php else: ?>
+      <p class="paid-reading-checkout__hint">这笔订单尚未绑定邮箱，请在当前浏览器验证邮箱，保留跨设备找回方式。</p>
+      <?php endif; ?>
+      <a class="paid-reading-reader-link" href="<?= h(pr_reader_url((int)$order['post_id'])) ?>"><?= (string)$order['buyer_email'] === '' ? '绑定购买邮箱' : '查看我的已购文章' ?></a>
+      <small class="paid-reading-checkout__hint">订单问题请向站点管理员提供订单号。</small>
     </section>
     <?php
     render_layout('付费阅读订单', (string)ob_get_clean(), ['description' => '付费阅读订单', 'robots' => 'noindex,nofollow']);
@@ -110,6 +121,13 @@ function pr_public_request(array $context): void
             }
             if (pr_can_read((int)$post['id'])) {
                 redirect_to(content_permalink($post), 303);
+            }
+            if (pr_verified_email() === '') {
+                set_flash('error', '请先验证购买邮箱，以便以后换设备继续阅读。');
+                redirect_to(pr_reader_url((int)$post['id']), 303);
+            }
+            if (!pr_recovery_mail_ready()) {
+                throw new DomainException('站点邮箱服务暂未就绪，暂时无法创建新购买。');
             }
             $order = pr_create_order($post, $record, pr_scalar($_POST['channel'] ?? ''));
             $result = pr_payment_create($order, pr_settings());

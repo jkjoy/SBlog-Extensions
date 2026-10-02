@@ -172,7 +172,7 @@ foreach (['test-menu-manager.php', 'test-menu-manager-themes.php'] as $menuTest)
     }
 }
 
-foreach (['test-paid-reading.php', 'test-paid-reading-payment.php'] as $paidReadingTest) {
+foreach (['test-paid-reading.php', 'test-paid-reading-payment.php', 'test-paid-reading-recovery.php'] as $paidReadingTest) {
     $paidReadingCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/' . $paidReadingTest);
     passthru($paidReadingCommand, $paidReadingStatus);
     if ($paidReadingStatus !== 0) {
