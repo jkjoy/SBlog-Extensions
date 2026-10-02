@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-02T02:48:35+00:00",
+    "updated_at": "2026-10-02T03:03:30+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -183,6 +183,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-s3-storage-v1.0.2/plugin-s3-storage-1.0.2.zip",
             "sha256": "b0fb5da8357b2d76747b00da918050ecc03035b9171d0b11ad60b88660090881",
             "source_sha256": "202b2a6ac64fc5d48ab48a8bb0e0c03ae30c2e247b3186d8aa4ba5b0dcd5df9a"
+        },
+        {
+            "type": "plugin",
+            "slug": "sns-login",
+            "name": "第三方 SNS 登录",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "为已有后台账号绑定 GitHub、Google、Linux.do、QQ 等第三方身份，支持安全授权登录和独立解绑。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-sns-login-v1.0.0/plugin-sns-login-1.0.0.zip",
+            "sha256": "6b3995c21976d056a449d80495fc928e0a547e77a6408621480e368ef51a76ce",
+            "source_sha256": "52f61c6b9f1502b1d4d8e71b642ebc68d6d74ae27216c48bcdd79429cfebafc9"
         },
         {
             "type": "plugin",
