@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-02T01:32:00+00:00",
+    "updated_at": "2026-10-02T01:47:22+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -132,15 +132,15 @@
             "type": "plugin",
             "slug": "paid-reading",
             "name": "付费阅读",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "author": "Simple PHP Blog",
             "description": "文章定价、免费试读与访客购买，接入支付宝和微信支付，服务端隔离付费正文并管理阅读权限。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.8",
             "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-paid-reading-v1.0.0/plugin-paid-reading-1.0.0.zip",
-            "sha256": "d6c0c8add9d9b549e42033266492bd315442f8909b4e1d1f615598db3b61363c",
-            "source_sha256": "0caba68a1c7fe9a44acbb07b2c97a57f4cb6f69655c127bcae9b21b748ec4a93"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-paid-reading-v1.0.1/plugin-paid-reading-1.0.1.zip",
+            "sha256": "e67f4c631b74ad5ef49cde66b7863ef3d434e5075af8bd4ab9c5675e07891f25",
+            "source_sha256": "6dcea8c439703f461356731a37c7fc1e7a4721698c183a2d0f59b08dd3f33a65"
         },
         {
             "type": "plugin",
