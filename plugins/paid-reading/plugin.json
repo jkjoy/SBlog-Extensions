@@ -1,10 +1,10 @@
 {
   "name": "付费阅读",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "requires": "1.14.8",
   "tested": "1.14.8",
   "author": "Simple PHP Blog",
   "url": "https://github.com/jkjoy/SBlog-Extensions",
-  "description": "文章定价、免费试读与访客购买，接入支付宝和微信支付，支持邮箱验证恢复已购内容与跨设备阅读。",
+  "description": "依赖「邮件通知」插件，需先安装并启用该插件、配置 SMTP 才能开放付费购买。支持文章定价、免费试读、支付宝和微信支付，以及邮箱找回与跨设备阅读。",
   "settings_action": "admin_paid_reading"
 }

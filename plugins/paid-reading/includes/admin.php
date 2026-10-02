@@ -159,6 +159,8 @@ function pr_render_admin(): void
     $orders = $tab === 'orders' ? pr_orders($page) : [];
     $sdkBundled = is_file(dirname(__DIR__) . '/vendor/autoload.php')
         && is_file(dirname(__DIR__) . '/vendor/yansongda/pay/src/Pay.php');
+    $mailPluginEnabled = function_exists('sblog_mail_settings');
+    $mailReady = pr_recovery_mail_ready();
     ob_start(); ?>
     <div class="admin-shell">
       <?= render_admin_sidebar('plugins') ?>
@@ -172,8 +174,14 @@ function pr_render_admin(): void
               <p class="field-hint"><?= h(sblog_t('支付 SDK 尚未安装，需要 PHP 8.2 或更新版本。请在插件目录执行：')) ?></p><pre class="pr-admin__command"><code>composer install --no-dev --prefer-dist --no-plugins --no-scripts</code></pre>
               <?php endif; ?>
               <p class="field-hint"><?= h(sblog_t('站点地址必须在站点设置中配置为可公网访问的 HTTPS 地址，支付平台会向此地址发送付款通知。证书文件建议存放在网站公开目录之外。')) ?></p>
-              <p class="field-hint">购买前需要验证邮箱，以便换设备或清除 Cookie 后找回已购文章。请启用「邮件通知」插件并配置 SMTP 邮件服务。</p>
-              <p class="field-hint"><?= pr_recovery_mail_ready() ? '邮箱恢复服务已配置。' : '邮箱恢复服务尚未配置，新购买暂不开放；已有购买仍可阅读。' ?> <a href="<?= h(script_url() . '?a=admin_mail') ?>">配置邮件服务</a></p>
+              <p class="field-hint"><strong><?= h(sblog_t('启用条件：')) ?></strong><?= h(sblog_t('付费阅读依赖「邮件通知」插件。请先安装并启用该插件，再配置 SMTP 邮件服务，才能开放付费购买和邮箱找回。')) ?></p>
+              <?php if (!$mailPluginEnabled): ?>
+              <p class="field-hint" role="status"><strong><?= h(sblog_t('尚未启用「邮件通知」插件，付费购买暂不开放。')) ?></strong> <a href="<?= h(url_for('admin_plugins')) ?>"><?= h(sblog_t('前往插件管理启用')) ?></a></p>
+              <?php elseif (!$mailReady): ?>
+              <p class="field-hint" role="status"><strong><?= h(sblog_t('「邮件通知」插件已启用，SMTP 邮件服务尚未配置完成，付费购买暂不开放。')) ?></strong> <a href="<?= h(script_url() . '?a=admin_mail') ?>"><?= h(sblog_t('配置邮件服务')) ?></a></p>
+              <?php else: ?>
+              <p class="field-hint" role="status"><?= h(sblog_t('「邮件通知」插件已启用，邮箱恢复服务已配置。')) ?> <a href="<?= h(script_url() . '?a=admin_mail') ?>"><?= h(sblog_t('配置邮件服务')) ?></a></p>
+              <?php endif; ?>
               <div class="pr-admin__readiness"><?php foreach (['alipay' => '支付宝', 'wechat' => '微信支付'] as $channel => $label): $ready = pr_payment_ready($settings, $channel); ?><span class="pr-badge <?= $ready ? 'pr-badge--paid' : 'pr-badge--pending' ?>"><?= h(sblog_t($label)) ?> · <?= h(sblog_t($ready ? '已就绪' : '待配置')) ?></span><?php endforeach; ?></div>
             </div></section>
             <form class="form-stack pr-admin__settings" method="post" action="<?= h(pr_url('save_paid_reading_settings')) ?>">
