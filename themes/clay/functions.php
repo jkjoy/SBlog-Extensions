@@ -358,9 +358,9 @@ add_theme_filter('content', static function (string $content, array $context): s
         $post = fetch_post_by_identifier((string)($_GET['slug'] ?? ''), is_admin());
         if ($post) {
             $navigation = clay_render_post_navigation($post);
-            $content = preg_replace(
-                '/<ul class="pagination">.*?<\/ul>/si',
-                $navigation,
+            $content = preg_replace_callback(
+                '/<ul\b[^>]*\bclass="(?:[^"]*\s)?pagination(?:\s[^"]*)?"[^>]*>.*?<\/ul>/si',
+                static fn(array $matches): string => $navigation,
                 $content,
                 1
             ) ?? $content;

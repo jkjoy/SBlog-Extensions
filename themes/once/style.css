@@ -1113,13 +1113,11 @@ body.once-theme {
 
 .once-nav-title {
   margin-top: 3px;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--once-heading);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.45;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .pagination .page-next a {

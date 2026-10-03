@@ -329,7 +329,12 @@ function farallon_adapt_article_content(string $content, array $context): string
     $content = str_replace('class="post-content"', 'class="post-content graph"', $content);
     if ($post && content_kind($post) === 'post') {
         $content = preg_replace('/<div class="meta">.*?<\/div>/s', farallon_post_meta($post), $content, 1) ?? $content;
-        $content = preg_replace('/<ul class="pagination">.*?<\/ul>/s', farallon_render_post_navigation($post), $content, 1) ?? $content;
+        $content = preg_replace_callback(
+            '/<ul\b[^>]*\bclass="(?:[^"]*\s)?pagination(?:\s[^"]*)?"[^>]*>.*?<\/ul>/si',
+            static fn(array $matches): string => farallon_render_post_navigation($post),
+            $content,
+            1
+        ) ?? $content;
     }
     return '<main class="site--main">' . $content . '</main>';
 }

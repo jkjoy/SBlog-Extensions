@@ -23,6 +23,11 @@ $isSearch = butterfly_is_home($themeContext) && butterfly_query() !== '';
 $post = butterfly_current_post();
 $isPost = $post && (string)$post['kind'] === 'post';
 $passwordLocked = $post ? butterfly_password_locked($post) : false;
+$postNavigation = '';
+if ($isPost && !$passwordLocked
+    && preg_match('~<ul class="pagination(?: post-navigation)?">(?:(?!</ul>).)*\bdata-post-title=(?:(?!</ul>).)*</ul>~s', $content, $navigationMatch)) {
+    $postNavigation = $navigationMatch[0];
+}
 $heroTitle = $isSearch ? sblog_t('搜索') . ': ' . butterfly_query() : $title;
 $heroImage = $post ? butterfly_cover($post) : theme_asset_url('assets/hero.png');
 $profile = one('SELECT username, nickname, avatar_url, website_url, github_url, signature FROM users ORDER BY id ASC LIMIT 1') ?? [];
@@ -42,7 +47,7 @@ $navItems = [
 ];
 $version = (string)filemtime(__DIR__ . '/script.js');
 $sourceStyleVersion = (string)filemtime(__DIR__ . '/source-style.css');
-$compatStyleVersion = (string)filemtime(__DIR__ . '/compat.css');
+$compatStyleVersion = (string)($theme['version'] ?? '1.0.0') . '-' . (string)filemtime(__DIR__ . '/compat.css');
 $action = (string)($_GET['a'] ?? '');
 $isError = (int)($themeContext['options']['status'] ?? 200) >= 400;
 $headerClass = $isHome ? 'full_page' : ($isPost ? 'post-bg' : ($isError ? 'not-top-img' : 'not-home-page'));
@@ -106,7 +111,7 @@ $headerStyle = $headerClass === 'not-top-img' ? '' : ' style="background-image:u
       <?php if ($flash): ?><section class="bf-notice" role="status"><?= h((string)$flash['message']) ?></section><?php endif; ?>
       <?php theme_action('content_before', $themeContext); ?>
       <?php if ($isPost): ?>
-        <div id="post"><article class="post-content" id="article-container"><?= butterfly_render_content($post) ?></article><?php if (!$passwordLocked): ?><div class="tag_share"><div class="post-meta__tag-list"><?= render_tag_chips($post) ?></div></div><?= render_comments_section($post) ?><?php endif; ?></div>
+        <div id="post"><article class="post-content" id="article-container"><?= butterfly_render_content($post) ?></article><?php if (!$passwordLocked): ?><div class="tag_share"><div class="post-meta__tag-list"><?= render_tag_chips($post) ?></div></div><?= $postNavigation ?><?= render_comments_section($post) ?><?php endif; ?></div>
       <?php elseif ($post): ?><div id="page"><article class="post-content" id="article-container"><?= butterfly_render_content($post) ?></article><?php if (!$passwordLocked): ?><?= render_comments_section($post) ?><?php endif; ?></div>
       <?php elseif ($isHome || $isSearch): ?><div class="recent-posts<?= $isSearch ? ' search' : '' ?>" id="recent-posts"><?= $content ?></div>
       <?php elseif (in_array($action, ['archives', 'tag', 'category'], true)): ?><?= $content ?>

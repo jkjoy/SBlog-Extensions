@@ -282,8 +282,8 @@ function jaguar_render_post_navigation(array $post): string
         return '';
     }
 
-    $previous = $neighbors['older'] ? fetch_post_by_id((int)$neighbors['older']['id']) : null;
-    $next = $neighbors['newer'] ? fetch_post_by_id((int)$neighbors['newer']['id']) : null;
+    $previous = $neighbors['newer'] ? fetch_post_by_id((int)$neighbors['newer']['id']) : null;
+    $next = $neighbors['older'] ? fetch_post_by_id((int)$neighbors['older']['id']) : null;
     ob_start();
     ?>
     <nav class="navigation post-navigation" aria-label="<?= h(sblog_t('文章导航')) ?>">
@@ -351,7 +351,12 @@ function jaguar_adapt_article_content(string $content, array $context): string
     $content = str_replace('class="post-tags"', 'class="post-tags jArticle--tags"', $content);
     $content = preg_replace('/(<a class="post-tag"[^>]*>)#/', '$1', $content) ?? $content;
     if ($post && content_kind($post) === 'post') {
-        $content = preg_replace('/<ul class="pagination">.*?<\/ul>/s', jaguar_render_post_navigation($post), $content, 1) ?? $content;
+        $content = preg_replace_callback(
+            '/<ul\b[^>]*\bclass="(?:[^"]*\s)?pagination(?:\s[^"]*)?"[^>]*>.*?<\/ul>/si',
+            static fn(array $matches): string => jaguar_render_post_navigation($post),
+            $content,
+            1
+        ) ?? $content;
     }
     $content = jaguar_adapt_comments_header($content);
     return '<main class="layoutSingleColumn u-paddingTop50">' . $content . '</main>';

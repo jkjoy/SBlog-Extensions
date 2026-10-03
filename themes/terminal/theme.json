@@ -1,6 +1,6 @@
 {
   "name": "Terminal 终端",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Simple PHP Blog",
   "url": "https://github.com/jkjoy/Simple-PHP-Blog",
   "description": "SBlog 旧版默认主题，保留命令行交互、CRT 扫描线与荧光终端风格。"

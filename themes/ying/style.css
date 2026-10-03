@@ -173,6 +173,39 @@ html {
   list-style: none;
 }
 
+.ying-theme .pagination .page-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ying-theme .pagination .page-item:last-child {
+  text-align: right;
+}
+
+.ying-theme .pagination a[data-post-title] {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.ying-theme .pagination a[data-post-title]::after {
+  display: block;
+  margin-top: 6px;
+  color: inherit;
+  content: attr(data-post-title);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .ying-theme ul.pagination {
+    flex-direction: column;
+  }
+  .ying-theme .pagination .page-item:last-child {
+    text-align: left;
+  }
+}
+
 .ying-theme .pagination a:hover,
 .ying-theme .pagination a:focus-visible {
   text-decoration: underline;

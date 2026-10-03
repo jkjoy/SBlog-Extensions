@@ -195,6 +195,11 @@ function photograph_render_post(array $post, string $originalContent): string
     $visiblePost = photograph_visible_content($post);
     $images = photograph_post_images($visiblePost);
     $postFormat = photograph_post_format($post);
+    $postNavigation = '';
+    if (!$passwordLocked
+        && preg_match('~<ul class="pagination(?: post-navigation)?">(?:(?!</ul>).)*\bdata-post-title=(?:(?!</ul>).)*</ul>~s', $originalContent, $navigationMatch)) {
+        $postNavigation = $navigationMatch[0];
+    }
     $comments = '';
     $commentPosition = strpos($originalContent, '<section class="comments"');
     if ($commentPosition !== false) $comments = substr($originalContent, $commentPosition);
@@ -217,6 +222,7 @@ function photograph_render_post(array $post, string $originalContent): string
             </div>
             <?php if (!$passwordLocked && $tags): ?><nav class="photo-tags" aria-label="<?= h(sblog_t('标签')) ?>"><?php foreach ($tags as $tag): ?><a href="<?= h(url_for('tag', ['slug' => (string)$tag['slug']])) ?>"><?= h((string)$tag['label']) ?></a><?php endforeach; ?></nav><?php endif; ?>
           </article>
+          <?= $postNavigation ?>
           <?php if (!$passwordLocked && $comments !== ''): ?><div class="photo-article-comments"><?= $comments ?></div><?php endif; ?>
         </main>
         <?php return (string)ob_get_clean();
@@ -236,6 +242,7 @@ function photograph_render_post(array $post, string $originalContent): string
         <span><b><?= h(sblog_t('描述：')) ?></b><?= h($description !== '' ? $description : sblog_t('未填写')) ?></span>
       </div>
       <?php if ($tags): ?><nav class="photo-tags" aria-label="<?= h(sblog_t('标签')) ?>"><?php foreach ($tags as $tag): ?><a href="<?= h(url_for('tag', ['slug' => (string)$tag['slug']])) ?>"><?= h((string)$tag['label']) ?></a><?php endforeach; ?></nav><?php endif; ?>
+      <?= $postNavigation ?>
     </main>
     <?php if ($comments !== ''): ?><aside class="photo-comments-panel" id="post-comments" aria-hidden="true"><button class="photo-comments-close" type="button" data-comments-close aria-label="<?= h(sblog_t('关闭')) ?>"><?= photograph_icon('close') ?></button><?= $comments ?></aside><?php endif; ?>
     <?php return (string)ob_get_clean();

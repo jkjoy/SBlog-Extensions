@@ -24,6 +24,9 @@ foreach (social_profile_definitions() as $definition) {
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $themeVersion = (string)($theme['version'] ?? '1.0.0');
+if (($themeContext['style_url'] ?? '') !== '') {
+    $themeContext['style_url'] .= '&theme=' . rawurlencode($themeVersion);
+}
 $viewClass = (string)($_GET['a'] ?? '') === 'category' ? 'ying-view-category'
     : ($active === 'home' && $title === $siteName ? 'ying-view-home'
     : ($active === 'archives' ? 'ying-view-archives'

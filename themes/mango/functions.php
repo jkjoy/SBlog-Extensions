@@ -481,7 +481,7 @@ function mango_adapt_article_content(string $content, array $context): string
         $content = preg_replace('/<\/article>/', mango_post_like_bar($post) . '</article>', $content, 1) ?? $content;
     }
     $content = str_replace('class="post-tags"', 'class="post-tags post_loop_tag"', $content);
-    $content = str_replace('class="pagination"', 'class="pagination mango-post-nav"', $content);
+    $content = preg_replace('/(<ul\b[^>]*\bclass=")((?:[^"]*\s)?pagination(?:\s[^"]*)?)"/', '$1$2 mango-post-nav"', $content) ?? $content;
     $content = preg_replace_callback(
         '/(<a\b[^>]*\bdata-post-title="([^"]*)"[^>]*>)(.*?)(<\/a>)/s',
         static fn(array $match): string => $match[1] . '<small>' . $match[3] . '</small><strong>' . $match[2] . '</strong>' . $match[4],

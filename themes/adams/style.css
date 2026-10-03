@@ -868,7 +868,7 @@ body.night .post-list .meta header .adams-pinned {
 
 .pagination.nearbypost {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin: 5% 0 7%;
     padding: 1rem 0;
     list-style: none;
@@ -878,7 +878,7 @@ body.night .post-list .meta header .adams-pinned {
     min-width: 0;
     letter-spacing: .06rem;
     line-height: 1.08rem;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .pagination.nearbypost .page-item + .page-item {
@@ -890,16 +890,40 @@ body.night .post-list .meta header .adams-pinned {
 .pagination.nearbypost a {
     display: block;
     min-height: 1rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.pagination.nearbypost .page-previous a:before {
+.pagination.nearbypost .adams-nav-label {
+    display: block;
+    font-size: .8rem;
+    opacity: .75;
+}
+
+.pagination.nearbypost .adams-nav-title {
+    display: block;
+    margin-top: .35rem;
+    line-height: 1.5;
+    font-weight: normal;
+}
+
+.pagination.nearbypost .page-previous .adams-nav-label:before {
     content: "« ";
 }
 
-.pagination.nearbypost .page-next a:after {
+.pagination.nearbypost .page-next .adams-nav-label:after {
     content: " »";
+}
+
+@media (max-width: 580px) {
+    .pagination.nearbypost {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+    }
+
+    .pagination.nearbypost .page-item + .page-item {
+        padding: 0;
+        box-shadow: none;
+        text-align: left;
+    }
 }
 
 .comments {

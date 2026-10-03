@@ -7,5 +7,7 @@ add_theme_filter('body_class', static function (string $classes, array $context)
 });
 
 add_theme_action('head', static function (array $context): string {
-    return '<meta name="theme-color" content="#080e14">' . "\n";
+    $styleUrl = theme_asset_url('style.css') . '?theme=' . rawurlencode((string)($context['theme']['version'] ?? '1.0.2'));
+    return '<meta name="theme-color" content="#080e14">' . "\n"
+        . '<link rel="stylesheet" href="' . h($styleUrl) . '">' . "\n";
 });

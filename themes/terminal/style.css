@@ -323,8 +323,41 @@
 .pagination {
   display: flex;
   justify-content: space-between;
+  gap: 20px;
   padding: 0;
   list-style: none;
+}
+
+.pagination .page-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.pagination .page-item:last-child {
+  text-align: right;
+}
+
+.pagination a[data-post-title] {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.pagination a[data-post-title]::after {
+  display: block;
+  margin-top: 6px;
+  color: var(--fg);
+  content: attr(data-post-title);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  ul.pagination {
+    flex-direction: column;
+  }
+  .pagination .page-item:last-child {
+    text-align: left;
+  }
 }
 
 .post-tags { margin-top: 18px; }

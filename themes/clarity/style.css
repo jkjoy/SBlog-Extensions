@@ -1059,11 +1059,50 @@ html[data-mode="dim"] .clarity-theme .post_body .media-link-card__cover img {
 }
 
 .clarity-theme .post_navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
   margin: 1.5rem 0;
+}
+
+.clarity-theme .post_navigation .page-item {
+  min-width: 0;
+  padding: 0;
+}
+
+.clarity-theme .post_navigation a[data-post-title] {
+  display: block;
+  height: 100%;
+  padding: 0.75rem 1rem;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.clarity-theme .post_navigation a[data-post-title]::after {
+  display: block;
+  margin-top: 0.35rem;
+  content: attr(data-post-title);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.clarity-theme .post_navigation .page-next {
+  text-align: right;
 }
 
 .clarity-theme .post_navigation .page-item:empty {
   display: none !important;
+}
+
+@media (max-width: 580px) {
+  .clarity-theme .post_navigation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .clarity-theme .post_navigation .page-next {
+    text-align: left;
+  }
 }
 
 .clarity-theme .comment-thread {

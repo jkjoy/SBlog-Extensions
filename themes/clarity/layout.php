@@ -6,6 +6,11 @@ $managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed
 
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
+$themeVersion = (string)($theme['version'] ?? '1.0.0');
+$styleUrl = (string)($themeContext['style_url'] ?? '');
+if ($styleUrl !== '') {
+    $themeContext['style_url'] = $styleUrl . (str_contains($styleUrl, '?') ? '&' : '?') . 'theme=' . rawurlencode($themeVersion);
+}
 $scriptFile = __DIR__ . '/script.js';
 $scriptVersion = is_file($scriptFile) ? (string)filemtime($scriptFile) : (string)($theme['version'] ?? '1.0.0');
 $footerText = site_footer_text();

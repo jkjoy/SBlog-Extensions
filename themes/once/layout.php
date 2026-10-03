@@ -7,6 +7,10 @@ $managedMenu = function_exists('sblog_menu_is_managed') && sblog_menu_is_managed
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $themeVersion = (string)($theme['version'] ?? '1.0.0');
+$styleUrl = (string)($themeContext['style_url'] ?? '');
+if ($styleUrl !== '') {
+    $themeContext['style_url'] = $styleUrl . (str_contains($styleUrl, '?') ? '&' : '?') . 'theme=' . rawurlencode($themeVersion);
+}
 $scriptFile = active_theme_file('script.js');
 $scriptVersion = $scriptFile !== '' ? (string)filemtime($scriptFile) : $themeVersion;
 $logoUrl = theme_logo_url();

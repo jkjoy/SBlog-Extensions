@@ -34,3 +34,42 @@
 .theme-public.theme-starter textarea:focus-visible {
   outline-color: var(--ink);
 }
+
+.theme-public.theme-starter .pagination:has(a[data-post-title]) {
+  gap: 24px;
+}
+
+.theme-public.theme-starter .pagination:has(a[data-post-title]) .page-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.theme-public.theme-starter .pagination .page-next a[data-post-title] {
+  text-align: right;
+}
+
+.theme-public.theme-starter .pagination a[data-post-title] {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.theme-public.theme-starter .pagination a[data-post-title]::after {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink);
+  content: attr(data-post-title);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .theme-public.theme-starter ul.pagination:has(a[data-post-title]) {
+    grid-template-columns: minmax(0, 1fr);
+    flex-direction: column;
+  }
+  .theme-public.theme-starter .pagination .page-next a[data-post-title] {
+    text-align: left;
+  }
+}

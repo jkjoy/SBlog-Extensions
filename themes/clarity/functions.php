@@ -215,7 +215,7 @@ function clarity_adapt_article(string $content, array $context): string
         $content = preg_replace('/<div class="meta">.*?<\/div>/s', clarity_post_meta($post), $content, 1) ?? $content;
     }
     $content = clarity_adapt_comments($content);
-    $content = str_replace('class="pagination"', 'class="pagination post_navigation"', $content);
+    $content = preg_replace('/(<ul\b[^>]*\bclass=")((?:[^"]*\s)?pagination(?:\s[^"]*)?)"/', '$1$2 post_navigation"', $content) ?? $content;
     return '<div class="grid-inverse wrap content">' . '<div>' . $content . '</div>' . clarity_sidebar(true) . '</div>';
 }
 

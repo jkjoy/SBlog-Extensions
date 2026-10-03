@@ -270,7 +270,15 @@ function adams_adapt_article_content(string $content): string
     $content = preg_replace('#\s*<h1 class="post-title"[^>]*>.*?</h1>\s*#s', '', $content, 1) ?? $content;
     $content = preg_replace('#\s*<div class="meta">.*?</div>\s*#s', '', $content, 1) ?? $content;
     $content = preg_replace('/<article>/', '<article class="post_article" itemscope itemtype="https://schema.org/Article">', $content, 1) ?? $content;
-    $content = str_replace('class="pagination"', 'class="pagination nearbypost"', $content);
+    $content = preg_replace('/(<ul\b[^>]*\bclass=")((?:[^"]*\s)?pagination(?:\s[^"]*)?)"/', '$1$2 nearbypost"', $content) ?? $content;
+    $content = preg_replace_callback(
+        '/<a([^>]*\bdata-post-title="([^"]*)"[^>]*)>([^<]*)<\/a>/',
+        static function (array $match): string {
+            $title = html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            return '<a' . $match[1] . '><span class="adams-nav-label">' . $match[3] . '</span><strong class="adams-nav-title">' . h($title) . '</strong></a>';
+        },
+        $content
+    ) ?? $content;
 
     return '<section class="container adams-core">' . $content . '</section>';
 }

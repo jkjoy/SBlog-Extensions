@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+$themeVersion = (string)($theme['version'] ?? '1.0.0');
+if (($themeContext['style_url'] ?? '') !== '') {
+    $themeContext['style_url'] .= '&theme=' . rawurlencode($themeVersion);
+}
+
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
 $scriptFile = __DIR__ . '/script.js';

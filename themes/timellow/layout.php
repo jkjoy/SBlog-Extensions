@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 $keywords = trim(setting('site_keywords'));
 $customHeadCode = trim(setting('custom_head_code'));
+$themeVersion = (string)($theme['version'] ?? '1.0.0');
+$styleUrl = (string)($themeContext['style_url'] ?? '');
+if ($styleUrl !== '') {
+    $themeContext['style_url'] = $styleUrl . (str_contains($styleUrl, '?') ? '&' : '?') . 'theme=' . rawurlencode($themeVersion);
+}
 $beian = trim(setting('footer_beian'));
 $scriptFile = __DIR__ . '/script.js';
 $scriptVersion = is_file($scriptFile) ? (string)filemtime($scriptFile) : (string)($theme['version'] ?? '1.0.0');
