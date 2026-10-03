@@ -1,0 +1,10 @@
+{
+  "name": "robots.txt 生成器",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "生成可配置的 robots.txt，支持抓取模式、允许与禁止路径、Sitemap、内容预览和下载。",
+  "settings_action": "admin_robots_txt"
+}

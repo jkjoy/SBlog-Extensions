@@ -191,3 +191,9 @@ passthru($visitLogCommand, $visitLogStatus);
 if ($visitLogStatus !== 0) {
     store_fail('Visit log tests failed.');
 }
+
+$robotsTxtCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/test-robots-txt.php');
+passthru($robotsTxtCommand, $robotsTxtStatus);
+if ($robotsTxtStatus !== 0) {
+    store_fail('Robots.txt tests failed.');
+}
