@@ -1421,6 +1421,22 @@ html[data-theme="dark"] .aqua-theme .media-link-card__cover {
   color: var(--aqua-blue);
 }
 
+.aqua-theme .pagination a[data-post-title] {
+  display: block;
+  height: 100%;
+  overflow-wrap: anywhere;
+}
+
+.aqua-theme .pagination a[data-post-title]::after {
+  display: block;
+  margin-top: 6px;
+  color: var(--aqua-text);
+  content: attr(data-post-title);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .aqua-theme .page-next a {
   justify-content: flex-end;
   text-align: right;
