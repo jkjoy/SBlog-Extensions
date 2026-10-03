@@ -144,7 +144,7 @@ function aqua_render_timeline(array $posts, bool $groupByYear = true): string
           </section>
         <?php endforeach; ?>
       <?php else: ?>
-        <section class="aqua-year aqua-reveal"><div class="aqua-year__posts">
+        <section class="aqua-year aqua-year--ungrouped aqua-reveal"><div class="aqua-year__posts">
           <?php foreach ($posts as $post): ?>
             <a href="<?= h(url_for('post', ['slug' => (string)$post['slug']])) ?>">
               <time><?= h(date('Y.m.d', (int)$post['published_at'])) ?></time>

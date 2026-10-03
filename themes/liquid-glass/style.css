@@ -787,6 +787,10 @@ html[data-theme="dark"] .aqua-icon-moon {
   border-bottom: 1px solid var(--aqua-line);
 }
 
+.aqua-year--ungrouped {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .aqua-year > header h2 {
   margin: 0;
   font-size: 30px;
