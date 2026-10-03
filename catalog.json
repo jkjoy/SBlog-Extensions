@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-03T02:35:32+00:00",
+    "updated_at": "2026-10-03T02:49:22+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -155,6 +155,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-rest-api-v1.0.3/plugin-rest-api-1.0.3.zip",
             "sha256": "d5be751c034195ba7bc8a6f04e87bec277a4ebc79c0e8cfdb4bca6108e667686",
             "source_sha256": "bd6b02e9c00ce7e8b40a4c22dc6600ac790beacb94fd008322c8b092afc29fbc"
+        },
+        {
+            "type": "plugin",
+            "slug": "robots-txt",
+            "name": "robots.txt 生成器",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "生成可配置的 robots.txt，支持抓取模式、允许与禁止路径、Sitemap、内容预览和下载。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-robots-txt-v1.0.0/plugin-robots-txt-1.0.0.zip",
+            "sha256": "6463f4bcb72efca927ddb49be84a94e38659448e72118da66632704ac254e812",
+            "source_sha256": "4d07413f7068986105921fb28785d0d8b155d33a6b21232259547fa5ec8c7db5"
         },
         {
             "type": "plugin",
