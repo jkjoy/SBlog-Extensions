@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_GALLERY_VERSION = '1.0.2';
+const SBLOG_GALLERY_VERSION = '1.1.0';
 const SBLOG_GALLERY_SLUG = 'gallery';
 
 require_once __DIR__ . '/includes/data.php';
@@ -16,6 +16,28 @@ function gallery_register_translations(): void
         '图库管理' => 'Gallery',
         '图片、分类与公开页面' => 'Images, categories, and public page',
         '图片' => 'Images',
+        '全部图片' => 'All images',
+        '管理图片' => 'Manage images',
+        '管理分类：{name}' => 'Manage category: {name}',
+        '编辑分类' => 'Edit category',
+        '编辑图片信息' => 'Edit image details',
+        '选择图片：{title}' => 'Select image: {title}',
+        '全选本页' => 'Select this page',
+        '移动到' => 'Move to',
+        '移动到分类' => 'Move to category',
+        '批量移动' => 'Move selected',
+        '批量移除' => 'Remove selected',
+        '勾选图片后可批量移动或移除。移除只取消图库关联，原文件保留在媒体库中。' => 'Select images to move or remove them together. Removing keeps the original files in the media library.',
+        '已从图库移除 {count} 张图片，媒体库中的原文件仍然保留。' => 'Removed {count} images from the gallery. The original media files were kept.',
+        '已移动 {moved} 张图片，{unchanged} 张已在目标分类。' => 'Moved {moved} images; {unchanged} were already in the destination category.',
+        '请选择有效的批量操作。' => 'Choose a valid bulk action.',
+        '批量操作失败，请稍后重试。' => 'Could not complete the bulk action. Try again shortly.',
+        '所选图库分类无效。' => 'The selected gallery category is invalid.',
+        '所选图库分类不存在。' => 'The selected gallery category does not exist.',
+        '所选图库图片无效。' => 'The selected gallery images are invalid.',
+        '所选图库图片不存在或已被移除。' => 'Some selected gallery images do not exist or have been removed.',
+        '一次最多只能操作 100 张图片。' => 'You can manage up to 100 images at a time.',
+        '请选择图库图片。' => 'Select gallery images first.',
         '分类' => 'Categories',
         '设置' => 'Settings',
         '添加图片' => 'Add images',
@@ -105,6 +127,7 @@ function gallery_register_translations(): void
     ]);
 
     sblog_i18n_register_client('en', [
+        'gallery_bulk_remove_confirm' => 'Remove the selected {count} images from the gallery? The original media files will be kept.',
         'gallery_selected_count' => '{count} images selected',
         'gallery_none_selected' => 'No images selected',
         'gallery_untitled_image' => 'Untitled image',

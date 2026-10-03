@@ -767,14 +767,92 @@ function gallery_update_item_record(int $itemId, array $input): bool
     });
 }
 
+/** Validate the complete selection before allowing a batch write. */
+function gallery_move_item_ids(array $values): array
+{
+    $ids = [];
+    foreach ($values as $value) {
+        $raw = is_int($value) || is_string($value) ? trim((string)$value) : '';
+        $digits = ltrim($raw, '0');
+        $maximum = (string)PHP_INT_MAX;
+        if (preg_match('/^[0-9]+$/D', $raw) !== 1 || $digits === ''
+            || strlen($digits) > strlen($maximum)
+            || (strlen($digits) === strlen($maximum) && strcmp($digits, $maximum) > 0)) {
+            throw new InvalidArgumentException('所选图库图片无效。');
+        }
+        $ids[(int)$digits] = (int)$digits;
+        if (count($ids) > SBLOG_GALLERY_MAX_BATCH_SIZE) {
+            throw new InvalidArgumentException('一次最多只能操作 100 张图片。');
+        }
+    }
+    if ($ids === []) {
+        throw new InvalidArgumentException('请选择图库图片。');
+    }
+    return array_values($ids);
+}
+
+/**
+ * @return array{moved:int,unchanged:int,item_ids:array<int,int>,category_ids:array<int,int>}
+ */
+function gallery_move_items(array $itemIds, ?int $categoryId): array
+{
+    $ids = gallery_move_item_ids($itemIds);
+    if ($categoryId !== null && $categoryId < 1) {
+        throw new InvalidArgumentException('所选图库分类无效。');
+    }
+    return gallery_transaction(static function () use ($ids, $categoryId): array {
+        if ($categoryId !== null
+            && one('SELECT id FROM sblog_gallery_categories WHERE id = ?', [$categoryId]) === null) {
+            throw new InvalidArgumentException('所选图库分类不存在。');
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $rows = all_rows(
+            'SELECT id, category_id FROM sblog_gallery_items WHERE id IN (' . $placeholders . ')',
+            $ids
+        );
+        if (count($rows) !== count($ids)) {
+            throw new InvalidArgumentException('所选图库图片不存在或已被移除。');
+        }
+        $movedIds = [];
+        $categoryIds = [];
+        foreach ($rows as $row) {
+            $oldCategory = $row['category_id'] === null ? null : (int)$row['category_id'];
+            $categoryIds[$oldCategory ?? 0] = $oldCategory ?? 0;
+            if ($oldCategory !== $categoryId) {
+                $movedIds[] = (int)$row['id'];
+            }
+        }
+        $categoryIds[$categoryId ?? 0] = $categoryId ?? 0;
+        if ($movedIds !== []) {
+            $movePlaceholders = implode(',', array_fill(0, count($movedIds), '?'));
+            q(
+                'UPDATE sblog_gallery_items SET category_id = ?, updated_at = ? WHERE id IN (' . $movePlaceholders . ')',
+                array_merge([$categoryId, time()], $movedIds)
+            );
+        }
+        return [
+            'moved' => count($movedIds),
+            'unchanged' => count($ids) - count($movedIds),
+            'item_ids' => $ids,
+            'category_ids' => array_values($categoryIds),
+        ];
+    });
+}
+
 function gallery_remove_items(array $itemIds): int
 {
-    [$ids] = gallery_normalize_ids($itemIds);
+    [$ids] = gallery_normalize_ids($itemIds, SBLOG_GALLERY_MAX_BATCH_SIZE + 1);
+    if (count($ids) > SBLOG_GALLERY_MAX_BATCH_SIZE) {
+        throw new InvalidArgumentException('一次最多只能操作 100 张图片。');
+    }
     if ($ids === []) {
         return 0;
     }
     return gallery_transaction(static function () use ($ids): int {
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        if ((int)val('SELECT COUNT(*) FROM sblog_gallery_items WHERE id IN (' . $placeholders . ')', $ids) !== count($ids)) {
+            throw new InvalidArgumentException('所选图库图片不存在或已被移除。');
+        }
         return q(
             'DELETE FROM sblog_gallery_items WHERE id IN (' . $placeholders . ')',
             $ids
@@ -824,6 +902,8 @@ function gallery_admin_items(array $filters = []): array
         && (int)$categoryRaw > 0) {
         $where[] = 'gi.category_id = ?';
         $params[] = (int)$categoryRaw;
+    } elseif (!empty($filters['uncategorized'])) {
+        $where[] = 'gi.category_id IS NULL';
     }
     $status = is_scalar($filters['status'] ?? null) ? (string)$filters['status'] : '';
     if (in_array($status, ['published', 'draft'], true)) {

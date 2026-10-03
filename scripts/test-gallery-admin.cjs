@@ -76,9 +76,9 @@ class Element {
   addEventListener(type, callback) { (this.listeners[type] ??= []).push(callback); }
   async fire(type, extra = {}) {
     if (type === "click" && this.disabled) return;
-    await Promise.all((this.listeners[type] || []).map((callback) => callback({
-      type, target: this, preventDefault() {}, ...extra,
-    })));
+    const event = { type, target: this, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...extra };
+    await Promise.all((this.listeners[type] || []).map((callback) => callback(event)));
+    return event;
   }
   dispatchEvent(event) { (this.events ??= []).push(event); return true; }
   focus() { this.focusCalls = (this.focusCalls || 0) + 1; }
@@ -97,8 +97,12 @@ class HTMLDialogElement extends HTMLElement {
 }
 class File { constructor(name, type = "image/jpeg", size = 100) { Object.assign(this, { name, type, size }); } }
 class FormData {
-  constructor(form) {
-    this.values = form ? form.querySelectorAll("[name]").map((input) => [input.getAttribute("name"), input.value]) : [];
+  constructor(form, submitter) {
+    const controls = form ? [...form.querySelectorAll("[name]"), ...(form.linkedControls || [])] : [];
+    this.values = controls.filter((input) => !input.disabled
+      && (!(input instanceof HTMLButtonElement) || input === submitter)
+      && (input.type !== "checkbox" || input.checked))
+      .map((input) => [input.getAttribute("name"), input.value]);
   }
   append(name, value) { this.values.push([name, value]); }
   get(name) { return this.values.find((entry) => entry[0] === name)?.[1] ?? null; }
@@ -107,7 +111,7 @@ class FormData {
 class BrowserURL extends URL { static createObjectURL() { return "blob:preview"; } static revokeObjectURL() {} }
 
 const element = (tag, attribute, value = "") => {
-  const Constructor = { button: HTMLButtonElement, form: HTMLFormElement, input: HTMLInputElement, img: HTMLImageElement }[tag];
+  const Constructor = { button: HTMLButtonElement, form: HTMLFormElement, input: HTMLInputElement, img: HTMLImageElement, select: HTMLSelectElement }[tag];
   const node = Constructor ? new Constructor() : new HTMLElement(tag);
   if (attribute) node.setAttribute(attribute, value);
   return node;
@@ -134,7 +138,7 @@ function fixture(options = {}) {
   search.append(query);
   panel.append(search, results, pagination);
   dialog.append(close, tab, panel, status, count, add);
-  root.append(dialog);
+  if (!options.noDialog) root.append(dialog);
   const forms = [];
   const openButtons = [];
   if (options.cover) {
@@ -161,7 +165,55 @@ function fixture(options = {}) {
   const upload = element("input", "data-sblog-gallery-upload");
   const uploads = element("div", "data-sblog-gallery-upload-status");
   if (options.upload) dialog.append(upload, uploads);
+  const category = options.category ? element("select", "data-sblog-gallery-category") : null;
+  if (category) {
+    category.value = "7";
+    category.disabled = Boolean(options.category.fixed);
+    dialog.append(category);
+  }
+  let bulk = null;
+  if (options.bulk) {
+    const settings = options.bulk === true ? {} : options.bulk;
+    const form = element("form", "data-sblog-gallery-bulk-form");
+    form.id = "sblog-gallery-bulk-form";
+    const selectAll = element("input", "data-sblog-gallery-select-all");
+    selectAll.type = "checkbox";
+    const count = element("span", "data-sblog-gallery-bulk-count");
+    const target = element("select", "data-sblog-gallery-bulk-target");
+    target.setAttribute("name", "target_category_id");
+    target.value = "7";
+    target.disabled = Boolean(settings.targetDisabled);
+    const move = element("button", "data-sblog-gallery-bulk-move");
+    move.setAttribute("name", "operation");
+    move.value = "move";
+    const remove = element("button", "data-sblog-gallery-bulk-remove");
+    remove.setAttribute("name", "operation");
+    remove.value = "remove";
+    form.append(selectAll, count, target, move, remove);
+    root.append(form);
+    const checkboxes = [];
+    const articles = [];
+    for (let index = 0; index < (settings.count ?? 3); index += 1) {
+      const article = element("article");
+      const checkbox = element("input", "data-sblog-gallery-item-select");
+      checkbox.setAttribute("name", "item_ids[]");
+      checkbox.setAttribute("form", form.id);
+      checkbox.type = "checkbox";
+      checkbox.value = String(index + 1);
+      checkbox.checked = Boolean(settings.preselected?.includes(index));
+      checkbox.disabled = Boolean(settings.disabled?.includes(index));
+      article.append(checkbox);
+      root.append(article);
+      articles.push(article);
+      checkboxes.push(checkbox);
+    }
+    form.linkedControls = checkboxes;
+    bulk = { form, selectAll, count, target, move, remove, checkboxes, articles };
+  }
   const calls = [];
+  const confirmations = [];
+  const alerts = [];
+  const windowListeners = {};
   const additions = [...(options.additions || [])];
   let reloads = 0;
   const document = {
@@ -179,10 +231,13 @@ function fixture(options = {}) {
       location: { href: "http://localhost/admin", reload: () => { reloads += 1; } },
       scrollY: 0, innerWidth: 1000, scrollTo() {}, requestAnimationFrame: (callback) => callback(),
       getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+      confirm: (message) => { confirmations.push(message); return options.confirm ? options.confirm(message) : true; },
+      alert: (message) => { alerts.push(message); },
+      addEventListener: (type, listener) => { (windowListeners[type] ??= []).push(listener); },
     },
     fetch: async (url, request) => {
       const parsed = new URL(url, "http://localhost");
-      calls.push({ path: parsed.pathname, query: parsed.searchParams, body: request.body?.values });
+      calls.push({ path: parsed.pathname, query: parsed.searchParams, body: request.body?.values, categoryDisabled: category?.disabled });
       let result;
       if (parsed.pathname === "/media") {
         result = options.media ? options.media(parsed.searchParams) : {
@@ -200,7 +255,8 @@ function fixture(options = {}) {
   if (options.native) context.HTMLDialogElement = HTMLDialogElement;
   vm.runInNewContext(source, context);
   return {
-    root, dialog, results, status, count, add, pagination, close, query, search, upload, uploads, forms, calls,
+    root, dialog, results, status, count, add, pagination, close, query, search, upload, uploads, category, forms, calls, bulk, confirmations, alerts,
+    pageShow: () => (windowListeners.pageshow || []).forEach((listener) => listener()),
     reloads: () => reloads,
     open: async (index = 0) => { await openButtons[index].fire("click"); await settle(); },
     choose: async (id) => { const button = results.querySelector(`[data-media-id="${id}"]`); assert.ok(button, `media ${id} rendered`); await button.fire("click"); return button; },
@@ -327,8 +383,101 @@ async function paginatedCategoryCovers() {
   assert.ok(ui.calls.some((call) => call.path === "/media" && call.query.get("page") === "2"), "cover picker must request media by page");
 }
 
+async function bulkPageSelection() {
+  const ui = fixture({ noDialog: true, bulk: { disabled: [2], targetDisabled: true } });
+  const { form, selectAll, count, target, move, remove, checkboxes, articles } = ui.bulk;
+  assert.equal(move.disabled, true, "bulk actions must initialize even without a media dialog");
+  assert.equal(remove.disabled, true);
+  const emptySubmit = await form.fire("submit", { submitter: move });
+  assert.equal(emptySubmit.defaultPrevented, true);
+  checkboxes[0].checked = true;
+  await checkboxes[0].fire("change");
+  assert.equal(count.textContent, "已选择 1 张图片");
+  assert.equal(selectAll.indeterminate, true);
+  assert.equal(selectAll.checked, false);
+  assert.equal(articles[0].classList.contains("is-selected"), true);
+  assert.equal(move.disabled, false);
+  selectAll.checked = true;
+  await selectAll.fire("change");
+  assert.deepEqual(checkboxes.map((checkbox) => checkbox.checked), [true, true, false], "disabled items must not be selected by page select-all");
+  assert.equal(count.textContent, "已选择 2 张图片");
+  assert.equal(selectAll.checked, true);
+  assert.equal(selectAll.indeterminate, false);
+  assert.equal(target.value, "7", "bulk selection must retain the PHP-selected destination");
+  assert.equal(target.disabled, true, "bulk selection must not unlock a fixed category destination");
+  const accepted = await form.fire("submit", { submitter: move });
+  assert.equal(accepted.defaultPrevented, false);
+  assert.equal(ui.confirmations.length, 0, "moving images does not need a removal confirmation");
+  assert.equal(form.getAttribute("aria-busy"), "true");
+  assert.equal(move.disabled, false, "the successful submitter must stay enabled for form serialization");
+  const body = new FormData(form, move);
+  assert.equal(body.get("operation"), "move");
+  assert.deepEqual(body.values.filter(([name]) => name === "item_ids[]").map(([, id]) => id), ["1", "2"], "external item checkboxes must submit through their form association");
+  assert.equal((await form.fire("submit", { submitter: remove })).defaultPrevented, true, "a second submit must be blocked");
+  assert.equal(ui.confirmations.length, 0, "a blocked duplicate submit should not prompt again");
+  ui.pageShow();
+  assert.equal(form.getAttribute("aria-busy"), "false", "browser back navigation must unlock the restored form");
+  selectAll.checked = false;
+  await selectAll.fire("change");
+  assert.equal(selectAll.indeterminate, false);
+  assert.equal(count.textContent, "尚未选择图片");
+  assert.equal(remove.disabled, true);
+  assert.equal(articles[0].classList.contains("is-selected"), false);
+}
+
+async function bulkRemovalConfirmation() {
+  let confirmRemoval = false;
+  const ui = fixture({ bulk: { preselected: [0, 1] }, confirm: () => confirmRemoval });
+  const { form, move, remove, count, checkboxes } = ui.bulk;
+  assert.equal(count.textContent, "已选择 2 张图片", "restored selections must update the initial toolbar");
+  const cancelled = await form.fire("submit", { submitter: remove });
+  assert.equal(cancelled.defaultPrevented, true);
+  assert.equal(form.getAttribute("aria-busy"), null, "cancelling a confirmation must not lock the form");
+  assert.equal(ui.confirmations[0], "从图库移除所选 2 张图片？媒体库中的原文件会保留。");
+  assert.equal(checkboxes[0].checked, true, "cancelled removal must keep the user's selection");
+  assert.equal(move.disabled, false);
+  confirmRemoval = true;
+  const accepted = await form.fire("submit", { submitter: remove });
+  assert.equal(accepted.defaultPrevented, false);
+  assert.equal(new FormData(form, remove).get("operation"), "remove");
+  assert.equal(remove.disabled, false);
+  assert.equal((await form.fire("submit", { submitter: remove })).defaultPrevented, true);
+  assert.equal(ui.confirmations.length, 2);
+}
+
+async function bulkSelectionLimit() {
+  const ui = fixture({ noDialog: true, bulk: { count: 101 } });
+  const { selectAll, checkboxes, count } = ui.bulk;
+  selectAll.checked = true;
+  await selectAll.fire("change");
+  assert.equal(checkboxes.filter((checkbox) => checkbox.checked).length, 100);
+  assert.equal(count.textContent, "已选择 100 张图片");
+  checkboxes[100].checked = true;
+  await checkboxes[100].fire("change");
+  assert.equal(checkboxes[100].checked, false, "manual selection must also respect the batch limit");
+  assert.deepEqual(ui.alerts, ["一次最多选择 100 张图片。"]);
+  const empty = fixture({ noDialog: true, bulk: { count: 0 } });
+  assert.equal(empty.bulk.selectAll.disabled, true);
+  assert.equal(empty.bulk.move.disabled, true);
+}
+
+async function uploadCategoryDestination() {
+  for (const fixed of [true, false]) {
+    const ui = fixture({ upload: true, category: { fixed }, additions: [response([23])] });
+    await ui.open();
+    ui.upload.files = [new File("photo.jpg")];
+    await ui.upload.fire("change");
+    await settle();
+    assert.equal(ui.category.disabled, fixed, "upload completion must preserve the server's fixed/editable destination");
+    assert.equal(ui.category.value, "7");
+    assert.equal(ui.calls.find((call) => call.path === "/upload").categoryDisabled, true, "the destination must be locked while uploading");
+    const association = ui.calls.find((call) => call.path === "/add");
+    assert.equal(association.body.find(([name]) => name === "category_id")[1], "7", "uploaded media must be associated with the chosen category");
+  }
+}
+
 (async () => {
-  for (const test of [invalidSelection, partialSelection, existingSelection, uploadedAssociationRetry, paginatedCategoryCovers]) {
+  for (const test of [invalidSelection, partialSelection, existingSelection, uploadedAssociationRetry, paginatedCategoryCovers, bulkPageSelection, bulkRemovalConfirmation, bulkSelectionLimit, uploadCategoryDestination]) {
     await test();
     process.stdout.write(`PASS ${test.name}\n`);
   }

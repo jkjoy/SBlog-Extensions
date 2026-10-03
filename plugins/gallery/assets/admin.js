@@ -48,11 +48,84 @@
     return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
   });
 
+  const initBulkSelection = (root) => {
+    const form = root.querySelector("[data-sblog-gallery-bulk-form]");
+    if (!(form instanceof HTMLFormElement) || form.dataset.sblogGalleryBulkReady === "1") return;
+    form.dataset.sblogGalleryBulkReady = "1";
+
+    const selectAll = form.querySelector("[data-sblog-gallery-select-all]");
+    const countLabel = form.querySelector("[data-sblog-gallery-bulk-count]");
+    const move = form.querySelector("[data-sblog-gallery-bulk-move]");
+    const remove = form.querySelector("[data-sblog-gallery-bulk-remove]");
+    const items = Array.from(root.querySelectorAll("[data-sblog-gallery-item-select]"))
+      .filter((checkbox) => checkbox instanceof HTMLInputElement && !checkbox.disabled);
+    let submitting = false;
+
+    const selectedItems = () => items.filter((checkbox) => checkbox.checked);
+    const update = () => {
+      const count = selectedItems().length;
+      if (selectAll instanceof HTMLInputElement) {
+        selectAll.checked = count > 0 && count === items.length;
+        selectAll.indeterminate = count > 0 && count < items.length;
+        selectAll.disabled = items.length === 0;
+      }
+      if (countLabel instanceof HTMLElement) {
+        countLabel.textContent = count > 0
+          ? text("gallery_selected_count", "已选择 {count} 张图片", { count })
+          : text("gallery_none_selected", "尚未选择图片");
+      }
+      [move, remove].forEach((button) => {
+        if (button instanceof HTMLButtonElement) button.disabled = count === 0;
+      });
+      items.forEach((checkbox) => checkbox.closest("article")?.classList.toggle("is-selected", checkbox.checked));
+    };
+
+    selectAll?.addEventListener("change", () => {
+      items.forEach((checkbox, index) => { checkbox.checked = selectAll.checked && index < 100; });
+      update();
+    });
+    items.forEach((checkbox) => checkbox.addEventListener("change", () => {
+      if (selectedItems().length > 100) {
+        checkbox.checked = false;
+        window.alert(text("gallery_selection_limit", "一次最多选择 {count} 张图片。", { count: 100 }));
+      }
+      update();
+    }));
+
+    form.addEventListener("submit", (event) => {
+      const count = selectedItems().length;
+      const operation = event.submitter instanceof HTMLButtonElement ? event.submitter.value : "";
+      if (submitting || count === 0 || count > 100 || !["move", "remove"].includes(operation)) {
+        event.preventDefault();
+        return;
+      }
+      if (operation === "remove" && !window.confirm(text(
+        "gallery_bulk_remove_confirm",
+        "从图库移除所选 {count} 张图片？媒体库中的原文件会保留。",
+        { count },
+      ))) {
+        event.preventDefault();
+        return;
+      }
+      // Keep the successful submitter enabled so its operation is included in the POST.
+      submitting = true;
+      form.setAttribute("aria-busy", "true");
+    });
+
+    window.addEventListener("pageshow", () => {
+      submitting = false;
+      form.setAttribute("aria-busy", "false");
+      update();
+    });
+    update();
+  };
+
   const initGalleryAdmin = (root) => {
     if (!(root instanceof HTMLElement) || root.dataset.sblogGalleryReady === "1") return;
     const coverMode = root.hasAttribute("data-sblog-gallery-cover-picker");
     if (!coverMode && root.querySelector("[data-sblog-gallery-cover-picker]")) return;
     root.dataset.sblogGalleryReady = "1";
+    initBulkSelection(root);
 
     const mediaUrl = root.dataset.mediaUrl || "";
     const addUrl = root.dataset.addUrl || "";
@@ -76,6 +149,7 @@
       "[data-sblog-gallery-upload-zone], .sblog-gallery-admin__upload-zone, .attachment-drop",
     ) || null;
     const categorySelect = dialog?.querySelector("[data-sblog-gallery-category]") || null;
+    const categoryFixed = categorySelect instanceof HTMLSelectElement && categorySelect.disabled;
     const tabs = dialog ? Array.from(dialog.querySelectorAll("[data-sblog-gallery-picker-tab]")) : [];
     const panels = dialog ? Array.from(dialog.querySelectorAll("[data-sblog-gallery-picker-panel]")) : [];
     const nativeDialog = typeof HTMLDialogElement !== "undefined" && dialog instanceof HTMLDialogElement;
@@ -130,7 +204,7 @@
       const busy = state.uploading || state.addBusy;
       if (dialog instanceof HTMLElement) dialog.setAttribute("aria-busy", busy ? "true" : "false");
       if (uploadInput instanceof HTMLInputElement) uploadInput.disabled = busy;
-      if (categorySelect instanceof HTMLSelectElement) categorySelect.disabled = busy;
+      if (categorySelect instanceof HTMLSelectElement) categorySelect.disabled = busy || categoryFixed;
       state.retryButtons.forEach((button) => {
         if (!button.isConnected) state.retryButtons.delete(button);
         else button.disabled = busy;

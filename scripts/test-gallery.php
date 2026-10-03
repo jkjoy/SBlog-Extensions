@@ -8,6 +8,11 @@ $GLOBALS['gallery_test_db']->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FET
 $GLOBALS['gallery_test_db']->exec('PRAGMA foreign_keys=ON');
 $GLOBALS['gallery_test_settings'] = [];
 
+function sblog_t(string $message): string
+{
+    return $message;
+}
+
 function setting(string $name, string $default = ''): string
 {
     return (string)($GLOBALS['gallery_test_settings'][$name] ?? $default);
@@ -182,8 +187,126 @@ db()->exec(
 
 require dirname(__DIR__) . '/plugins/gallery/includes/data.php';
 require dirname(__DIR__) . '/plugins/gallery/includes/public.php';
+require dirname(__DIR__) . '/plugins/gallery/includes/admin.php';
 
 try {
+    $defaultImageContext = [
+        'tab' => 'images',
+        'category_id' => 0,
+        'uncategorized' => 0,
+        'q' => '',
+        'status' => '',
+        'page' => 1,
+        'per_page' => 18,
+    ];
+    gallery_test_same($defaultImageContext, gallery_admin_image_context([]), 'Empty admin context did not use safe defaults');
+    gallery_test_same(
+        $defaultImageContext,
+        gallery_admin_image_context([
+            'tab' => 'categories',
+            'category_id' => [],
+            'uncategorized' => ['1'],
+            'q' => ['search'],
+            'status' => ['published'],
+            'page' => ['10'],
+            'per_page' => 1000,
+            'a' => 'admin_delete_media',
+            'redirect' => 'https://example.com/',
+            'return_url' => '//example.com/',
+        ]),
+        'Admin return context accepted arrays, external actions, or pagination overrides'
+    );
+    gallery_test_same(
+        [
+            'tab' => 'images',
+            'category_id' => 42,
+            'uncategorized' => 0,
+            'q' => '旅行 图片',
+            'status' => 'published',
+            'page' => 9,
+            'per_page' => 18,
+        ],
+        gallery_admin_image_context([
+            'tab' => 'settings',
+            'category_id' => ' 00042 ',
+            'uncategorized' => '1',
+            'q' => ' 旅行 图片 ',
+            'status' => ' published ',
+            'page' => '9',
+            'per_page' => '99',
+            'redirect' => 'https://example.com/',
+        ]),
+        'Admin return context lost filters or let uncategorized override a selected category'
+    );
+    $uncategorizedContext = gallery_admin_image_context(['category_id' => '000', 'uncategorized' => '1']);
+    gallery_test_same(0, $uncategorizedContext['category_id'], 'Uncategorized context retained a category ID');
+    gallery_test_same(1, $uncategorizedContext['uncategorized'], 'Explicit uncategorized context was ignored');
+    gallery_test_same(0, gallery_admin_image_context(['uncategorized' => 'true'])['uncategorized'], 'A non-explicit uncategorized value was accepted');
+    gallery_test_same(
+        str_repeat('图库', 100),
+        gallery_admin_image_context(['q' => ' ' . str_repeat('图库', 120) . ' '])['q'],
+        'Admin search context was not limited to 200 Unicode characters'
+    );
+    foreach (['published', 'draft'] as $status) {
+        gallery_test_same($status, gallery_admin_image_context(['status' => $status])['status'], 'An allowed admin status was lost');
+    }
+    foreach (['private', 'PUBLISHED', '0'] as $status) {
+        gallery_test_same('', gallery_admin_image_context(['status' => $status])['status'], 'An unknown admin status was accepted');
+    }
+    foreach ([0, -100, '', 'invalid'] as $page) {
+        gallery_test_same(1, gallery_admin_image_context(['page' => $page])['page'], 'Admin page context was not clamped to its minimum');
+    }
+    foreach ([100001, PHP_INT_MAX, '9999999999999999999999999'] as $page) {
+        gallery_test_same(100000, gallery_admin_image_context(['page' => $page])['page'], 'Admin page context was not clamped to its maximum');
+    }
+    foreach (['bad', '-1', '4oops'] as $category) {
+        gallery_test_same(0, gallery_admin_image_context(['category_id' => $category])['category_id'], 'Malformed filter category was accepted');
+    }
+
+    foreach ([0, '0', '000', ' 000 '] as $category) {
+        gallery_test_same(null, gallery_request_category_id($category), 'A zero category did not select uncategorized');
+    }
+    foreach ([1, '1', ' 00042 ', PHP_INT_MAX, (string)PHP_INT_MAX] as $category) {
+        gallery_test_same((int)$category, gallery_request_category_id($category), 'A valid category ID was rejected or changed');
+    }
+    foreach (['1oops', 'garbage', [], ['1'], true, false, 1.0, -1, '-1', null, '', ' ', '+1', '1.5', (string)PHP_INT_MAX . '0'] as $category) {
+        gallery_test_expect_exception(
+            InvalidArgumentException::class,
+            static fn() => gallery_request_category_id($category),
+            'Malformed category input did not fail: ' . var_export($category, true)
+        );
+    }
+
+    gallery_test_same([42], gallery_selected_item_ids(' 00042 '), 'A scalar selected image ID was not normalized');
+    gallery_test_same([1], gallery_selected_item_ids(1), 'An integer selected image ID was rejected');
+    gallery_test_same([PHP_INT_MAX], gallery_selected_item_ids((string)PHP_INT_MAX), 'The maximum selected image ID was rejected');
+    gallery_test_same(
+        [3, 1, 2],
+        gallery_selected_item_ids(['third' => ' 003 ', 'first' => 1, 'duplicate' => '03', 'second' => '2']),
+        'Selected image IDs did not preserve request order after deduplication'
+    );
+    foreach (['1oops', [], true, false, 1.0, 0, '0', -1, '-1', null, '', ' ', '+1', '1.5', (string)PHP_INT_MAX . '0'] as $itemId) {
+        gallery_test_expect_exception(
+            InvalidArgumentException::class,
+            static fn() => gallery_selected_item_ids($itemId),
+            'Malformed scalar selected image input did not fail: ' . var_export($itemId, true)
+        );
+        foreach ([[$itemId, 1, 2], [1, $itemId, 2], [1, 2, $itemId]] as $selection) {
+            gallery_test_expect_exception(
+                InvalidArgumentException::class,
+                static fn() => gallery_selected_item_ids($selection),
+                'A malformed selected image anywhere in a batch was silently ignored'
+            );
+        }
+    }
+    gallery_test_same(range(1, 100), gallery_selected_item_ids(range(1, 100)), 'The selected image limit rejected 100 distinct IDs');
+    gallery_test_expect_exception(
+        InvalidArgumentException::class,
+        static fn() => gallery_selected_item_ids(range(1, 101)),
+        'The selected image limit accepted more than 100 distinct IDs'
+    );
+    gallery_test_same([1], gallery_selected_item_ids(array_fill(0, 101, '0001')), 'Duplicate IDs incorrectly exhausted the selected image limit');
+
     $rollbackError = new RuntimeException('Gallery rollback regression');
     $caughtRollbackError = null;
     try {
@@ -656,6 +779,128 @@ try {
     q("UPDATE sblog_gallery_items SET status = 'draft'");
     gallery_test_same([], gallery_public_albums(), 'Draft-only albums were still public');
     gallery_test_same(0, gallery_public_items(['uncategorized' => true])['total'], 'Draft-only uncategorized images were still public');
+
+    $bulkSource = gallery_save_category_record(['name' => 'Batch source', 'slug' => 'batch-source']);
+    $bulkTarget = gallery_save_category_record(['name' => 'Batch target', 'slug' => 'batch-target']);
+    $bulkMedia = [];
+    $bulkItems = [];
+    foreach ([$bulkSource, $bulkTarget, null] as $index => $categoryId) {
+        $mediaId = gallery_test_insert_media(['original_name' => 'batch-' . $index . '.jpg']);
+        $bulkMedia[] = $mediaId;
+        $itemId = gallery_add_media_items([$mediaId], $categoryId)['item_ids'][0];
+        gallery_update_item_record($itemId, [
+            'title' => 'Batch title ' . $index, 'description' => 'Batch description ' . $index,
+            'sort_order' => $index - 10, 'status' => $index === 0 ? 'published' : 'draft',
+        ]);
+        q('UPDATE sblog_gallery_items SET updated_at = 1 WHERE id = ?', [$itemId]);
+        $bulkItems[] = $itemId;
+    }
+    $rowsBeforeMove = all_rows('SELECT * FROM sblog_gallery_items ORDER BY id');
+    $mediaBeforeMove = all_rows('SELECT * FROM media ORDER BY id');
+    $move = gallery_move_items([$bulkItems[2], (string)$bulkItems[0], $bulkItems[1], $bulkItems[0]], $bulkTarget);
+    gallery_test_same(2, $move['moved'], 'Batch move did not count changed categories');
+    gallery_test_same(1, $move['unchanged'], 'Batch move did not count an existing target category');
+    gallery_test_same([$bulkItems[2], $bulkItems[0], $bulkItems[1]], $move['item_ids'], 'Batch move did not preserve deduplicated selection order');
+    $affectedCategories = $move['category_ids'];
+    sort($affectedCategories);
+    gallery_test_same([0, $bulkSource, $bulkTarget], $affectedCategories, 'Batch move did not report old and new categories');
+    $rowsAfterMove = all_rows('SELECT * FROM sblog_gallery_items ORDER BY id');
+    foreach ($rowsBeforeMove as $index => $beforeRow) {
+        $afterRow = $rowsAfterMove[$index];
+        if (in_array((int)$beforeRow['id'], [$bulkItems[0], $bulkItems[2]], true)) {
+            gallery_test_same($bulkTarget, (int)$afterRow['category_id'], 'Batch move did not assign its target category');
+            gallery_test_assert((int)$afterRow['updated_at'] > 1, 'Moved item timestamp was not updated');
+            unset($beforeRow['category_id'], $beforeRow['updated_at'], $afterRow['category_id'], $afterRow['updated_at']);
+        }
+        gallery_test_same($beforeRow, $afterRow, 'Batch move changed another field, timestamp, or unselected item');
+    }
+    gallery_test_same($mediaBeforeMove, all_rows('SELECT * FROM media ORDER BY id'), 'Batch move altered media records');
+    $repeatMove = gallery_move_items(array_fill(0, 101, $bulkItems[0]), $bulkTarget);
+    gallery_test_same(0, $repeatMove['moved'], 'Repeated same-category move was not unchanged');
+    gallery_test_same(1, $repeatMove['unchanged'], 'Duplicate selections were counted separately');
+    gallery_test_same($rowsAfterMove, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Unchanged move touched item timestamps');
+
+    $invalidSelections = [
+        [], [$bulkItems[0], 'bad'], [$bulkItems[0], []], [$bulkItems[0], 0], [$bulkItems[0], -1],
+        [$bulkItems[0], true], [$bulkItems[0], 1.0], [$bulkItems[0], (string)PHP_INT_MAX . '0'],
+        [$bulkItems[0], 999999], range(1, 101),
+    ];
+    foreach ($invalidSelections as $selection) {
+        gallery_test_expect_exception(InvalidArgumentException::class,
+            static fn() => gallery_move_items($selection, $bulkSource), 'Invalid, missing, or oversized selection allowed a batch move');
+        gallery_test_same($rowsAfterMove, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Rejected batch move partially changed items');
+    }
+    foreach ([0, -1, 999999] as $target) {
+        gallery_test_expect_exception(InvalidArgumentException::class,
+            static fn() => gallery_move_items($bulkItems, $target), 'Batch move accepted an invalid or missing target category');
+        gallery_test_same($rowsAfterMove, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Rejected target partially changed items');
+    }
+    db()->beginTransaction();
+    gallery_move_items($bulkItems, null);
+    gallery_test_same(true, db()->inTransaction(), 'Batch move committed a caller-owned transaction');
+    gallery_test_same(3, gallery_admin_items(['uncategorized' => true, 'q' => 'Batch title'])['total'], 'Uncategorized admin filtering missed moved items');
+    db()->rollBack();
+    gallery_test_same($rowsAfterMove, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Caller rollback did not reverse a batch move');
+    $outerRollback = new RuntimeException('Batch move outer rollback');
+    gallery_test_expect_exception(RuntimeException::class, static function () use ($bulkItems, $bulkSource, $outerRollback): void {
+        gallery_transaction(static function () use ($bulkItems, $bulkSource, $outerRollback): void {
+            gallery_move_items($bulkItems, $bulkSource);
+            throw $outerRollback;
+        });
+    }, 'Nested batch move hid an outer transaction failure');
+    gallery_test_same($rowsAfterMove, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Nested batch move survived an outer rollback');
+    gallery_test_same(false, gallery_in_transaction(), 'Rejected batch move left its transaction open');
+    db()->exec("CREATE TRIGGER gallery_test_move_abort BEFORE UPDATE OF category_id ON sblog_gallery_items
+        WHEN NEW.id = " . $bulkItems[1] . " BEGIN SELECT RAISE(ABORT, 'Batch update failed'); END");
+    gallery_test_expect_exception(PDOException::class,
+        static fn() => gallery_move_items($bulkItems, $bulkSource), 'Batch move concealed a database update failure');
+    db()->exec('DROP TRIGGER gallery_test_move_abort');
+    gallery_test_same($rowsAfterMove, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Failed database update left a partially moved batch');
+    gallery_test_same(false, gallery_in_transaction(), 'Failed database update left its transaction open');
+
+    $nullMove = gallery_move_items([$bulkItems[0], $bulkItems[2]], null);
+    gallery_test_same(2, $nullMove['moved'], 'Batch move to uncategorized did not update both categories');
+    gallery_test_same([$bulkTarget, 0], $nullMove['category_ids'], 'Uncategorized move did not report its target');
+    $uncategorizedAdmin = gallery_admin_items(['uncategorized' => true, 'q' => 'Batch title', 'per_page' => 100]);
+    gallery_test_same([$bulkItems[0], $bulkItems[2]], array_column($uncategorizedAdmin['items'], 'id'), 'Admin uncategorized filtering included categorized images');
+    $categorizedAdmin = gallery_admin_items(['category_id' => $bulkTarget, 'uncategorized' => true, 'q' => 'Batch title']);
+    gallery_test_same([$bulkItems[1]], array_column($categorizedAdmin['items'], 'id'), 'A positive admin category filter did not override uncategorized');
+    gallery_test_same([$bulkItems[2]], array_column(gallery_admin_items([
+        'uncategorized' => true, 'q' => 'Batch title', 'status' => 'draft',
+    ])['items'], 'id'), 'Admin uncategorized filtering lost its status filter');
+
+    $removalSnapshot = all_rows('SELECT * FROM sblog_gallery_items ORDER BY id');
+    gallery_test_same(0, gallery_remove_items([]), 'Empty removal changed its no-op behavior');
+    gallery_test_expect_exception(InvalidArgumentException::class,
+        static fn() => gallery_remove_items([$bulkItems[0], 999999]), 'Missing removal selection allowed a partial delete');
+    gallery_test_same($removalSnapshot, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Rejected removal partially deleted items');
+    db()->beginTransaction();
+    gallery_test_same(2, gallery_remove_items([$bulkItems[0], $bulkItems[1], $bulkItems[0]]), 'Batch removal did not deduplicate items');
+    gallery_test_same(true, db()->inTransaction(), 'Batch removal committed a caller-owned transaction');
+    db()->rollBack();
+    gallery_test_same($removalSnapshot, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Caller rollback did not reverse batch removal');
+
+    $limitItems = [];
+    $limitMedia = [];
+    for ($index = 0; $index < 101; $index++) {
+        $mediaId = gallery_test_insert_media(['original_name' => 'limit-' . $index . '.jpg']);
+        $limitMedia[] = $mediaId;
+        $limitItems[] = gallery_add_media_items([$mediaId], $bulkSource)['item_ids'][0];
+    }
+    $beforeOversize = all_rows('SELECT * FROM sblog_gallery_items ORDER BY id');
+    gallery_test_expect_exception(InvalidArgumentException::class,
+        static fn() => gallery_move_items($limitItems, $bulkTarget), 'A selection over 100 items was truncated and moved');
+    gallery_test_expect_exception(InvalidArgumentException::class,
+        static fn() => gallery_remove_items($limitItems), 'A removal over 100 items was truncated and deleted');
+    gallery_test_same($beforeOversize, all_rows('SELECT * FROM sblog_gallery_items ORDER BY id'), 'Oversized selection partially changed items');
+    $hundredItems = array_slice($limitItems, 0, 100);
+    gallery_test_same(100, gallery_move_items($hundredItems, $bulkTarget)['moved'], 'The maximum valid move batch was rejected');
+    gallery_test_same($bulkSource, (int)val('SELECT category_id FROM sblog_gallery_items WHERE id = ?', [$limitItems[100]]), 'Maximum move batch touched an unselected item');
+    gallery_test_same(100, gallery_remove_items($hundredItems), 'The maximum valid removal batch was rejected');
+    gallery_test_same(1, (int)val('SELECT COUNT(*) FROM sblog_gallery_items WHERE id = ?', [$limitItems[100]]), 'Maximum removal batch touched an unselected item');
+    foreach (array_merge($bulkMedia, $limitMedia) as $mediaId) {
+        gallery_test_same(1, (int)val('SELECT COUNT(*) FROM media WHERE id = ?', [$mediaId]), 'Batch operation removed an original media record');
+    }
 
     echo "Gallery integration tests passed.\n";
 } catch (Throwable $exception) {
