@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-03T03:03:29+00:00",
+    "updated_at": "2026-10-06T12:00:46+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -225,6 +225,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-static-page-cache-v1.0.0/plugin-static-page-cache-1.0.0.zip",
             "sha256": "134b1780731968a1348454c998b37044367278581db3c570a02e8cee02bdfe2c",
             "source_sha256": "be83ea39b1604a3a6ecf612063123a3d2fe34335d59ff50c41630dbfb774a733"
+        },
+        {
+            "type": "plugin",
+            "slug": "steam-showcase",
+            "name": "Steam 游戏展示",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "通过 Steam 官方 Web API 展示玩家档案、最近游玩和游戏库，支持首页卡片与本地缓存。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-steam-showcase-v1.0.0/plugin-steam-showcase-1.0.0.zip",
+            "sha256": "cc7c1c288686d0ad3b08d7ee8af1bb516b1ba550293b2e9f9458da2cb8b57039",
+            "source_sha256": "d7e2eb9ada09dd32a131bda4e7f807b1a9eeea79edc18af210c555330db2c3f1"
         },
         {
             "type": "plugin",
