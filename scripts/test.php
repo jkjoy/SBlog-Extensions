@@ -197,3 +197,9 @@ passthru($robotsTxtCommand, $robotsTxtStatus);
 if ($robotsTxtStatus !== 0) {
     store_fail('Robots.txt tests failed.');
 }
+
+$steamShowcaseCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(STORE_ROOT . '/plugins/steam-showcase/tests/run.php');
+passthru($steamShowcaseCommand, $steamShowcaseStatus);
+if ($steamShowcaseStatus !== 0) {
+    store_fail('Steam showcase tests failed.');
+}

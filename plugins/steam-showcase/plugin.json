@@ -1,0 +1,10 @@
+{
+  "name": "Steam 游戏展示",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "通过 Steam 官方 Web API 展示玩家档案、最近游玩和游戏库，支持首页卡片与本地缓存。",
+  "settings_action": "admin_steam"
+}
