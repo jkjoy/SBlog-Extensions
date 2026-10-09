@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-09T02:50:54+00:00",
+    "updated_at": "2026-10-09T08:06:33+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -62,15 +62,15 @@
             "type": "plugin",
             "slug": "comment-lottery",
             "name": "评论抽奖",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "author": "Simple PHP Blog",
             "description": "在文章中插入评论抽奖，设置活动时间与中奖名额，自动开奖、公示中奖评论并通过邮件通知中奖人。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.8",
             "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-comment-lottery-v1.0.0/plugin-comment-lottery-1.0.0.zip",
-            "sha256": "3862f9efcbc9bf575435d66510efec2520a00ad44a2d2e999499c4478587e389",
-            "source_sha256": "df89df34ed0543c82bff7b8b8140c9d7f4cf51611461bc8a256e7c1e6ae9dbbc"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-comment-lottery-v1.0.1/plugin-comment-lottery-1.0.1.zip",
+            "sha256": "1de3d2fea24bb5bae56e18362f4fe5bcbc3ecbb949cfcac395225f3327ff522e",
+            "source_sha256": "bc922de0d23e65f46628793ffa7f391c8b426956f359d40ffdb8f063e985a5dd"
         },
         {
             "type": "plugin",
