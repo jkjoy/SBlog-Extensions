@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-09T01:27:52+00:00",
+    "updated_at": "2026-10-09T01:34:14+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -60,17 +60,31 @@
         },
         {
             "type": "plugin",
+            "slug": "comment-lottery",
+            "name": "评论抽奖",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "在文章中插入评论抽奖，设置活动时间与中奖名额，自动开奖、公示中奖评论并通过邮件通知中奖人。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-comment-lottery-v1.0.0/plugin-comment-lottery-1.0.0.zip",
+            "sha256": "3862f9efcbc9bf575435d66510efec2520a00ad44a2d2e999499c4478587e389",
+            "source_sha256": "df89df34ed0543c82bff7b8b8140c9d7f4cf51611461bc8a256e7c1e6ae9dbbc"
+        },
+        {
+            "type": "plugin",
             "slug": "douban-showcase",
             "name": "豆瓣记录展示",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "author": "Simple PHP Blog",
             "description": "输入豆瓣用户 ID，展示公开的电影、图书和音乐记录，支持状态筛选、封面、个人评分和缓存。",
             "homepage": "",
             "requires": "1.14.8",
             "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-douban-showcase-v1.0.0/plugin-douban-showcase-1.0.0.zip",
-            "sha256": "b26381405bc29f22f54f5f510400494fbe3b79b42910f36b62d5c461a92a2560",
-            "source_sha256": "529709114ce024c135276b0c2df100ed7a9bf11bcb9f91f124b2cf4156db7226"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-douban-showcase-v1.0.1/plugin-douban-showcase-1.0.1.zip",
+            "sha256": "94a5d2dfec8d6d7e67f805ed4a072a999494272e0160230b26a1b3f1ca9bc253",
+            "source_sha256": "b6808db9208802bfaca2b95dc177408e1f840f963eaac8b6e2bf822781f68218"
         },
         {
             "type": "plugin",
