@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-09T08:30:34+00:00",
+    "updated_at": "2026-10-09T08:56:07+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -160,15 +160,15 @@
             "type": "plugin",
             "slug": "paid-reading",
             "name": "付费阅读",
-            "version": "1.1.1",
+            "version": "1.1.2",
             "author": "Simple PHP Blog",
             "description": "依赖「邮件通知」插件，需先安装并启用该插件、配置 SMTP 才能开放付费购买。支持文章定价、免费试读、支付宝和微信支付，以及邮箱找回与跨设备阅读。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.8",
             "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-paid-reading-v1.1.1/plugin-paid-reading-1.1.1.zip",
-            "sha256": "1c34e6eb00cf188ce80269c03325e0ded3b6b17802dc46cddd1af459ad02c56b",
-            "source_sha256": "fc16dbb40006742a86bfc06967bd03c595c888376076c849bccabb540ee900f1"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-paid-reading-v1.1.2/plugin-paid-reading-1.1.2.zip",
+            "sha256": "5b256e0e758ce685f9e2c069d99422b2c4ac8be564a5299331e60372b143d5a6",
+            "source_sha256": "1c368058892da17a6806c75a8579b502f0dcbea4c3d079cd418317798d53e1cd"
         },
         {
             "type": "plugin",
