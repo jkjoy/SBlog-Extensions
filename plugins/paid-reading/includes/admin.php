@@ -223,21 +223,3 @@ function pr_render_admin(): void
     <?php
     render_layout(sblog_t('付费阅读'), (string)ob_get_clean(), ['active' => 'plugins', 'wide' => true]);
 }
-
-function pr_editor_control(string $html, array $context): string
-{
-    if (($context['field'] ?? '') !== 'content') {
-        return $html;
-    }
-    $postId = max(0, (int)($context['post_id'] ?? 0));
-    $content = $postId > 0 ? pr_content_for_post($postId) : null;
-    $enabled = $content !== null;
-    $price = $content !== null ? pr_format_money((int)$content['price_cents']) : (string)pr_settings()['default_price'];
-    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-        $enabled = ($_POST['paid_reading_enabled'] ?? '') === '1';
-        $price = is_scalar($_POST['paid_reading_price'] ?? null) ? (string)$_POST['paid_reading_price'] : $price;
-    }
-    ob_start(); ?>
-    <span class="pr-editor-control"><input type="hidden" name="paid_reading_present" value="1"><span class="pr-editor-control__toggle"><input id="pr-post-enabled" type="checkbox" name="paid_reading_enabled" value="1" aria-label="<?= h(sblog_t('启用付费阅读')) ?>"<?= $enabled ? ' checked' : '' ?>> <span><?= h(sblog_t('付费阅读')) ?></span></span><span class="pr-editor-control__price">¥ <input type="number" name="paid_reading_price" min="0.01" max="1000000" step="0.01" value="<?= h($price) ?>" aria-label="<?= h(sblog_t('阅读价格（元）')) ?>"></span><small class="pr-editor-control__hint"><?= h(sblog_t('用 <!-- paid-reading --> 分隔免费预览与付费正文；未分隔则整篇付费。摘要仅使用免费预览。')) ?></small></span>
-    <?php return $html . (string)ob_get_clean();
-}

@@ -1,0 +1,38 @@
+.theme-admin .pr-editor-open[aria-pressed="true"] {
+  border-color: var(--admin-accent-border);
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.pr-editor-dialog {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--admin-border, #ececef);
+  border-radius: var(--admin-radius, 8px);
+  background: var(--admin-panel, #fff);
+  color: var(--admin-text, #1f2329);
+  box-shadow: var(--admin-shadow-modal, 0 24px 80px rgb(31 35 41 / 20%));
+  font-family: var(--font-ui, Arial, "Microsoft YaHei", sans-serif);
+}
+.pr-editor-dialog::backdrop { background: var(--admin-overlay, rgb(17 24 39 / 42%)); }
+.pr-editor-dialog [hidden] { display: none !important; }
+.pr-editor-dialog__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--admin-border, #ececef); }
+.pr-editor-dialog__header h2 { margin: 0; font-size: 18px; line-height: 1.4; }
+.pr-editor-dialog__header > button { flex-shrink: 0; }
+.pr-editor-dialog .form-stack { padding: 20px 24px 24px; }
+.pr-editor-dialog .setting-option { margin: 0; padding: 10px 0; }
+.pr-editor-dialog .field-hint { margin: 0; line-height: 1.65; }
+.pr-editor-dialog__preview-hint { padding: 12px; border: 1px solid var(--admin-border, #ececef); border-radius: 6px; background: var(--admin-panel-muted, #fafbfc); }
+.pr-editor-dialog__error { margin: 0; color: var(--admin-danger-text, #b42318); font-size: 13px; line-height: 1.65; }
+.pr-editor-dialog__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.pr-editor-dialog button:focus-visible { outline: 2px solid var(--admin-accent, #3370ff); outline-offset: 3px; }
+
+@media (max-width: 540px) {
+  .pr-editor-dialog__header { padding: 16px; }
+  .pr-editor-dialog .form-stack { padding: 16px; }
+}

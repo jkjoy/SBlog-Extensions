@@ -127,12 +127,6 @@
 .theme-admin .pr-admin__post-id { display: block; margin-top: 2px; }
 .theme-admin .pr-admin__orders form { margin: 0; }
 .theme-admin .pr-admin__pagination { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 18px; border-top: 1px solid var(--admin-border); color: var(--admin-muted); font-size: 13px; }
-.theme-admin .pr-editor-control { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 6px 10px; color: var(--admin-muted); font-size: 12px; font-weight: 500; vertical-align: middle; }
-.theme-admin .pr-editor-control__toggle,
-.theme-admin .pr-editor-control__price { display: inline-flex; align-items: center; gap: 6px; }
-.theme-admin .pr-editor-control input[type="checkbox"] { flex: 0 0 auto; width: 15px; height: 15px; margin: 0; accent-color: var(--admin-accent); }
-.theme-admin .pr-editor-control input[type="number"] { width: 86px; min-height: 30px; padding: 4px 7px; font-size: 12px; font-variant-numeric: tabular-nums; }
-.theme-admin .pr-editor-control__hint { flex-basis: 100%; color: var(--admin-soft); font-size: 11px; line-height: 1.6; }
 
 @media (prefers-color-scheme: dark) {
   .paid-reading-wall,
@@ -151,7 +145,6 @@
   .theme-admin .pr-admin { padding: 16px 12px 28px; gap: 16px; }
   .theme-admin .pr-admin__grid { grid-template-columns: 1fr; gap: 16px; }
   .theme-admin .pr-admin__orders table { min-width: 690px; }
-  .theme-admin .pr-editor-control { display: flex; margin-left: 0; }
   .paid-reading-wall { padding: 24px 16px; }
   .paid-reading-checkout { margin: 20px 12px; padding: 24px 18px; }
   .paid-reading-checkout__actions { width: 100%; }
