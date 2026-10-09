@@ -98,5 +98,8 @@ function sblog_steam_save_config(array $config): void
 
 function sblog_steam_url(string $action = 'steam'): string
 {
+    if ($action === 'steam' && use_pretty_url()) {
+        return app_path('/steam');
+    }
     return url_with_query(script_url(), ['a' => $action]);
 }

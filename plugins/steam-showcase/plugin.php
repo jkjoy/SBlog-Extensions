@@ -11,6 +11,26 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/api.php';
 require_once __DIR__ . '/views.php';
 
+function sblog_steam_route_action(string $action, array $context = []): string
+{
+    if ($action !== 'page') {
+        return $action;
+    }
+    $path = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    if (!is_string($path)) {
+        return $action;
+    }
+    $path = rtrim(rawurldecode($path), '/');
+    if (!in_array($path, [app_path('/steam'), script_url() . '/steam'], true)) {
+        return $action;
+    }
+    $_GET['a'] = 'steam';
+    $_REQUEST['a'] = 'steam';
+    return 'steam';
+}
+
+add_plugin_filter('route_action', 'sblog_steam_route_action');
+
 add_plugin_action('request', static function (array $context): void {
     $action = (string)($context['action'] ?? '');
     if ($action === 'admin_steam') {
@@ -57,7 +77,7 @@ add_plugin_filter('output_html', static function (string $html, array $context):
     if (str_contains($html, 'data-steam-showcase')) {
         $style = plugin_asset_url('steam-showcase', 'assets/style.css');
         $script = plugin_asset_url('steam-showcase', 'assets/script.js');
-        $version = rawurlencode('1.0.0');
+        $version = rawurlencode('1.0.1');
         $html = str_ireplace('</head>', '<link rel="stylesheet" href="' . h($style . '?v=' . $version) . '">' . "\n</head>", $html);
         $html = str_ireplace('</body>', '<script defer src="' . h($script . '?v=' . $version) . '"></script>' . "\n</body>", $html);
     }

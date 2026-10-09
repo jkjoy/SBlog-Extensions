@@ -39,7 +39,18 @@ function str_len_u(string $value): int
 
 function script_url(): string
 {
-    return '/index.php';
+    return (string)($_SERVER['SCRIPT_NAME'] ?? '/index.php');
+}
+
+function app_path(string $path = '/'): string
+{
+    $base = str_replace('\\', '/', dirname(script_url()));
+    return ($base === '/' || $base === '.' ? '' : rtrim($base, '/')) . '/' . ltrim($path, '/');
+}
+
+function use_pretty_url(): bool
+{
+    return $GLOBALS['steam_test_pretty_url'];
 }
 
 function url_with_query(string $url, array $params): string
@@ -132,9 +143,13 @@ function steam_test_reset(): void
     $GLOBALS['steam_test_admin'] = false;
     $GLOBALS['steam_test_csrf'] = 'valid-test-token';
     $GLOBALS['steam_test_rendered'] = '';
+    $GLOBALS['steam_test_pretty_url'] = false;
     $_POST = [];
     $_GET = [];
+    $_REQUEST = [];
     $_SERVER['REQUEST_METHOD'] = 'GET';
+    $_SERVER['SCRIPT_NAME'] = '/index.php';
+    $_SERVER['REQUEST_URI'] = '/index.php';
     foreach (new FilesystemIterator(CACHE_DIR, FilesystemIterator::SKIP_DOTS) as $file) {
         if ($file->isDir() && !$file->isLink()) {
             steam_test_remove_directory($file->getPathname());
@@ -216,6 +231,22 @@ function steam_test_expire_cache(array $config): void
     $record['checked_at'] = time() - 100000;
     $record['next_retry_at'] = 0;
     file_put_contents($path, json_encode($record, JSON_THROW_ON_ERROR));
+}
+
+function steam_test_route(string $action, string $requestUri, array $query = [], array $context = []): string
+{
+    $_SERVER['REQUEST_URI'] = $requestUri;
+    $_GET = $query;
+    $_REQUEST = $query;
+    $filters = $GLOBALS['steam_test_filters']['route_action'] ?? [];
+    steam_test_assert($filters !== [], 'The plugin must register a route action filter.');
+    ksort($filters, SORT_NUMERIC);
+    foreach ($filters as $callbacks) {
+        foreach ($callbacks as $callback) {
+            $action = $callback($action, $context);
+        }
+    }
+    return $action;
 }
 
 steam_test_reset();
@@ -647,11 +678,93 @@ $tests['navigation and asset hooks produce escaped public links and honor disabl
     $html = $filter($input, ['action' => 'steam']);
     steam_test_assert(str_contains($html, 'aria-current="page" href="/index.php?a=steam"'), 'The active navigation entry must point to the plugin route.');
     steam_test_assert(!str_contains($html, '<script>alert(1)</script>'), 'Configured navigation labels must be escaped.');
-    steam_test_assert(str_contains($html, '/plugins/steam-showcase/assets/style.css?v=1.0.0'), 'A rendered showcase must load its stylesheet.');
-    steam_test_assert(str_contains($html, '/plugins/steam-showcase/assets/script.js?v=1.0.0'), 'A rendered showcase must load its client interactions.');
+    steam_test_assert(str_contains($html, '/plugins/steam-showcase/assets/style.css?v=1.0.1'), 'A rendered showcase must load its stylesheet.');
+    steam_test_assert(str_contains($html, '/plugins/steam-showcase/assets/script.js?v=1.0.1'), 'A rendered showcase must load its client interactions.');
     sblog_steam_save_config(steam_test_config(['show_nav' => false]));
     steam_test_assert(!str_contains($filter($input, ['action' => 'home']), 'href="/index.php?a=steam"'), 'Disabling navigation must remove the entry.');
     steam_test_same('<html><head></head><body>Admin</body></html>', $filter('<html><head></head><body>Admin</body></html>', ['action' => 'admin_plugins']), 'Public navigation hooks must leave admin output unchanged.');
+};
+
+$tests['pretty Steam URLs follow root and subdirectory installations'] = static function (): void {
+    $GLOBALS['steam_test_pretty_url'] = true;
+    steam_test_same('/steam', sblog_steam_url(), 'A root installation must use the Steam path.');
+    $_SERVER['SCRIPT_NAME'] = '/blog/index.php';
+    steam_test_same('/blog/steam', sblog_steam_url(), 'The Steam path must preserve the blog installation directory.');
+};
+
+$tests['query URLs remain available without pretty URLs and admin URLs always use the script'] = static function (): void {
+    foreach (['/index.php', '/blog/index.php'] as $script) {
+        $_SERVER['SCRIPT_NAME'] = $script;
+        $GLOBALS['steam_test_pretty_url'] = false;
+        steam_test_same($script . '?a=steam', sblog_steam_url(), 'Disabling pretty URLs must produce the existing query link.');
+        foreach ([false, true] as $pretty) {
+            $GLOBALS['steam_test_pretty_url'] = $pretty;
+            steam_test_same($script . '?a=admin_steam', sblog_steam_url('admin_steam'), 'The settings page must remain an explicit administrative query route.');
+        }
+    }
+};
+
+$tests['Steam path routes accept trailing slashes and query strings at the correct base'] = static function (): void {
+    foreach (['/index.php' => ['/steam', '/steam/', '/steam?utm_source=nav', '/steam/?utm_source=nav', '/index.php/steam', '/index.php/steam/?utm_source=nav'], '/blog/index.php' => ['/blog/steam', '/blog/steam/', '/blog/steam?utm_source=nav', '/blog/index.php/steam', '/blog/index.php/steam/?utm_source=nav']] as $script => $paths) {
+        $_SERVER['SCRIPT_NAME'] = $script;
+        foreach ($paths as $path) {
+            steam_test_same('steam', steam_test_route('page', $path, ['slug' => 'steam', 'utm_source' => 'nav'], ['slug' => 'steam']), 'The public Steam path must be claimed: ' . $path);
+            steam_test_same('steam', $_GET['a'] ?? null, 'The route must update the GET action for the plugin request hook.');
+            steam_test_same('steam', $_REQUEST['a'] ?? null, 'The route must update the request action consistently.');
+            steam_test_same('nav', $_GET['utm_source'], 'Routing must preserve unrelated query parameters.');
+        }
+    }
+};
+
+$tests['Steam path matching decodes the request path and does not trust only a page slug'] = static function (): void {
+    steam_test_same('steam', steam_test_route('page', '/%73team?source=encoded', ['slug' => 'steam']), 'An encoded Steam path must resolve consistently with the core path parser.');
+    steam_test_same('page', steam_test_route('page', '/pages/steam', ['slug' => 'steam'], ['slug' => 'steam']), 'An ordinary page with the same slug must retain its route.');
+    steam_test_same(['slug' => 'steam'], $_GET, 'An unclaimed ordinary page must not change query data.');
+};
+
+$tests['unrelated paths and explicit query actions retain their original routes'] = static function (): void {
+    foreach (['/index.php' => ['/archives', '/pages/steam', '/steaming', '/steam/library'], '/blog/index.php' => ['/steam', '/other/steam', '/blog/archives', '/blog/pages/steam', '/blog/steaming', '/blogger/steam']] as $script => $paths) {
+        $_SERVER['SCRIPT_NAME'] = $script;
+        foreach ($paths as $path) {
+            $query = ['slug' => 'steam', 'a' => 'page'];
+            steam_test_same('page', steam_test_route('page', $path, $query, ['slug' => 'steam']), 'The plugin must leave unrelated paths unchanged: ' . $path);
+            steam_test_same($query, $_GET, 'Unclaimed paths must preserve their GET action and parameters.');
+            steam_test_same($query, $_REQUEST, 'Unclaimed paths must preserve their request data.');
+        }
+    }
+    $_SERVER['SCRIPT_NAME'] = '/index.php';
+    foreach (['steam', 'admin_steam', 'archives'] as $action) {
+        $query = ['a' => $action];
+        steam_test_same($action, steam_test_route($action, '/index.php?a=' . $action, $query), 'An explicit query route must pass through unchanged.');
+        steam_test_same($query, $_GET, 'A direct query request must retain its original data.');
+    }
+    steam_test_same('admin_steam', steam_test_route('admin_steam', '/steam', ['a' => 'admin_steam']), 'The filter must preserve actions that the core has already resolved as administrative.');
+};
+
+$tests['a canonical Steam path replaces a conflicting query action after core path parsing'] = static function (): void {
+    steam_test_same('steam', steam_test_route('page', '/steam?a=admin_steam', ['a' => 'page', 'slug' => 'steam'], ['slug' => 'steam']), 'A Steam path parsed as a page must become the public Steam route.');
+    steam_test_same('steam', $_GET['a'], 'The public path must drive the request hook rather than the conflicting query string.');
+};
+
+$tests['navigation widget and settings links use the chosen public URL'] = static function (): void {
+    $GLOBALS['steam_test_admin'] = true;
+    $calls = [];
+    $config = steam_test_config();
+    $snapshot = sblog_steam_snapshot($config, false, steam_test_transport(steam_test_responses(), $calls));
+    sblog_steam_save_config($config);
+    $filter = $GLOBALS['steam_test_filters']['output_html'][20][0];
+    $document = '<html><head></head><body class="theme-public"><nav class="text-nav"></nav></body></html>';
+    foreach ([['/index.php', true, '/steam'], ['/blog/index.php', true, '/blog/steam'], ['/blog/index.php', false, '/blog/index.php?a=steam']] as [$script, $pretty, $url]) {
+        $_SERVER['SCRIPT_NAME'] = $script;
+        $GLOBALS['steam_test_pretty_url'] = $pretty;
+        $link = 'href="' . h($url) . '"';
+        steam_test_assert(str_contains($filter($document, ['action' => 'steam']), $link), 'Navigation must use the current public Steam URL.');
+        steam_test_assert(str_contains(sblog_steam_render($snapshot, $config, true), $link), 'The compact widget must use the current public Steam URL.');
+        sblog_steam_admin($config);
+        $html = $GLOBALS['steam_test_rendered'];
+        steam_test_assert(str_contains($html, $link), 'The settings page must display the current public Steam URL.');
+        steam_test_assert(str_contains($html, 'action="' . h($script . '?a=admin_steam') . '"'), 'Settings forms must continue posting to the admin query URL.');
+    }
 };
 
 $failed = 0;
