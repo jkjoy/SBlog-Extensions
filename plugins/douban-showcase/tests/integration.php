@@ -9,7 +9,18 @@ if (PHP_SAPI !== 'cli') {
 }
 
 define('PLUGINS_DIR', dirname(__DIR__, 2));
-define('CACHE_DIR', sys_get_temp_dir());
+$doubanIntegrationCache = rtrim(sys_get_temp_dir(), '/\\') . '/sblog-douban-integration-' . bin2hex(random_bytes(8));
+if (!mkdir($doubanIntegrationCache, 0700)) {
+    fwrite(STDERR, "Could not create the isolated integration cache.\n");
+    exit(1);
+}
+define('CACHE_DIR', $doubanIntegrationCache);
+register_shutdown_function(static function () use ($doubanIntegrationCache): void {
+    foreach (glob($doubanIntegrationCache . '/*') ?: [] as $file) {
+        if (is_file($file)) { unlink($file); }
+    }
+    rmdir($doubanIntegrationCache);
+});
 $GLOBALS['douban_test_db'] = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $GLOBALS['douban_test_admin'] = false;
 $GLOBALS['douban_test_pretty'] = false;
@@ -52,7 +63,7 @@ function douban_integration_assert(bool $value, string $message): void
 
 $tests = [];
 $tests['configuration accepts numeric/custom IDs and official profile URLs'] = static function (): void {
-    foreach (['1000001', 'ahbei', 'test-id_2', 'https://www.douban.com/people/ahbei/'] as $id) {
+    foreach (['1000001', 'ahbei', 'imsunpw', 'test-id_2', 'https://www.douban.com/people/ahbei/'] as $id) {
         $input = array_merge(sblog_douban_defaults(), ['user_id' => $id]);
         $result = sblog_douban_validate_config($input, sblog_douban_defaults());
         douban_integration_assert($result['errors'] === [], 'A valid account was rejected: ' . $id);
@@ -163,6 +174,72 @@ $tests['view escapes upstream content and blocks arbitrary URLs'] = static funct
     $GLOBALS['douban_test_admin'] = true;
     sblog_douban_admin($config);
     douban_integration_assert(!str_contains($GLOBALS['douban_test_html'], '<script>alert(6)</script>'), 'Settings inputs must escape configuration.');
+};
+$tests['public records omit account details and list links while keeping subject links'] = static function (): void {
+    $config = array_merge(sblog_douban_defaults(), ['user_id' => 'imsunpw']);
+    foreach (array_keys(sblog_douban_types()) as $type) {
+        $subjectUrl = 'https://' . $type . '.douban.com/subject/123/';
+        $snapshot = [
+            'status' => 'ok', 'message' => '', 'updated_at' => time(), 'total' => 50, 'truncated' => true,
+            'profile' => ['id' => 'imsunpw', 'name' => 'ACCOUNT_NAME_SENTINEL', 'avatar' => 'https://img3.doubanio.com/icon/u123456.jpg', 'url' => 'https://www.douban.com/people/imsunpw/'],
+            'items' => [['id' => '123', 'title' => '公开条目', 'url' => $subjectUrl, 'cover_url' => '', 'rating' => 4, 'date' => '2026-10-07', 'comment' => '公开短评', 'intro' => '公开介绍', 'tags' => ['公开标签']]],
+        ];
+        foreach (['ok', 'stale', 'error', 'private', 'unconfigured'] as $state) {
+            $snapshot['status'] = $state;
+            if (in_array($state, ['error', 'private', 'unconfigured'], true)) { $snapshot['items'] = []; }
+            foreach ([false, true] as $compact) {
+                $html = sblog_douban_render($snapshot, $config, $type, 'collect', $compact);
+                foreach (['ACCOUNT_NAME_SENTINEL', 'imsunpw', '/people/', '/icon/u123456.jpg'] as $accountDetail) {
+                    douban_integration_assert(!str_contains($html, $accountDetail), 'Account details or a list-level Douban link reached the public view: ' . $accountDetail);
+                }
+                if (in_array($state, ['ok', 'stale'], true)) {
+                    douban_integration_assert(str_contains($html, 'href="' . $subjectUrl . '"'), 'The public record must keep its individual subject link.');
+                    douban_integration_assert(str_contains($html, '公开条目') && str_contains($html, '公开短评'), 'Removing account details must preserve the public records.');
+                }
+            }
+        }
+    }
+};
+$tests['cover URLs use the local registered endpoint in root and subdirectory deployments'] = static function (): void {
+    $source = 'https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2527119568.jpg';
+    foreach (['/index.php', '/blog/index.php'] as $script) {
+        $_SERVER['SCRIPT_NAME'] = $script;
+        foreach ([false, true] as $pretty) {
+            $GLOBALS['douban_test_pretty'] = $pretty;
+            $url = sblog_douban_cover_url($source);
+            parse_str((string)parse_url($url, PHP_URL_QUERY), $params);
+            douban_integration_assert(parse_url($url, PHP_URL_PATH) === $script && !isset(parse_url($url)['host']), 'Covers must use the blog entry point in every URL mode.');
+            douban_integration_assert(($params['a'] ?? '') === 'douban_showcase_cover' && ($params['key'] ?? '') === hash('sha256', $source), 'The cover endpoint must use a registered source key.');
+            douban_integration_assert(!isset($params['url']) && !str_contains($url, 'doubanio.com'), 'Visitor URLs must not contain an arbitrary fetch target.');
+        }
+    }
+    foreach (['https://evil.example/cover.jpg', 'https://img3.doubanio.com.evil.example/view/photo/x.jpg', 'https://img3.doubanio.com/icon/u123.jpg', 'https://img3.doubanio.com/view/photo/../../icon/u123.jpg', 'https://img3.doubanio.com:444/view/photo/x.jpg', "https://img3.doubanio.com/view/photo/x.jpg\n"] as $source) {
+        douban_integration_assert(sblog_douban_cover_url($source) === '', 'An unsafe host, non-cover path, or malformed cover URL was registered.');
+    }
+    $_SERVER['SCRIPT_NAME'] = '/blog/index.php';
+    $GLOBALS['douban_test_pretty'] = false;
+};
+$tests['record covers render locally and malformed cover fields keep a usable record'] = static function (): void {
+    $sources = [
+        'movie' => 'https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2527119568.jpg',
+        'book' => 'https://img1.doubanio.com/view/subject/s/public/s1111111.jpg',
+        'music' => 'https://img2.doubanio.com/view/subject/s/public/s2222222.jpg',
+    ];
+    foreach ($sources as $type => $source) {
+        $item = ['id' => '123', 'title' => '有封面的记录', 'url' => 'https://' . $type . '.douban.com/subject/123/', 'cover_url' => $source];
+        foreach ([false, true] as $compact) {
+            $html = sblog_douban_view_item($item, $type, $compact);
+            preg_match('/<img\b[^>]*\bsrc="([^"]+)"/', $html, $match);
+            douban_integration_assert(isset($match[1]), 'A valid record cover must produce an image.');
+            $url = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            parse_str((string)parse_url($url, PHP_URL_QUERY), $params);
+            douban_integration_assert(parse_url($url, PHP_URL_PATH) === '/blog/index.php' && ($params['a'] ?? '') === 'douban_showcase_cover' && ($params['key'] ?? '') === hash('sha256', $source), 'Rendered record images must use the local registered endpoint.');
+            douban_integration_assert(!str_contains($html, 'src="https://'), 'Public records must not hotlink a remote cover.');
+        }
+        $item['cover_url'] = 'https://evil.example/cover.jpg';
+        $html = sblog_douban_view_item($item, $type);
+        douban_integration_assert(!str_contains($html, '<img') && str_contains($html, '有封面的记录') && str_contains($html, '/subject/123/'), 'An invalid cover must preserve the usable record and its link.');
+    }
 };
 $tests['theme assets cover standalone pages and first-page home widgets'] = static function (): void {
     $head = $GLOBALS['douban_test_themes']['head'][0];

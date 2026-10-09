@@ -9,6 +9,7 @@ if (!defined('PLUGINS_DIR')) {
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/api.php';
+require_once __DIR__ . '/covers.php';
 require_once __DIR__ . '/views.php';
 
 add_plugin_filter('route_action', static function (string $action, array $context): string {
@@ -25,6 +26,9 @@ add_plugin_filter('route_action', static function (string $action, array $contex
 
 add_plugin_action('request', static function (array $context): void {
     $action = (string)($context['action'] ?? '');
+    if ($action === 'douban_showcase_cover') {
+        sblog_douban_render_cover();
+    }
     if ($action === 'admin_douban') {
         require_once __DIR__ . '/admin.php';
         sblog_douban_admin_request();
@@ -63,14 +67,14 @@ add_theme_action('head', static function (array $context): string {
     if (($context['active'] ?? '') !== 'douban' && !sblog_douban_home_visible($context, sblog_douban_config())) {
         return '';
     }
-    return '<link rel="stylesheet" href="' . h(plugin_asset_url('douban-showcase', 'assets/style.css') . '?v=1.0.1') . '">';
+    return '<link rel="stylesheet" href="' . h(plugin_asset_url('douban-showcase', 'assets/style.css') . '?v=1.0.2') . '">';
 }, 25);
 
 add_theme_action('body_close', static function (array $context): string {
     if (($context['active'] ?? '') !== 'douban' && !sblog_douban_home_visible($context, sblog_douban_config())) {
         return '';
     }
-    return '<script defer src="' . h(plugin_asset_url('douban-showcase', 'assets/script.js') . '?v=1.0.1') . '"></script>';
+    return '<script defer src="' . h(plugin_asset_url('douban-showcase', 'assets/script.js') . '?v=1.0.2') . '"></script>';
 }, 25);
 
 add_plugin_filter('output_html', static function (string $html, array $context): string {

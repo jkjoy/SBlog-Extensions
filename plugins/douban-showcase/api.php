@@ -122,7 +122,12 @@ function sblog_douban_parse_page(string $html, string $userId, string $type = 'm
         }
     }
     $visible = sblog_douban_text($visible, 250000);
-    $rows = $xpath->query("//*[" . $class('grid-view') . "]//*[" . $class('item') . "]");
+    $rowQuery = "//*[" . $class('grid-view') . "]//*[" . $class('item') . "]";
+    // Current book collections use an interest-list, while movie/music retain grid-view.
+    if ($type === 'book') {
+        $rowQuery .= " | //ul[" . $class('interest-list') . "]/li[" . $class('subject-item') . "]";
+    }
+    $rows = $xpath->query($rowQuery);
     $rowCount = $rows === false ? 0 : $rows->length;
     if ($rowCount === 0 && preg_match('/(?:仅(?:自己|本人)可见|设为私密|设为隐私|设置了隐私|(?:记录|列表|收藏|书架)[^。]{0,16}(?:不公开|不对外公开)|无权查看|没有权限(?:查看|访问)|不允许(?:你|您)?(?:查看|访问))/u', $visible)) {
         return array_replace($error, ['status' => 'private', 'message' => '该豆瓣记录未公开，无法展示；已清除这份列表的旧公开缓存。']);
@@ -155,7 +160,11 @@ function sblog_douban_parse_page(string $html, string $userId, string $type = 'm
         'avatar' => sblog_douban_image_url($avatar), 'url' => 'https://www.douban.com/people/' . $canonicalId . '/'];
     $items = [];
     foreach ($rows ?: [] as $row) {
-        $anchor = $xpath->query('.//*[' . $class('title') . ']//a[@href]', $row)?->item(0);
+        $anchorQuery = './/*[' . $class('title') . ']//a[@href]';
+        if ($type === 'book') {
+            $anchorQuery .= ' | .//*[' . $class('info') . ']/h2/a[@href]';
+        }
+        $anchor = $xpath->query($anchorQuery, $row)?->item(0);
         if (!$anchor instanceof DOMElement) {
             return $error;
         }
@@ -170,6 +179,9 @@ function sblog_douban_parse_page(string $html, string $userId, string $type = 'm
         $ratingClass = sblog_douban_xpath_attr($xpath, ".//*[contains(@class,'rating') and contains(@class,'-t')]", 'class', $row);
         $rating = preg_match('/(?:^|\s)rating([1-5])-t(?:\s|$)/D', $ratingClass, $ratingMatch) ? (int)$ratingMatch[1] : 0;
         $date = sblog_douban_xpath_text($xpath, './/*[' . $class('date') . ']', $row, 50);
+        if ($type === 'book' && preg_match('/^(\d{4}-\d{2}-\d{2})(?:\s+(?:读过|想读|在读))?$/uD', $date, $bookDateMatch)) {
+            $date = $bookDateMatch[1];
+        }
         $validDate = preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $dateMatch)
             && checkdate((int)$dateMatch[2], (int)$dateMatch[3], (int)$dateMatch[1]);
         $tags = sblog_douban_xpath_text($xpath, './/*[' . $class('tags') . ']', $row, 500);
@@ -178,7 +190,8 @@ function sblog_douban_parse_page(string $html, string $userId, string $type = 'm
             'cover_url' => sblog_douban_image_url(sblog_douban_xpath_attr($xpath, './/*[' . $class('pic') . ']//img', 'src', $row)),
             'rating' => $rating, 'date' => $validDate ? $date : '',
             'comment' => sblog_douban_xpath_text($xpath, './/*[' . $class('comment') . ']', $row),
-            'intro' => sblog_douban_xpath_text($xpath, './/*[' . $class('intro') . ']', $row, 1500),
+            'intro' => sblog_douban_xpath_text($xpath, './/*[' . $class('intro') . ']', $row, 1500)
+                ?: ($type === 'book' ? sblog_douban_xpath_text($xpath, './/*[' . $class('pub') . ']', $row, 1500) : ''),
             'tags' => $tags === '' ? [] : array_slice(array_values(array_filter(preg_split('/\s+/u', $tags) ?: [])), 0, 20)];
     }
     // An authenticated-looking shell alone does not prove an empty public collection.
@@ -238,6 +251,8 @@ function sblog_douban_request(string $url, float $timeoutSeconds = 12.0): array
             CURLOPT_TIMEOUT_MS => $remainingMs, CURLOPT_FOLLOWLOCATION => false, CURLOPT_MAXREDIRS => 0,
             CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'SBlog-Douban-Showcase/1.0',
+            // Official public book pages require a normal navigation source, even without login.
+            CURLOPT_REFERER => 'https://' . $type . '.douban.com/',
             CURLOPT_HTTPHEADER => ['Accept: text/html', 'Accept-Language: zh-CN,zh;q=0.9'], CURLOPT_ENCODING => '',
             CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$body, &$tooLarge): int {
                 if (strlen($body) + strlen($chunk) > 2 * 1024 * 1024) {
@@ -536,7 +551,7 @@ function sblog_douban_snapshot(array $config, string $type = 'movie', string $st
         $privacyToken = $latestToken;
         if ($snapshot['status'] === 'ok') {
             $snapshot['updated_at'] = $now;
-            $snapshot['message'] = $snapshot['truncated'] ? '已同步最近 ' . count($snapshot['items']) . ' 条记录；完整列表请前往豆瓣查看。' : '';
+            $snapshot['message'] = $snapshot['truncated'] ? '已同步最近 ' . count($snapshot['items']) . ' 条记录，尚有部分记录未同步。' : '';
         }
         sblog_douban_write_cache($paths['data'], ['version' => 1, 'checked_at' => $now, 'next_retry_at' => 0,
             'privacy_token' => $privacyToken, 'snapshot' => $snapshot]);

@@ -32,6 +32,7 @@ try {
     $movie = fixture('movie');
     $music = fixture('music');
     $book = fixture('book');
+    $currentBook = fixture('book-current');
     $parsed = sblog_douban_parse_page($movie, '123456');
     expect($parsed['status'] === 'ok' && count($parsed['items']) === 2, 'movie grid recognized');
     expect($parsed['profile']['id'] === '123456' && $parsed['profile']['url'] === 'https://www.douban.com/people/reader-demo/', 'numeric ID accepts canonical alias');
@@ -46,6 +47,25 @@ try {
     expect($parsedMusic['profile']['avatar'] === 'https://img3.doubanio.com/icon/user_normal.jpg', 'music side profile avatar extracted');
     $parsedBook = sblog_douban_parse_page($book, '123456', 'book');
     expect($parsedBook['status'] === 'ok' && $parsedBook['items'][0]['cover_url'] === 'https://img1.doubanio.com/view/subject/s/public/s1111111.jpg', 'book contract and protocol-relative cover');
+    $parsedCurrentBook = sblog_douban_parse_page($currentBook, '123456', 'book');
+    expect($parsedCurrentBook['status'] === 'ok' && count($parsedCurrentBook['items']) === 2, 'current book interest-list recognized');
+    expect($parsedCurrentBook['items'][0]['title'] === '告别薇安' && $parsedCurrentBook['items'][0]['rating'] === 5,
+        'current book heading and personal rating extracted');
+    expect($parsedCurrentBook['items'][0]['date'] === '2025-03-29' && $parsedCurrentBook['items'][1]['rating'] === 0,
+        'current book date excludes state suffix and unrated records remain unrated');
+    expect($parsedCurrentBook['items'][0]['intro'] === '安妮宝贝 / 中国社会科学出版社 / 2000-1 / 19.00'
+        && $parsedCurrentBook['items'][0]['comment'] === '测试读书短评 <script>' && $parsedCurrentBook['items'][0]['tags'] === ['小说', '文学'],
+        'current book publication metadata, plain comment, and tags extracted');
+    expect($parsedCurrentBook['next_start'] === 15 && $parsedCurrentBook['total'] === 3, 'current book official pagination offset extracted');
+    foreach (['wish' => '想读', 'do' => '在读'] as $bookStatus => $bookStatusLabel) {
+        $modifiedBook = str_replace(['读过', '/collect'], [$bookStatusLabel, '/' . $bookStatus], $currentBook);
+        $parsedState = sblog_douban_parse_page($modifiedBook, '123456', 'book', $bookStatus);
+        expect($parsedState['status'] === 'ok' && $parsedState['items'][0]['date'] === '2025-03-29', 'current book ' . $bookStatus . ' dates and heading recognized');
+    }
+    expect(sblog_douban_parse_page(str_replace('https://book.douban.com/subject/1016523/', 'https://evil.example/subject/1016523/', $currentBook), '123456', 'book')['status'] === 'error',
+        'current book headings reject external subject URLs');
+    expect(sblog_douban_parse_page(str_replace('2025-03-29', '2025-02-29', $currentBook), '123456', 'book')['items'][0]['date'] === '',
+        'current book invalid calendar dates are rejected');
     foreach (['wish' => ['想看的影视', '想读的书', '想听的音乐'], 'do' => ['在看的影视', '在读的书', '在听的音乐']] as $status => $titles) {
         foreach (['movie' => $movie, 'book' => $book, 'music' => $music] as $type => $html) {
             $index = array_search($type, ['movie', 'book', 'music'], true);

@@ -7,7 +7,11 @@
     document.querySelectorAll('[data-douban-showcase]').forEach((showcase) => {
       showcase.querySelectorAll('img').forEach((image) => {
         if (image.dataset.doubanFallbackReady === 'true') return;
-        const showFallback = () => { image.hidden = true; };
+        const showFallback = () => {
+          image.hidden = true;
+          const placeholder = image.parentElement?.querySelector('[data-douban-cover-placeholder]');
+          if (placeholder) placeholder.textContent = '封面暂缺';
+        };
         image.addEventListener('error', showFallback, { once: true });
         if (image.complete && image.naturalWidth === 0) showFallback();
         image.dataset.doubanFallbackReady = 'true';
