@@ -134,7 +134,7 @@ function sblog_lottery_render_admin(array $errors = []): void
                 <?php endforeach; ?></tbody>
               </table></div>
               <p class="field-hint">显示最近 100 个已绑定文章的活动。未保存到文章的模块不会进入自动开奖。</p>
-            <?php else: ?><p class="field-hint">暂无已保存的抽奖活动。前往文章编辑器，点击正文标签旁的「评论抽奖」按钮创建活动。</p><?php endif; ?>
+            <?php else: ?><p class="field-hint">暂无已保存的抽奖活动。前往文章编辑器，点击正文编辑工具栏中的转盘图标创建活动。</p><?php endif; ?>
           </div>
         </section>
         <?php if ($selected):

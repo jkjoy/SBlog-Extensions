@@ -13,7 +13,7 @@ function sblog_lottery_editor_actions(string $html, array $context): string
         return $html;
     }
 
-    return $html . '<button class="button button--secondary sblog-lottery-editor-open" type="button" data-lottery-open aria-haspopup="dialog" aria-controls="sblog-lottery-editor">评论抽奖</button>';
+    return $html . '<button class="markdown-toolbar__button sblog-lottery-editor-open" type="button" data-lottery-open title="评论抽奖" aria-label="评论抽奖" aria-haspopup="dialog" aria-controls="sblog-lottery-editor"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8"/><circle cx="12" cy="13" r="2"/><path d="M12 5v6m0 4v6M5.1 9l5.2 3m3.4 2 5.2 3M5.1 17l5.2-3m3.4-2 5.2-3"/><path d="M10 2h4l-2 4Z" fill="currentColor"/></svg></button>';
 }
 
 function sblog_lottery_editor_modal(string $html, array $context): string
