@@ -211,3 +211,9 @@ foreach (['run.php', 'integration.php'] as $doubanTest) {
         store_fail('Douban showcase tests failed: ' . $doubanTest);
     }
 }
+
+$commentLotteryCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(STORE_ROOT . '/plugins/comment-lottery/tests/run.php');
+passthru($commentLotteryCommand, $commentLotteryStatus);
+if ($commentLotteryStatus !== 0) {
+    store_fail('Comment lottery tests failed.');
+}

@@ -1,0 +1,10 @@
+{
+  "name": "评论抽奖",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "url": "https://github.com/jkjoy/SBlog-Extensions",
+  "description": "在文章中插入评论抽奖，设置活动时间与中奖名额，自动开奖、公示中奖评论并通过邮件通知中奖人。",
+  "settings_action": "admin_lottery"
+}
