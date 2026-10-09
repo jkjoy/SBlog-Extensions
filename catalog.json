@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-06T12:00:46+00:00",
+    "updated_at": "2026-10-09T00:33:56+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -57,6 +57,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-comment-enhancer-v1.3.0/plugin-comment-enhancer-1.3.0.zip",
             "sha256": "22c31ab0bddf5983a38ec59c03206f1d7323badd22afc4d8c4fa54c7a544536b",
             "source_sha256": "3d40384c2823114d19f80d93ec9ae9e6b9791c13a01e57b710f0caa8a9f30d2e"
+        },
+        {
+            "type": "plugin",
+            "slug": "douban-showcase",
+            "name": "豆瓣记录展示",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "输入豆瓣用户 ID，展示公开的电影、图书和音乐记录，支持状态筛选、封面、个人评分和缓存。",
+            "homepage": "",
+            "requires": "1.14.8",
+            "tested": "1.14.8",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-douban-showcase-v1.0.0/plugin-douban-showcase-1.0.0.zip",
+            "sha256": "b26381405bc29f22f54f5f510400494fbe3b79b42910f36b62d5c461a92a2560",
+            "source_sha256": "529709114ce024c135276b0c2df100ed7a9bf11bcb9f91f124b2cf4156db7226"
         },
         {
             "type": "plugin",
