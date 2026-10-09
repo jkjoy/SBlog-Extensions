@@ -1,0 +1,9 @@
+{
+  "name": "豆瓣记录展示",
+  "version": "1.0.0",
+  "requires": "1.14.8",
+  "tested": "1.14.8",
+  "author": "Simple PHP Blog",
+  "description": "输入豆瓣用户 ID，展示公开的电影、图书和音乐记录，支持状态筛选、封面、个人评分和缓存。",
+  "settings_action": "admin_douban"
+}

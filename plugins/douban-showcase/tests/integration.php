@@ -1,0 +1,139 @@
+<?php
+
+declare(strict_types=1);
+
+// CLI-only integration checks use an in-memory database, never the installed blog.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit;
+}
+
+define('PLUGINS_DIR', dirname(__DIR__, 2));
+define('CACHE_DIR', sys_get_temp_dir());
+$GLOBALS['douban_test_db'] = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$GLOBALS['douban_test_admin'] = false;
+
+function db(): PDO { return $GLOBALS['douban_test_db']; }
+function h(mixed $value): string { return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+function str_len_u(string $value): int { return preg_match_all('/./us', $value); }
+function script_url(): string { return '/blog/index.php'; }
+function url_with_query(string $url, array $params): string { return $url . '?' . http_build_query($params); }
+function url_for(string $route): string { return '/blog/index.php?a=' . $route; }
+function plugin_asset_url(string $slug, string $path): string { return '/blog/plugins/' . $slug . '/' . $path; }
+function add_plugin_action(string $hook, callable $callback, int $priority = 10): void { $GLOBALS['douban_test_actions'][$hook][] = $callback; }
+function add_plugin_filter(string $hook, callable $callback, int $priority = 10): void { $GLOBALS['douban_test_filters'][$hook][] = $callback; }
+function add_theme_action(string $hook, callable $callback, int $priority = 10): void { $GLOBALS['douban_test_themes'][$hook][] = $callback; }
+function require_admin(): void {
+    if (!$GLOBALS['douban_test_admin']) { throw new RuntimeException('ADMIN_DENIED'); }
+}
+function verify_csrf(): void {
+    if (($_POST['csrf_token'] ?? '') !== 'valid-test-token') { throw new RuntimeException('CSRF_DENIED'); }
+}
+function csrf_field(): string { return '<input type="hidden" name="csrf_token" value="valid-test-token">'; }
+function render_admin_sidebar(string $active): string { return ''; }
+function render_admin_topbar(string $title, string $label, string $url): string { return '<h1>' . h($title) . '</h1>'; }
+function render_layout(string $title, string $content, array $options): void { $GLOBALS['douban_test_html'] = $content; }
+
+require_once dirname(__DIR__) . '/plugin.php';
+require_once dirname(__DIR__) . '/admin.php';
+
+function douban_integration_assert(bool $value, string $message): void
+{
+    if (!$value) { throw new RuntimeException($message); }
+}
+
+$tests = [];
+$tests['configuration accepts numeric/custom IDs and official profile URLs'] = static function (): void {
+    foreach (['1000001', 'ahbei', 'test-id_2', 'https://www.douban.com/people/ahbei/'] as $id) {
+        $input = array_merge(sblog_douban_defaults(), ['user_id' => $id]);
+        $result = sblog_douban_validate_config($input, sblog_douban_defaults());
+        douban_integration_assert($result['errors'] === [], 'A valid account was rejected: ' . $id);
+        douban_integration_assert(!str_contains($result['config']['user_id'], '/'), 'Profile URL was not normalized.');
+    }
+    foreach (['../cache', '豆瓣昵称', 'https://evil.example/people/ahbei/', 'user?x=1', str_repeat('a', 65)] as $id) {
+        $result = sblog_douban_validate_config(array_merge(sblog_douban_defaults(), ['user_id' => $id]), []);
+        douban_integration_assert($result['errors'] !== [], 'An invalid account was accepted.');
+    }
+    $result = sblog_douban_validate_config(array_merge(sblog_douban_defaults(), ['max_pages' => '100', 'cache_minutes' => '0', 'page_size' => []]), []);
+    douban_integration_assert(count($result['errors']) === 3, 'Out of range or array inputs must be rejected.');
+};
+$tests['settings round trip through the isolated plugin table'] = static function (): void {
+    $config = array_merge(sblog_douban_defaults(), ['user_id' => 'ahbei', 'home_widget' => true]);
+    sblog_douban_save_config($config);
+    douban_integration_assert(sblog_douban_config() === $config, 'Stored settings were not preserved.');
+    $tables = db()->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN);
+    douban_integration_assert($tables === ['plugin_douban_settings'], 'Plugin must not create or mutate core tables.');
+};
+$tests['routing stays within a subdirectory and rejects invalid selections'] = static function (): void {
+    douban_integration_assert(sblog_douban_selection(['type' => [], 'status' => 'wrong']) === ['movie', 'collect'], 'Invalid query values must fall back safely.');
+    douban_integration_assert(sblog_douban_selection(['type' => 'book', 'status' => 'wish']) === ['book', 'wish'], 'Valid selections must survive.');
+    $url = sblog_douban_url('douban', ['type' => 'music', 'a' => 'evil']);
+    parse_str((string)parse_url($url, PHP_URL_QUERY), $params);
+    douban_integration_assert(str_starts_with($url, '/blog/index.php?') && $params['a'] === 'douban', 'Query links must preserve the blog path and plugin action.');
+};
+$tests['admin save and refresh require an administrator and CSRF'] = static function (): void {
+    $_SERVER['REQUEST_METHOD'] = 'POST';
+    foreach (['save', 'refresh'] as $operation) {
+        $_POST = ['operation' => $operation, 'user_id' => 'changed'];
+        $GLOBALS['douban_test_admin'] = false;
+        try { sblog_douban_admin_request(); throw new RuntimeException('Authorization did not run.'); }
+        catch (RuntimeException $exception) { douban_integration_assert($exception->getMessage() === 'ADMIN_DENIED', 'Guests must be denied before processing.'); }
+        $GLOBALS['douban_test_admin'] = true;
+        try { sblog_douban_admin_request(); throw new RuntimeException('CSRF did not run.'); }
+        catch (RuntimeException $exception) { douban_integration_assert($exception->getMessage() === 'CSRF_DENIED', 'CSRF must precede saves or network activity.'); }
+    }
+    douban_integration_assert(sblog_douban_config()['user_id'] === 'ahbei', 'Rejected requests must preserve settings.');
+    $_POST = [];
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+};
+$tests['view escapes upstream content and blocks arbitrary URLs'] = static function (): void {
+    $snapshot = [
+        'status' => 'ok', 'message' => '', 'updated_at' => time(), 'total' => 1, 'truncated' => false,
+        'profile' => ['id' => 'ahbei', 'name' => '<script>alert(1)</script>', 'avatar' => 'https://evil.example/avatar.jpg', 'url' => 'javascript:alert(1)'],
+        'items' => [['id' => '123', 'title' => '<script>alert(2)</script>', 'url' => 'javascript:alert(2)', 'cover_url' => 'https://evil.example/cover.jpg', 'rating' => 5, 'date' => '2026-10-07', 'comment' => '<img src=x onerror=alert(3)>', 'intro' => '<script>alert(4)</script>', 'tags' => ['<script>alert(5)</script>']]],
+    ];
+    $config = array_merge(sblog_douban_defaults(), ['user_id' => 'ahbei', 'page_title' => '<script>alert(6)</script>']);
+    foreach ([false, true] as $compact) {
+        $html = sblog_douban_render($snapshot, $config, 'movie', 'collect', $compact);
+        foreach (['<script>alert(', '<img src=x', 'javascript:', 'src="https://evil.example'] as $unsafe) {
+            douban_integration_assert(!str_contains($html, $unsafe), 'Unsafe content reached the public view: ' . $unsafe);
+        }
+        douban_integration_assert(str_contains($html, '&lt;script&gt;alert(2)&lt;/script&gt;'), 'Escaped record titles should remain readable.');
+    }
+    $GLOBALS['douban_test_admin'] = true;
+    sblog_douban_admin($config);
+    douban_integration_assert(!str_contains($GLOBALS['douban_test_html'], '<script>alert(6)</script>'), 'Settings inputs must escape configuration.');
+};
+$tests['theme assets cover standalone pages and first-page home widgets'] = static function (): void {
+    $head = $GLOBALS['douban_test_themes']['head'][0];
+    $body = $GLOBALS['douban_test_themes']['body_close'][0];
+    douban_integration_assert(str_contains($head(['active' => 'douban']), '/blog/plugins/douban-showcase/assets/style.css'), 'Standalone page stylesheet must load.');
+    douban_integration_assert(str_contains($body(['active' => 'douban']), 'assets/script.js'), 'Standalone page script must load.');
+    $GLOBALS['sblog_current_action'] = 'home';
+    $_GET = [];
+    douban_integration_assert($head(['active' => 'home']) !== '', 'Enabled home widget requires assets before content rendering.');
+    $_GET = ['p' => 2];
+    douban_integration_assert($head(['active' => 'home']) === '', 'Later homepage pages must not load widget assets.');
+    $_GET = [];
+    $GLOBALS['sblog_current_action'] = 'category';
+    douban_integration_assert($head(['active' => 'home']) === '', 'Category pages must not fetch or load a home widget.');
+};
+$tests['navigation honors settings and preserves custom and admin layouts'] = static function (): void {
+    $filter = $GLOBALS['douban_test_filters']['output_html'][0];
+    $html = '<html><body class="theme-public"><div class="text-site text-site--default"><nav class="text-nav"><a href="/blog/">首页</a></nav></div></body></html>';
+    douban_integration_assert(str_contains($filter($html, ['action' => 'douban']), 'aria-current="page" href="/blog/index.php?a=douban"'), 'Default navigation must have an active plugin link.');
+    $custom = str_replace('text-site--default', 'custom-theme', $html);
+    douban_integration_assert($filter($custom, ['action' => 'home']) === $custom, 'Custom layouts must retain their navigation.');
+    $admin = '<html><body class="theme-admin"><nav class="text-nav"></nav></body></html>';
+    douban_integration_assert($filter($admin, ['action' => 'admin_plugins']) === $admin, 'Admin navigation must be unchanged.');
+    sblog_douban_save_config(array_merge(sblog_douban_config(), ['show_nav' => false]));
+    douban_integration_assert($filter($html, ['action' => 'home']) === $html, 'Navigation toggle must work.');
+};
+
+$failed = 0;
+foreach ($tests as $name => $test) {
+    try { $test(); fwrite(STDOUT, "PASS {$name}\n"); }
+    catch (Throwable $exception) { $failed++; fwrite(STDERR, "FAIL {$name}: {$exception->getMessage()}\n"); }
+}
+fwrite(STDOUT, sprintf("\n%d integration checks, %d failures. No requests sent to Douban.\n", count($tests), $failed));
+exit($failed === 0 ? 0 : 1);

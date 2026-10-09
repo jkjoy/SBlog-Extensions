@@ -203,3 +203,11 @@ passthru($steamShowcaseCommand, $steamShowcaseStatus);
 if ($steamShowcaseStatus !== 0) {
     store_fail('Steam showcase tests failed.');
 }
+
+foreach (['run.php', 'integration.php'] as $doubanTest) {
+    $doubanCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(STORE_ROOT . '/plugins/douban-showcase/tests/' . $doubanTest);
+    passthru($doubanCommand, $doubanStatus);
+    if ($doubanStatus !== 0) {
+        store_fail('Douban showcase tests failed: ' . $doubanTest);
+    }
+}
