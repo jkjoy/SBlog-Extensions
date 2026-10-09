@@ -5,8 +5,6 @@
   const content = document.querySelector("textarea#content");
   const openButtons = Array.from(document.querySelectorAll("[data-lottery-open]"));
   if (!(dialog instanceof HTMLDialogElement) || !(content instanceof HTMLTextAreaElement) || !openButtons.length) return;
-  const toolbar = content.closest("[data-markdown-editor]")?.querySelector(".markdown-toolbar");
-  if (toolbar) openButtons.forEach((button) => toolbar.append(button));
   const form = dialog.querySelector("[data-lottery-form]");
   const fields = dialog.querySelector("[data-lottery-fields]");
   const errorBox = dialog.querySelector("[data-lottery-error]");

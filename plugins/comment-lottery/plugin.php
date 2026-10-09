@@ -92,7 +92,7 @@ add_plugin_action('request', static function (array $context): void {
 }, 5);
 
 add_plugin_action('post_saved', 'sblog_lottery_sync_post', 30);
-add_plugin_filter('editor_field_actions_html', 'sblog_lottery_editor_actions', 30);
+add_plugin_filter('output_html', 'sblog_lottery_editor_toolbar', 30);
 add_plugin_filter('editor_after_form_html', 'sblog_lottery_editor_modal', 30);
 add_plugin_filter('post_fields_before_defaults', 'sblog_lottery_excerpt', 30);
 add_plugin_filter('comment_identity_html', 'sblog_lottery_badge', 30);

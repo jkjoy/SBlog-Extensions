@@ -7,22 +7,30 @@ if (!defined('PLUGINS_DIR')) {
     exit;
 }
 
-function sblog_lottery_editor_actions(string $html, array $context): string
+function sblog_lottery_editor_toolbar(string $html, array $context): string
 {
-    if (($context['field'] ?? '') !== 'content') {
+    if (!in_array((string)($context['action'] ?? ''), ['write', 'edit'], true)) {
         return $html;
     }
 
-    return $html . '<button class="markdown-toolbar__button sblog-lottery-editor-open" type="button" data-lottery-open title="评论抽奖" aria-label="评论抽奖" aria-haspopup="dialog" aria-controls="sblog-lottery-editor"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8"/><circle cx="12" cy="13" r="2"/><path d="M12 5v6m0 4v6M5.1 9l5.2 3m3.4 2 5.2 3M5.1 17l5.2-3m3.4-2 5.2-3"/><path d="M10 2h4l-2 4Z" fill="currentColor"/></svg></button>';
+    $toolbarStart = strpos($html, '<div class="markdown-toolbar"');
+    $toolbarEnd = $toolbarStart !== false ? strpos($html, '</div>', $toolbarStart) : false;
+    if ($toolbarEnd === false
+        || str_contains(substr($html, $toolbarStart, $toolbarEnd - $toolbarStart), 'data-lottery-open')) {
+        return $html;
+    }
+    $button = '<button class="markdown-toolbar__button sblog-lottery-editor-open" type="button" data-lottery-open title="评论抽奖" aria-label="评论抽奖" aria-haspopup="dialog" aria-controls="sblog-lottery-editor"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8"/><circle cx="12" cy="13" r="2"/><path d="M12 5v6m0 4v6M5.1 9l5.2 3m3.4 2 5.2 3M5.1 17l5.2-3m3.4-2 5.2-3"/><path d="M10 2h4l-2 4Z" fill="currentColor"/></svg></button>';
+    return substr_replace($html, $button, $toolbarEnd, 0);
 }
 
 function sblog_lottery_editor_modal(string $html, array $context): string
 {
     $postId = max(0, (int)($context['post_id'] ?? 0));
     $existing = $postId > 0 ? sblog_lottery_for_post($postId) : null;
+    $assetVersion = rawurlencode((string)(plugin_manifest('comment-lottery')['version'] ?? ''));
     ob_start();
     ?>
-    <link rel="stylesheet" href="<?= h(plugin_asset_url('comment-lottery', 'assets/style.css')) ?>">
+    <link rel="stylesheet" href="<?= h(plugin_asset_url('comment-lottery', 'assets/style.css') . '?v=' . $assetVersion) ?>">
     <dialog class="sblog-lottery-editor" id="sblog-lottery-editor" aria-labelledby="lottery-editor-title" aria-describedby="lottery-editor-hint" data-post-id="<?= h((string)$postId) ?>" data-existing-id="<?= h((string)($existing['id'] ?? '')) ?>">
       <div class="sblog-lottery-editor__header">
         <div><h2 id="lottery-editor-title">评论抽奖</h2><p id="lottery-editor-hint">从本篇文章在活动时间内通过审核的评论中随机抽取中奖评论。</p></div>
@@ -58,7 +66,7 @@ function sblog_lottery_editor_modal(string $html, array $context): string
         <div class="sblog-lottery-editor__actions"><button class="button button--secondary" type="button" data-lottery-close>取消</button><button class="button" type="submit" data-lottery-submit>插入抽奖</button></div>
       </form>
     </dialog>
-    <script defer src="<?= h(plugin_asset_url('comment-lottery', 'assets/editor.js')) ?>"></script>
+    <script defer src="<?= h(plugin_asset_url('comment-lottery', 'assets/editor.js') . '?v=' . $assetVersion) ?>"></script>
     <?php
     return $html . (string)ob_get_clean();
 }
