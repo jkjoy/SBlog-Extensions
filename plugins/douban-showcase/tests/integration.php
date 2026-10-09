@@ -12,11 +12,19 @@ define('PLUGINS_DIR', dirname(__DIR__, 2));
 define('CACHE_DIR', sys_get_temp_dir());
 $GLOBALS['douban_test_db'] = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $GLOBALS['douban_test_admin'] = false;
+$GLOBALS['douban_test_pretty'] = false;
+$_SERVER['SCRIPT_NAME'] = '/blog/index.php';
 
 function db(): PDO { return $GLOBALS['douban_test_db']; }
 function h(mixed $value): string { return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function str_len_u(string $value): int { return preg_match_all('/./us', $value); }
-function script_url(): string { return '/blog/index.php'; }
+function app_path(string $path): string {
+    $script = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? '/blog/index.php'));
+    $base = rtrim(str_replace('\\', '/', dirname($script)), '/');
+    return ($base === '.' ? '' : $base) . '/' . ltrim($path, '/');
+}
+function script_url(): string { return app_path('/index.php'); }
+function use_pretty_url(): bool { return $GLOBALS['douban_test_pretty']; }
 function url_with_query(string $url, array $params): string { return $url . '?' . http_build_query($params); }
 function url_for(string $route): string { return '/blog/index.php?a=' . $route; }
 function plugin_asset_url(string $slug, string $path): string { return '/blog/plugins/' . $slug . '/' . $path; }
@@ -71,6 +79,58 @@ $tests['routing stays within a subdirectory and rejects invalid selections'] = s
     parse_str((string)parse_url($url, PHP_URL_QUERY), $params);
     douban_integration_assert(str_starts_with($url, '/blog/index.php?') && $params['a'] === 'douban', 'Query links must preserve the blog path and plugin action.');
 };
+$tests['pretty links preserve filters and keep admin actions on the query endpoint'] = static function (): void {
+    $GLOBALS['douban_test_pretty'] = true;
+    foreach (['/index.php' => '/douban', '/blog/index.php' => '/blog/douban'] as $script => $expected) {
+        $_SERVER['SCRIPT_NAME'] = $script;
+        douban_integration_assert(sblog_douban_url() === $expected, 'Pretty showcase link must preserve the deployment prefix.');
+        $url = sblog_douban_url('douban', ['type' => 'book', 'status' => 'wish', 'a' => 'admin']);
+        parse_str((string)parse_url($url, PHP_URL_QUERY), $params);
+        douban_integration_assert(parse_url($url, PHP_URL_PATH) === $expected && $params === ['type' => 'book', 'status' => 'wish'], 'Pretty links must keep filters and discard supplied actions.');
+        douban_integration_assert(sblog_douban_url('admin_douban') === $script . '?a=admin_douban', 'Admin must use its existing query endpoint.');
+    }
+    $GLOBALS['douban_test_pretty'] = false;
+    $_SERVER['SCRIPT_NAME'] = '/blog/index.php';
+    douban_integration_assert(sblog_douban_url() === '/blog/index.php?a=douban', 'Disabling pretty links must restore the query entry.');
+};
+$tests['pretty route filter intercepts only the douban page and preserves record selections'] = static function (): void {
+    $filter = $GLOBALS['douban_test_filters']['route_action'][0];
+    $_SERVER['REQUEST_URI'] = '/blog/douban?type=music&status=do';
+    $_GET = ['a' => 'page', 'slug' => 'douban', 'type' => 'music', 'status' => 'do'];
+    $_REQUEST = $_GET;
+    douban_integration_assert($filter('page', []) === 'douban', 'The core douban page route must dispatch to the plugin.');
+    douban_integration_assert($_GET['a'] === 'douban' && $_REQUEST['a'] === 'douban' && !isset($_GET['slug'], $_REQUEST['slug']), 'Matched route must update both request arrays and clear the page slug.');
+    douban_integration_assert(sblog_douban_selection($_GET) === ['music', 'do'], 'Route dispatch must keep classification and record status.');
+    foreach (['/douban', '/douban/', '/blog/douban', '/blog/douban/'] as $path) {
+        $_SERVER['SCRIPT_NAME'] = str_starts_with($path, '/blog/') ? '/blog/index.php' : '/index.php';
+        $_SERVER['REQUEST_URI'] = $path;
+        $_GET = ['a' => 'page', 'slug' => 'douban'];
+        $_REQUEST = $_GET;
+        douban_integration_assert($filter('page', []) === 'douban', 'Root and subdirectory pretty paths must accept a trailing slash.');
+    }
+    $_SERVER['SCRIPT_NAME'] = '/blog/index.php';
+    foreach (['/blog/index.php?a=page&slug=douban', '/blog/pages/douban', '/blog/douban/extra', '/other/douban'] as $path) {
+        $_SERVER['REQUEST_URI'] = $path;
+        $_GET = ['a' => 'page', 'slug' => 'douban'];
+        $_REQUEST = $_GET;
+        douban_integration_assert($filter('page', []) === 'page', 'Only the exact showcase path may intercept the core page action.');
+    }
+    $_SERVER['REQUEST_URI'] = '/blog/douban';
+    foreach (['about', 'douban-extra', 'douban/other', ['douban']] as $slug) {
+        $_GET = ['a' => 'page', 'slug' => $slug];
+        $_REQUEST = $_GET;
+        $before = $_GET;
+        douban_integration_assert($filter('page', []) === 'page' && $_GET === $before && $_REQUEST === $before, 'Other page routes must be unchanged.');
+    }
+    $_GET = ['a' => 'admin_douban', 'slug' => 'douban'];
+    $_REQUEST = $_GET;
+    douban_integration_assert($filter('admin_douban', []) === 'admin_douban', 'The pretty filter must preserve admin actions.');
+    $_GET = ['a' => 'douban'];
+    $_REQUEST = $_GET;
+    douban_integration_assert($filter('douban', []) === 'douban', 'Existing query showcase entry must remain supported.');
+    $_GET = [];
+    $_REQUEST = [];
+};
 $tests['admin save and refresh require an administrator and CSRF'] = static function (): void {
     $_SERVER['REQUEST_METHOD'] = 'POST';
     foreach (['save', 'refresh'] as $operation) {
@@ -122,6 +182,9 @@ $tests['navigation honors settings and preserves custom and admin layouts'] = st
     $filter = $GLOBALS['douban_test_filters']['output_html'][0];
     $html = '<html><body class="theme-public"><div class="text-site text-site--default"><nav class="text-nav"><a href="/blog/">首页</a></nav></div></body></html>';
     douban_integration_assert(str_contains($filter($html, ['action' => 'douban']), 'aria-current="page" href="/blog/index.php?a=douban"'), 'Default navigation must have an active plugin link.');
+    $GLOBALS['douban_test_pretty'] = true;
+    douban_integration_assert(str_contains($filter($html, ['action' => 'douban']), 'aria-current="page" href="/blog/douban"'), 'Pretty navigation must point to the new route.');
+    $GLOBALS['douban_test_pretty'] = false;
     $custom = str_replace('text-site--default', 'custom-theme', $html);
     douban_integration_assert($filter($custom, ['action' => 'home']) === $custom, 'Custom layouts must retain their navigation.');
     $admin = '<html><body class="theme-admin"><nav class="text-nav"></nav></body></html>';

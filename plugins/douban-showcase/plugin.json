@@ -1,6 +1,6 @@
 {
   "name": "豆瓣记录展示",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "requires": "1.14.8",
   "tested": "1.14.8",
   "author": "Simple PHP Blog",

@@ -11,6 +11,18 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/api.php';
 require_once __DIR__ . '/views.php';
 
+add_plugin_filter('route_action', static function (string $action, array $context): string {
+    $path = parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    if ($action === 'page' && ($_GET['slug'] ?? '') === 'douban'
+        && is_string($path) && rtrim(rawurldecode($path), '/') === app_path('/douban')) {
+        $_GET['a'] = 'douban';
+        $_REQUEST['a'] = 'douban';
+        unset($_GET['slug'], $_REQUEST['slug']);
+        return 'douban';
+    }
+    return $action;
+}, 25);
+
 add_plugin_action('request', static function (array $context): void {
     $action = (string)($context['action'] ?? '');
     if ($action === 'admin_douban') {
@@ -51,14 +63,14 @@ add_theme_action('head', static function (array $context): string {
     if (($context['active'] ?? '') !== 'douban' && !sblog_douban_home_visible($context, sblog_douban_config())) {
         return '';
     }
-    return '<link rel="stylesheet" href="' . h(plugin_asset_url('douban-showcase', 'assets/style.css') . '?v=1.0.0') . '">';
+    return '<link rel="stylesheet" href="' . h(plugin_asset_url('douban-showcase', 'assets/style.css') . '?v=1.0.1') . '">';
 }, 25);
 
 add_theme_action('body_close', static function (array $context): string {
     if (($context['active'] ?? '') !== 'douban' && !sblog_douban_home_visible($context, sblog_douban_config())) {
         return '';
     }
-    return '<script defer src="' . h(plugin_asset_url('douban-showcase', 'assets/script.js') . '?v=1.0.0') . '"></script>';
+    return '<script defer src="' . h(plugin_asset_url('douban-showcase', 'assets/script.js') . '?v=1.0.1') . '"></script>';
 }, 25);
 
 add_plugin_filter('output_html', static function (string $html, array $context): string {

@@ -9,7 +9,9 @@
 3. 输入用户 ID，例如 `1000001` 或 `ahbei`，也可粘贴 `https://www.douban.com/people/ahbei/` 这样的完整个人主页地址。ID 是 `/people/` 后面的数字或自定义英文名称，不是显示昵称。
 4. 保存设置，点击「查看展示页」。首次打开会自动获取电影记录，切换分类或状态会获取相应列表。
 
-展示页：`index.php?a=douban`。图书示例：`index.php?a=douban&type=book&status=collect`。链接通过博客自身 URL helper 生成，兼容伪静态和子目录部署。默认主题导航可自动添加入口；自定义主题请手动添加展示页链接。
+开启博客伪静态后，展示页使用 `/douban`，图书示例：`/douban?type=book&status=collect`；支持 `/douban/` 和子目录部署（例如 `/blog/douban`）。导航、分类、状态与后台「查看展示页」会自动使用这个地址。
+
+未开启伪静态时使用 `index.php?a=douban`；原查询入口始终可用。启用插件后，`douban` 独立页面路径由插件展示页接管。默认主题导航可自动添加入口；自定义主题请手动添加展示页链接。Web 服务器需要将不存在的路径转交 `index.php`，可使用博客自带的 Apache `.htaccess` 或后台提供的伪静态配置。
 
 无需 API Key、密码或登录 Cookie。插件仅获取豆瓣对未登录访客公开的记录；私密记录或要求登录验证的页面无法获取。
 

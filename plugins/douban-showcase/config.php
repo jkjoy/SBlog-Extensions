@@ -92,6 +92,11 @@ function sblog_douban_save_config(array $config): void
 
 function sblog_douban_url(string $action = 'douban', array $params = []): string
 {
+    if ($action === 'douban' && use_pretty_url()) {
+        unset($params['a']);
+        $url = app_path('/douban');
+        return $params === [] ? $url : url_with_query($url, $params);
+    }
     return url_with_query(script_url(), array_merge($params, ['a' => $action]));
 }
 
