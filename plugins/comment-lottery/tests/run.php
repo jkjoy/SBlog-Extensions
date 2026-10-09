@@ -434,16 +434,41 @@ $tests['two overlapping PHP processes finalize exactly one complete draw'] = sta
         $raceDatabase = null;
         $extensionDirectory = (string)ini_get('extension_dir');
         if (!is_dir($extensionDirectory)) { $extensionDirectory = dirname(PHP_BINARY) . '/ext'; }
+        // Windows commonly builds PDO into PHP; Linux commonly loads it as a shared module.
+        // Probe a clean CLI process so workers load only missing modules, in dependency order.
+        $probe = proc_open([PHP_BINARY, '-n', '-r', 'echo json_encode([extension_loaded("PDO"), extension_loaded("pdo_sqlite")]);'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $probePipes, null, null, ['bypass_shell' => true]);
+        lottery_test_assert(is_resource($probe), 'Could not probe the PHP worker extensions.');
+        fclose($probePipes[0]);
+        $probeOutput = stream_get_contents($probePipes[1]);
+        $probeError = stream_get_contents($probePipes[2]);
+        fclose($probePipes[1]); fclose($probePipes[2]);
+        lottery_test_same(0, proc_close($probe), 'PHP worker extension probe failed: ' . $probeError);
+        $builtinExtensions = json_decode($probeOutput, true, 512, JSON_THROW_ON_ERROR);
+        $workerCommand = [PHP_BINARY, '-n', '-d', 'extension_dir=' . $extensionDirectory];
+        if (!$builtinExtensions[0]) { array_push($workerCommand, '-d', 'extension=pdo'); }
+        if (!$builtinExtensions[1]) { array_push($workerCommand, '-d', 'extension=pdo_sqlite'); }
         for ($worker = 1; $worker <= 2; $worker++) {
-            $command = [PHP_BINARY, '-n', '-d', 'extension_dir=' . $extensionDirectory, '-d', 'extension=pdo_sqlite',
-                __FILE__, '--race-worker', $databaseFile, $lottery['id'], (string)$worker];
+            $command = array_merge($workerCommand, [__FILE__, '--race-worker', $databaseFile, $lottery['id'], (string)$worker]);
             $processes[$worker] = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes[$worker], null, null, ['bypass_shell' => true]);
             lottery_test_assert(is_resource($processes[$worker]), 'Could not launch a PHP race worker.');
             fclose($pipes[$worker][0]);
         }
         $deadline = microtime(true) + 10;
         while (!is_file($directory . '/ready-1') || !is_file($directory . '/ready-2')) {
-            lottery_test_assert(microtime(true) < $deadline, 'Concurrent workers did not reach the start barrier.');
+            $statuses = array_map('proc_get_status', $processes);
+            $exited = array_filter($statuses, static fn(array $status): bool => !$status['running']);
+            if ($exited !== [] || microtime(true) >= $deadline) {
+                $diagnostics = [];
+                foreach ($processes as $worker => $process) {
+                    stream_set_blocking($pipes[$worker][1], false);
+                    stream_set_blocking($pipes[$worker][2], false);
+                    $diagnostics[] = 'Worker ' . $worker . ': ' . ($statuses[$worker]['running'] ? 'running' : 'exit ' . $statuses[$worker]['exitcode'])
+                        . "\nSTDOUT: " . stream_get_contents($pipes[$worker][1]) . "\nSTDERR: " . stream_get_contents($pipes[$worker][2]);
+                }
+                throw new RuntimeException(($exited !== [] ? 'A concurrent worker exited before the start barrier.' : 'Concurrent workers did not reach the start barrier.')
+                    . "\n" . implode("\n", $diagnostics));
+            }
             clearstatcache();
             usleep(10000);
         }
