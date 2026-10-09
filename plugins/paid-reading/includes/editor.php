@@ -37,7 +37,7 @@ function pr_editor_toolbar(string $html, array $context): string
     $controls = '<button class="markdown-toolbar__button pr-editor-open" type="button" data-pr-editor-open title="' . $label
         . '" aria-label="' . $label . '" aria-haspopup="dialog" aria-controls="pr-editor-dialog" aria-pressed="'
         . ($values['enabled'] ? 'true' : 'false') . '"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">'
-        . '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/><circle cx="12" cy="15" r="1"/><path d="M12 16v2"/></svg></button>'
+        . '<circle cx="12" cy="12" r="9"/><path d="m8 7 4 5 4-5M8 12h8M8 15h8M12 12v6"/></svg></button>'
         . '<input id="pr-editor-present" type="hidden" name="paid_reading_present" value="1">'
         . '<input id="pr-editor-enabled-value" type="hidden" name="paid_reading_enabled" value="' . ($values['enabled'] ? '1' : '0') . '">'
         . '<input id="pr-editor-price-value" type="hidden" name="paid_reading_price" value="' . h($values['price']) . '">';

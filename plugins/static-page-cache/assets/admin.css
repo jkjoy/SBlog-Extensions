@@ -1,27 +1,38 @@
-.static-page-cache-editor-toggle {
-  display: inline-flex;
+.theme-admin .field > .static-page-cache-editor-toggle {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--admin-border);
-  border-radius: 6px;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 28px;
+  margin: 2px 0 0;
+  padding: 2px 0;
   color: var(--admin-muted);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
-.static-page-cache-editor-toggle:hover {
-  border-color: var(--admin-border-strong);
+.theme-admin .field > .static-page-cache-editor-toggle:hover,
+.theme-admin .field > .static-page-cache-editor-toggle:focus-within {
   color: var(--admin-text);
 }
 
-.static-page-cache-editor-toggle input {
-  width: 15px;
-  height: 15px;
+.theme-admin .static-page-cache-editor-toggle input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
   margin: 0;
+  padding: 0;
+  accent-color: var(--admin-accent);
+  box-shadow: none;
+}
+
+.theme-admin .static-page-cache-editor-toggle input:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
 }
 
 .static-page-cache-summary {

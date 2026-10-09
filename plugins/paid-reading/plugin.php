@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_PAID_READING_VERSION = '1.1.2';
+const SBLOG_PAID_READING_VERSION = '1.1.3';
 
 require_once __DIR__ . '/includes/data.php';
 require_once __DIR__ . '/includes/recovery.php';

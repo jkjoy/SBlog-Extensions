@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_STATIC_PAGE_CACHE_VERSION = '1.0.0';
+const SBLOG_STATIC_PAGE_CACHE_VERSION = '1.0.1';
 const SBLOG_STATIC_PAGE_CACHE_FORMAT = 1;
 const SBLOG_STATIC_PAGE_CACHE_MAX_BYTES = 5242880;
 const SBLOG_STATIC_PAGE_CACHE_MAX_ENTRIES = 1000;
@@ -683,19 +683,35 @@ function spc_store_output(string $html, array $context): string
 
 function spc_editor_control(string $html, array $context): string
 {
-    if ((string)($context['field'] ?? '') !== 'slug') {
+    $action = (string)($context['action'] ?? '');
+    if (!is_admin() || !in_array($action, ['write', 'edit'], true)) {
         return $html;
     }
-    $postId = (int)($context['post_id'] ?? 0);
-    $editingRequest = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST'
-        && in_array((string)($GLOBALS['sblog_current_action'] ?? ''), ['write', 'edit'], true);
+
+    // The native editor ends with its status row, then its enclosing div.
+    $editorStart = strpos($html, '<div class="markdown-editor"');
+    $statusStart = $editorStart !== false ? strpos($html, '<div class="markdown-editor__status"', $editorStart) : false;
+    $statusEnd = $statusStart !== false ? strpos($html, '</div>', $statusStart) : false;
+    $editorEnd = $statusEnd !== false ? strpos($html, '</div>', $statusEnd + 6) : false;
+    if ($editorEnd === false) {
+        return $html;
+    }
+    $insertAt = $editorEnd + 6;
+    if (preg_match('/^\s*<label\b[^>]*\bdata-static-page-cache-editor-control(?:\s|=|>)/', substr($html, $insertAt))) {
+        return $html;
+    }
+
+    $postIdValue = $context['post_id'] ?? ($action === 'edit' ? ($_GET['id'] ?? $_POST['id'] ?? 0) : 0);
+    $postId = is_scalar($postIdValue) ? max(0, (int)$postIdValue) : 0;
+    $editingRequest = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST';
+    $postedValue = $_POST['static_page_cache_exclude'] ?? '';
     $excluded = $editingRequest
-        ? (string)($_POST['static_page_cache_exclude'] ?? '') === '1'
+        ? is_scalar($postedValue) && (string)$postedValue === '1'
         : in_array($postId, spc_excluded_ids(), true);
-    return $html
-        . '<label class="static-page-cache-editor-toggle" title="' . h(sblog_t('此内容始终动态生成，不写入静态页面缓存。')) . '">'
+    $control = "\n" . '<label class="static-page-cache-editor-toggle" data-static-page-cache-editor-control title="' . h(sblog_t('此内容始终动态生成，不写入静态页面缓存。')) . '">'
         . '<input name="static_page_cache_exclude" type="checkbox" value="1"' . ($excluded ? ' checked' : '') . '>'
         . '<span>' . h(sblog_t('跳过缓存')) . '</span></label>';
+    return substr_replace($html, $control, $insertAt, 0);
 }
 
 function spc_post_saved(array $context): void
@@ -939,6 +955,6 @@ add_plugin_action('post_saved', 'spc_post_saved', 20);
 add_plugin_action('comment_created', static function (): void { spc_rotate_generation(); }, 20);
 add_plugin_action('comment_status_changed', static function (): void { spc_rotate_generation(); }, 20);
 add_plugin_action('plugin_status_changed', static function (): void { spc_rotate_generation(); }, 20);
-add_plugin_filter('editor_field_actions_html', 'spc_editor_control', 50);
+add_plugin_filter('output_html', 'spc_editor_control', 50);
 add_plugin_filter('output_html', 'spc_inject_admin_styles', 50);
 add_plugin_filter('output_html', 'spc_store_output', PHP_INT_MAX);
