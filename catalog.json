@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-11T02:28:44+00:00",
+    "updated_at": "2026-10-11T14:36:59+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -244,15 +244,15 @@
             "type": "plugin",
             "slug": "static-page-cache",
             "name": "静态页面缓存",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "author": "Simple PHP Blog",
             "description": "将公开文章和独立页面缓存为静态 HTML 文件，并在内容或评论变化时自动刷新。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.8",
-            "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-static-page-cache-v1.0.1/plugin-static-page-cache-1.0.1.zip",
-            "sha256": "60c5390326b107062bcef4f32d0f7b6e35dd74cc0862c239abb95d35ac06e298",
-            "source_sha256": "159c30227fb9ccdfd55393bf7357231f981b25c2e22b9d2da398f99bcf244535"
+            "tested": "1.14.12",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-static-page-cache-v1.0.2/plugin-static-page-cache-1.0.2.zip",
+            "sha256": "73b78e59a655414531f9b05356c91ba73b1898e882dfe0fb2059222a2dd96126",
+            "source_sha256": "54e8c20e67864097533d6a2c057a696b14b6253ad73ee3aa3515a8051c4f0d27"
         },
         {
             "type": "plugin",
