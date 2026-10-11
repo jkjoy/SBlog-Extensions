@@ -67,6 +67,7 @@ add_plugin_filter('output_html', static function (string $html, array $context):
 - `attachment_storage`：接管编辑器附件的最终存储位置
 - `editor_field_actions_html`：在 `slug`、`excerpt` 或 `content` 标签旁注入编辑器操作
 - `editor_after_form_html`：在文章编辑表单后注入弹窗等插件界面
+- `editor_settings_html`：在文章编辑表单的“更多设置”中追加插件选项；context 包含 `is_edit` 与 `post_id`，插件应输出经过转义的表单控件
 - `output_html`：过滤最终 HTML 文档
 
 filter 回调依次接收当前值和 `$context`，必须返回过滤后的值。`output_html` 的 context 包含 `action` 与 `content_type`。

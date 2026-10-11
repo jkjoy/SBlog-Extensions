@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_STATIC_PAGE_CACHE_VERSION = '1.0.1';
+const SBLOG_STATIC_PAGE_CACHE_VERSION = '1.0.2';
 const SBLOG_STATIC_PAGE_CACHE_FORMAT = 1;
 const SBLOG_STATIC_PAGE_CACHE_MAX_BYTES = 5242880;
 const SBLOG_STATIC_PAGE_CACHE_MAX_ENTRIES = 1000;
@@ -681,26 +681,9 @@ function spc_store_output(string $html, array $context): string
     }
 }
 
-function spc_editor_control(string $html, array $context): string
+function spc_editor_toggle_html(array $context): string
 {
-    $action = (string)($context['action'] ?? '');
-    if (!is_admin() || !in_array($action, ['write', 'edit'], true)) {
-        return $html;
-    }
-
-    // The native editor ends with its status row, then its enclosing div.
-    $editorStart = strpos($html, '<div class="markdown-editor"');
-    $statusStart = $editorStart !== false ? strpos($html, '<div class="markdown-editor__status"', $editorStart) : false;
-    $statusEnd = $statusStart !== false ? strpos($html, '</div>', $statusStart) : false;
-    $editorEnd = $statusEnd !== false ? strpos($html, '</div>', $statusEnd + 6) : false;
-    if ($editorEnd === false) {
-        return $html;
-    }
-    $insertAt = $editorEnd + 6;
-    if (preg_match('/^\s*<label\b[^>]*\bdata-static-page-cache-editor-control(?:\s|=|>)/', substr($html, $insertAt))) {
-        return $html;
-    }
-
+    $action = (string)($context['action'] ?? (!empty($context['is_edit']) ? 'edit' : 'write'));
     $postIdValue = $context['post_id'] ?? ($action === 'edit' ? ($_GET['id'] ?? $_POST['id'] ?? 0) : 0);
     $postId = is_scalar($postIdValue) ? max(0, (int)$postIdValue) : 0;
     $editingRequest = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST';
@@ -708,10 +691,51 @@ function spc_editor_control(string $html, array $context): string
     $excluded = $editingRequest
         ? is_scalar($postedValue) && (string)$postedValue === '1'
         : in_array($postId, spc_excluded_ids(), true);
-    $control = "\n" . '<label class="static-page-cache-editor-toggle" data-static-page-cache-editor-control title="' . h(sblog_t('此内容始终动态生成，不写入静态页面缓存。')) . '">'
-        . '<input name="static_page_cache_exclude" type="checkbox" value="1"' . ($excluded ? ' checked' : '') . '>'
-        . '<span>' . h(sblog_t('跳过缓存')) . '</span></label>';
-    return substr_replace($html, $control, $insertAt, 0);
+    return "\n" . '<label class="pin-option static-page-cache-editor-toggle" data-static-page-cache-editor-control for="static_page_cache_exclude">'
+        . '<input id="static_page_cache_exclude" name="static_page_cache_exclude" type="checkbox" value="1"' . ($excluded ? ' checked' : '') . '>'
+        . '<span><strong>' . h(sblog_t('跳过缓存')) . '</strong><small>'
+        . h(sblog_t('此内容始终动态生成，不写入静态页面缓存。')) . '</small></span></label>';
+}
+
+function spc_editor_settings_html(string $html, array $context): string
+{
+    if (!is_admin() || str_contains($html, 'data-static-page-cache-editor-control')) {
+        return $html;
+    }
+    return $html . spc_editor_toggle_html($context);
+}
+
+function spc_editor_control(string $html, array $context): string
+{
+    $action = (string)($context['action'] ?? '');
+    if (!is_admin() || !in_array($action, ['write', 'edit'], true)
+        || str_contains($html, 'data-static-page-cache-editor-control')) {
+        return $html;
+    }
+
+    // Older cores have no settings hook. Prefer their settings panel when available.
+    if (preg_match('~<div\b[^>]*\bclass\s*=\s*(["\'])(?:[^"\']*\s)?editor-settings__body(?:\s[^"\']*)?\1[^>]*>~i', $html, $settings, PREG_OFFSET_CAPTURE)) {
+        $insertAt = $settings[0][1] + strlen($settings[0][0]);
+    } else {
+        if (!preg_match('~<div\b[^>]*\bclass\s*=\s*(["\'])(?:[^"\']*\s)?markdown-editor(?:\s[^"\']*)?\1[^>]*>~i', $html, $editor, PREG_OFFSET_CAPTURE)) {
+            return $html;
+        }
+        // Count the entire editor's nested divs, including attachment uploaders.
+        preg_match_all('~</?div\b[^>]*>~i', $html, $divs, PREG_OFFSET_CAPTURE, $editor[0][1]);
+        $depth = 0;
+        $insertAt = null;
+        foreach ($divs[0] as [$tag, $offset]) {
+            $depth += str_starts_with(strtolower($tag), '</div') ? -1 : 1;
+            if ($depth === 0) {
+                $insertAt = $offset + strlen($tag);
+                break;
+            }
+        }
+        if ($insertAt === null) {
+            return $html;
+        }
+    }
+    return substr_replace($html, spc_editor_toggle_html($context), $insertAt, 0);
 }
 
 function spc_post_saved(array $context): void
@@ -956,5 +980,6 @@ add_plugin_action('comment_created', static function (): void { spc_rotate_gener
 add_plugin_action('comment_status_changed', static function (): void { spc_rotate_generation(); }, 20);
 add_plugin_action('plugin_status_changed', static function (): void { spc_rotate_generation(); }, 20);
 add_plugin_filter('output_html', 'spc_editor_control', 50);
+add_plugin_filter('editor_settings_html', 'spc_editor_settings_html', 50);
 add_plugin_filter('output_html', 'spc_inject_admin_styles', 50);
 add_plugin_filter('output_html', 'spc_store_output', PHP_INT_MAX);

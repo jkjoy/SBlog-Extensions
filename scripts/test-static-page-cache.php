@@ -12,9 +12,17 @@ if (!mkdir($spcTestRoot, 0700, true) && !is_dir($spcTestRoot)) {
 
 define('CACHE_DIR', $spcTestRoot . '/cache');
 $GLOBALS['spc_test_settings'] = [];
+$GLOBALS['spc_test_filters'] = [];
+$GLOBALS['spc_test_is_admin'] = true;
 
 function add_plugin_action(string $hook, callable $callback, int $priority = 10): void {}
-function add_plugin_filter(string $hook, callable $callback, int $priority = 10): void {}
+function add_plugin_filter(string $hook, callable $callback, int $priority = 10): void
+{
+    $GLOBALS['spc_test_filters'][$hook][] = $callback;
+}
+function is_admin(): bool { return $GLOBALS['spc_test_is_admin']; }
+function h(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+function sblog_t(string $message): string { return $message; }
 function setting(string $key, string $default = ''): string
 {
     return (string)($GLOBALS['spc_test_settings'][$key] ?? $default);
@@ -143,6 +151,60 @@ try {
     spc_test_assert(spc_excluded_ids() === [2, 9], 'Excluded content IDs were not normalized.');
     $GLOBALS['spc_test_settings']['static_page_cache_excluded_ids'] = '{broken';
     spc_test_assert(spc_excluded_ids() === [], 'Malformed exclusion JSON was not rejected.');
+
+    spc_test_assert(in_array('spc_editor_settings_html', $GLOBALS['spc_test_filters']['editor_settings_html'] ?? [], true), 'The editor settings hook was not registered.');
+    $GLOBALS['spc_test_settings']['static_page_cache_excluded_ids'] = '[9]';
+    $_SERVER = ['REQUEST_METHOD' => 'GET'];
+    $_GET = ['id' => '9'];
+    $_POST = [];
+    $editorContext = ['is_edit' => true, 'post_id' => 9];
+    $settingsHtml = spc_editor_settings_html('<div>Other plugin option</div>', $editorContext);
+    spc_test_assert(str_starts_with($settingsHtml, '<div>Other plugin option</div>'), 'Settings rendering removed another plugin option.');
+    spc_test_assert(str_contains($settingsHtml, 'class="pin-option static-page-cache-editor-toggle"'), 'The cache control did not use the editor option layout.');
+    spc_test_assert(str_contains($settingsHtml, '<strong>跳过缓存</strong><small>'), 'The option label and description were not rendered separately.');
+    spc_test_assert(str_contains($settingsHtml, 'value="1" checked'), 'An excluded post was not checked on GET.');
+    spc_test_assert(spc_editor_settings_html($settingsHtml, $editorContext) === $settingsHtml, 'Applying the settings filter twice duplicated the control.');
+    spc_test_assert(!str_contains(spc_editor_settings_html('', ['is_edit' => false, 'post_id' => 0]), ' checked'), 'A new post inherited an unrelated excluded ID.');
+
+    $_SERVER = ['REQUEST_METHOD' => 'POST'];
+    spc_test_assert(!str_contains(spc_editor_settings_html('', $editorContext), ' checked'), 'An unchecked POST reverted to the saved exclusion after a validation error.');
+    $_POST = ['static_page_cache_exclude' => '1'];
+    spc_test_assert(str_contains(spc_editor_settings_html('', ['is_edit' => false, 'post_id' => 0]), ' checked'), 'A checked new-post submission was lost after a validation error.');
+    $_POST = ['static_page_cache_exclude' => ['1']];
+    spc_test_assert(!str_contains(spc_editor_settings_html('', $editorContext), ' checked'), 'A malformed checkbox value was accepted.');
+
+    $_SERVER = ['REQUEST_METHOD' => 'GET'];
+    $_POST = [];
+    $outputContext = ['action' => 'edit', 'post_id' => 9];
+    $nativeSettingsDocument = '<form><details><div class="editor-settings__body">' . $settingsHtml . '</div></details></form>';
+    spc_test_assert(spc_editor_control($nativeSettingsDocument, $outputContext) === $nativeSettingsDocument, 'The compatibility filter duplicated the native settings control.');
+    $legacySettingsDocument = '<form><details><div data-options class=\'field editor-settings__body extra\'><div class="field">Password</div></div></details></form>';
+    $legacySettingsOutput = spc_editor_control($legacySettingsDocument, $outputContext);
+    $controlOffset = strpos($legacySettingsOutput, 'data-static-page-cache-editor-control');
+    $settingsOffset = strpos($legacySettingsOutput, 'editor-settings__body');
+    $passwordOffset = strpos($legacySettingsOutput, 'Password');
+    spc_test_assert($controlOffset !== false && $controlOffset > $settingsOffset && $controlOffset < $passwordOffset, 'A legacy settings panel did not contain the cache control.');
+    spc_test_assert(spc_editor_control($legacySettingsOutput, $outputContext) === $legacySettingsOutput, 'The legacy settings fallback was not idempotent.');
+
+    $legacyEditor = '<div class="field"><div class="markdown-editor"><textarea>&lt;div&gt;content&lt;/div&gt;</textarea><div class="markdown-editor__status">Status</div></div><p>Editor hint</p></div>';
+    $uploaderEditor = '<div class="field"><div class="markdown-editor extra"><textarea>content</textarea><div class="markdown-editor__status">Status</div><div class="attachment-uploader"><div class="attachment-list"></div></div></div><p>Editor hint</p></div>';
+    foreach ([$legacyEditor, $uploaderEditor] as $document) {
+        $output = spc_editor_control($document, $outputContext);
+        $controlOffset = strpos($output, 'data-static-page-cache-editor-control');
+        $hintOffset = strpos($output, '<p>Editor hint</p>');
+        spc_test_assert($controlOffset !== false && $controlOffset < $hintOffset, 'The old-core control was not inserted before the editor hint.');
+        spc_test_assert(str_contains($output, '</div>' . "\n" . '<label class="pin-option static-page-cache-editor-toggle"'), 'The old-core control was not inserted after the complete editor.');
+        $beforeControl = substr($output, 0, strpos($output, '<label class="pin-option'));
+        spc_test_assert(substr_count($beforeControl, '<div') - substr_count($beforeControl, '</div>') === 1, 'The cache control was inserted inside the editor or its attachment uploader.');
+        spc_test_assert(spc_editor_control($output, $outputContext) === $output, 'The old-core editor fallback duplicated the control.');
+    }
+    $malformedEditor = '<div class="markdown-editor"><div class="markdown-editor__status">Status</div>';
+    spc_test_assert(spc_editor_control($malformedEditor, $outputContext) === $malformedEditor, 'An incomplete editor received a misplaced control.');
+    spc_test_assert(spc_editor_control($legacyEditor, ['action' => 'post']) === $legacyEditor, 'A public page received an editor control.');
+    $GLOBALS['spc_test_is_admin'] = false;
+    spc_test_assert(spc_editor_settings_html('', $editorContext) === '', 'A non-admin received an editor setting.');
+    spc_test_assert(spc_editor_control($legacyEditor, $outputContext) === $legacyEditor, 'A non-admin received the compatibility editor control.');
+    $GLOBALS['spc_test_is_admin'] = true;
 
     $baseDescriptor = [
         'action' => 'post',
@@ -288,6 +350,8 @@ try {
     unset(
         $GLOBALS['sblog_current_action'],
         $GLOBALS['spc_test_settings'],
+        $GLOBALS['spc_test_filters'],
+        $GLOBALS['spc_test_is_admin'],
         $GLOBALS['sblog_static_page_cache_rest_mutation_pending'],
         $GLOBALS['sblog_static_page_cache_rotation_attempted']
     );
