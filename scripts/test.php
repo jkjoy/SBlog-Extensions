@@ -217,3 +217,9 @@ passthru($commentLotteryCommand, $commentLotteryStatus);
 if ($commentLotteryStatus !== 0) {
     store_fail('Comment lottery tests failed.');
 }
+
+$commentPushCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(STORE_ROOT . '/plugins/comment-push/tests/run.php');
+passthru($commentPushCommand, $commentPushStatus);
+if ($commentPushStatus !== 0) {
+    store_fail('Comment push tests failed.');
+}
