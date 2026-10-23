@@ -5,6 +5,7 @@ declare(strict_types=1);
 // Standalone CLI harness: only in-memory SQLite and injected HTTP responses are used.
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit; }
 if (!extension_loaded('pdo_sqlite')) { fwrite(STDERR, "Required extension: pdo_sqlite\n"); exit(1); }
+if (!extension_loaded('sodium')) { fwrite(STDERR, "Required extension: sodium\n"); exit(1); }
 define('PLUGINS_DIR', dirname(__DIR__, 2));
 
 $actions = [];
@@ -132,6 +133,36 @@ function commentFixture(string $status = 'approved', int $userId = 0): array
     $statement = db()->prepare('INSERT INTO comments VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     $statement->execute([91, 7, $userId, '真实评论人', 'private@example.test', '192.0.2.17', '真实评论内容', $status]);
     return ['comment_id' => 91, 'post_id' => 7, 'status' => $status, 'comment' => ['content' => 'FORGED_CONTENT', 'author_name' => 'FORGED_AUTHOR']];
+}
+function qqWebhookHeaders(string $raw, ?array $config = null, string $timestamp = '1725442341'): array
+{
+    $config ??= sblog_push_config();
+    // Sign independently of the plugin helper so self-consistent crypto bugs cannot hide.
+    $secret = $config['qq_app_secret'];
+    $seed = substr(str_repeat($secret, (int)ceil(32 / strlen($secret))), 0, 32);
+    $pair = sodium_crypto_sign_seed_keypair($seed);
+    return [
+        'x-bot-appid' => $config['qq_app_id'],
+        'x-signature-timestamp' => $timestamp,
+        'x-signature-ed25519' => bin2hex(sodium_crypto_sign_detached($timestamp . $raw, sodium_crypto_sign_secretkey($pair))),
+    ];
+}
+function qqWebhookBody(string $event, string $content, string $recipient = 'NEW_USER_OPENID'): array
+{
+    return ['op' => 0, 's' => 1, 'id' => 'event-1', 't' => $event, 'd' => [
+        'id' => 'message-1', 'content' => $content,
+        'author' => ['id' => 'LEGACY_MEMBER_ID', 'user_openid' => $recipient],
+        'group_openid' => $recipient,
+    ]];
+}
+function qqWebhookDeliver(array $event, ?int $now = null): array
+{
+    $raw = json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    return sblog_push_qq_webhook_handle('POST', $raw, qqWebhookHeaders($raw), $now);
+}
+function pushSnapshot(): array
+{
+    return db()->query('SELECT name, payload FROM plugin_comment_push ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
 }
 
 test('plugin registers the committed-comment hook', static function (): void {
@@ -276,6 +307,205 @@ test('QQ target cannot inject paths or arbitrary hosts', static function (): voi
         $mock = transport($calls, []);
         raises(static fn() => sblog_push_qq_send(qqConfig(['qq_target_id' => $target]), '通知', $mock));
         same([], $calls);
+    }
+});
+
+// Published Tencent fixtures: https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/interface-framework/sign.html
+test('QQ Webhook signing matches the official Ed25519 challenge vector', static function (): void {
+    $pair = sblog_push_qq_keypair('DG5g3B4j9X2KOErG');
+    $signature = sodium_crypto_sign_detached('1725442341Arq0D5A61EgUu4OxUvOp', sodium_crypto_sign_secretkey($pair));
+    same('87befc99c42c651b3aac0278e71ada338433ae26fcb24307bdc5ad38c1adc2d01bcfcadc0842edac85e85205028a1132afe09280305f13aa6909ffc2d652c706', bin2hex($signature));
+});
+test('QQ Webhook verification uses the published public key and independently verified exact raw bytes', static function (): void {
+    $raw = '{ "op": 0,"d": {}, "t": "GATEWAY_EVENT_NAME"}';
+    $pair = sblog_push_qq_keypair('naOC0ocQE3shWLAfffVLB1rhYPG7');
+    same([215, 195, 98, 254, 120, 174, 248, 31, 242, 50, 135, 180, 147, 98, 139, 93, 176, 42, 60, 79, 227, 11, 33, 94, 77, 25, 96, 155, 93, 118, 103, 58], array_values(unpack('C*', sodium_crypto_sign_publickey($pair))));
+    // The documentation's 865ad...ed002 signature does not verify against its literal
+    // body. This fixed signature was cross-checked with PHP Sodium and Node crypto.
+    $signature = '2eb9983ebb8bb209e78fd095942f58e442656656e7975d01e64f9023a84b7c964290fdd40e5500c33867ccfe9563b7e0b6bac0e1d42c13e787b304fd51f71102';
+    check(sblog_push_qq_webhook_verify($raw, '1725442341', $signature, 'naOC0ocQE3shWLAfffVLB1rhYPG7'));
+    check(!sblog_push_qq_webhook_verify($raw, '1725442341', '865ad13a61752ca65e26bde6676459cd36cf1be609375b37bd62af366e1dc25a8dc789ba7f14e017ada3d554c671a911bfdf075ba54835b23391d509579ed002', 'naOC0ocQE3shWLAfffVLB1rhYPG7'));
+    check(!sblog_push_qq_webhook_verify(str_replace(' ', '', $raw), '1725442341', $signature, 'naOC0ocQE3shWLAfffVLB1rhYPG7'));
+    check(!sblog_push_qq_webhook_verify($raw, '1725442342', $signature, 'naOC0ocQE3shWLAfffVLB1rhYPG7'));
+    check(!sblog_push_qq_webhook_verify($raw, '1725442341', $signature, 'wrong-secret'));
+    foreach (['', 'bad', str_repeat('z', 128), str_repeat('0', 126), str_repeat('0', 130)] as $invalid) {
+        check(!sblog_push_qq_webhook_verify($raw, '1725442341', $invalid, 'naOC0ocQE3shWLAfffVLB1rhYPG7'));
+    }
+});
+test('QQ Webhook keys use exactly the first 32 repeated secret bytes for short and long credentials', static function (): void {
+    foreach (['a', '0123456789abcdef', '0123456789abcdef0123456789abcdef', '0123456789abcdef0123456789abcdefEXTRA', str_repeat('long-secret', 20)] as $secret) {
+        $seed = substr(str_repeat($secret, (int)ceil(32 / strlen($secret))), 0, 32);
+        $expected = sodium_crypto_sign_seed_keypair($seed);
+        same(sodium_crypto_sign_publickey($expected), sodium_crypto_sign_publickey(sblog_push_qq_keypair($secret)));
+    }
+});
+test('QQ Webhook signed challenge returns the official plain token and signature', static function (): void {
+    $config = qqConfig(['qq_enabled' => false, 'qq_app_secret' => 'DG5g3B4j9X2KOErG']);
+    sblog_push_save_config($config);
+    $raw = '{"op":13,"d":{"plain_token":"Arq0D5A61EgUu4OxUvOp","event_ts":"1725442341"}}';
+    $result = sblog_push_qq_webhook_handle('POST', $raw, qqWebhookHeaders($raw), 1800000000);
+    same(200, $result['status']);
+    same('Arq0D5A61EgUu4OxUvOp', $result['body']['plain_token']);
+    same('87befc99c42c651b3aac0278e71ada338433ae26fcb24307bdc5ad38c1adc2d01bcfcadc0842edac85e85205028a1132afe09280305f13aa6909ffc2d652c706', $result['body']['signature']);
+    same(1800000000, sblog_push_qq_webhook_status()['last_challenge_at']);
+    same($config, sblog_push_config());
+});
+test('QQ Webhook forged or unsigned challenge never changes plugin state', static function (): void {
+    sblog_push_save_config(qqConfig());
+    sblog_push_qq_binding_start();
+    $raw = '{"op":13,"d":{"plain_token":"attacker","event_ts":"1725442341"}}';
+    $signed = qqWebhookHeaders($raw);
+    $invalidHeaders = [
+        [],
+        ['x-bot-appid' => '123456'],
+        array_replace($signed, ['x-signature-ed25519' => str_repeat('0', 128)]),
+        array_replace($signed, ['x-bot-appid' => '654321']),
+        array_replace($signed, ['x-bot-appid' => '']),
+        array_replace($signed, ['x-signature-timestamp' => '1725442342']),
+        array_replace($signed, ['x-signature-ed25519' => []]),
+        array_replace($signed, ['x-bot-appid' => ['123456']]),
+    ];
+    foreach ($invalidHeaders as $headers) {
+        $before = pushSnapshot();
+        $result = sblog_push_qq_webhook_handle('POST', $raw, $headers);
+        check($result['status'] >= 400 && $result['status'] < 500);
+        check(!isset($result['body']['signature']), 'Rejected challenge returned a signature');
+        same($before, pushSnapshot());
+    }
+});
+test('QQ Webhook a forged event cannot consume a real active binding code', static function (): void {
+    sblog_push_save_config(qqConfig());
+    $binding = sblog_push_qq_binding_start();
+    $event = qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code'], 'ATTACKER_OPENID');
+    $raw = json_encode($event, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    $signed = qqWebhookHeaders($raw);
+    foreach ([[], array_replace($signed, ['x-bot-appid' => '654321']), array_replace($signed, ['x-signature-ed25519' => str_repeat('0', 128)])] as $headers) {
+        $before = pushSnapshot();
+        check(sblog_push_qq_webhook_handle('POST', $raw, $headers)['status'] >= 400);
+        same($before, pushSnapshot());
+    }
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code'], 'REAL_USER_OPENID'));
+    same('REAL_USER_OPENID', sblog_push_config()['qq_target_id']);
+});
+test('QQ Webhook rejects malformed signed payloads, unsupported methods and excessive bodies', static function (): void {
+    sblog_push_save_config(qqConfig());
+    $cases = [
+        ['POST', '{'], ['POST', 'null'], ['POST', '[]'], ['POST', '"text"'],
+        ['POST', '{"op":"13","d":{"plain_token":"token","event_ts":"1725442341"}}'],
+        ['POST', '{"op":13,"d":[]}'],
+        ['POST', '{"op":13,"d":{"plain_token":[],"event_ts":"1725442341"}}'],
+        ['POST', '{"op":13,"d":{"plain_token":"token","event_ts":[]}}'],
+        ['POST', '{"op":0,"t":"C2C_MESSAGE_CREATE","d":"invalid"}'],
+        ['GET', '{"op":0,"t":"GATEWAY_EVENT_NAME","d":{}}'],
+        ['PUT', '{"op":0,"t":"GATEWAY_EVENT_NAME","d":{}}'],
+        ['POST', str_repeat(' ', 65537)],
+    ];
+    foreach ($cases as [$method, $raw]) {
+        $before = pushSnapshot();
+        $result = sblog_push_qq_webhook_handle($method, $raw, qqWebhookHeaders($raw));
+        check($result['status'] >= 400 && $result['status'] < 500, 'Accepted malformed payload: ' . substr($raw, 0, 100));
+        same($before, pushSnapshot());
+    }
+});
+test('QQ Webhook acknowledges valid events without requiring recent signature timestamps', static function (): void {
+    sblog_push_save_config(qqConfig());
+    $binding = sblog_push_qq_binding_start();
+    $before = sblog_push_qq_webhook_status()['binding'];
+    $result = qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '普通消息'), 1800000000);
+    same(200, $result['status']);
+    same(['op' => 12, 'd' => 0], $result['body']);
+    same('USER_OPENID', sblog_push_config()['qq_target_id']);
+    same($before, sblog_push_qq_webhook_status()['binding']);
+    same(1800000000, sblog_push_qq_webhook_status()['last_event_at']);
+    check(preg_match('/\A[A-F0-9]{16}\z/', $binding['code']) === 1);
+});
+test('QQ private binding requires the active code and binds user_openid without enabling notifications', static function (): void {
+    sblog_push_save_config(qqConfig(['qq_enabled' => false]));
+    $binding = sblog_push_qq_binding_start();
+    $result = qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code']));
+    same(200, $result['status']);
+    same('NEW_USER_OPENID', sblog_push_config()['qq_target_id']);
+    same(false, sblog_push_config()['qq_enabled']);
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code'], 'REPLAY_USER'));
+    same('NEW_USER_OPENID', sblog_push_config()['qq_target_id']);
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 AAAAAAAAAAAAAAAA', 'UNEXPECTED_USER'));
+    same('NEW_USER_OPENID', sblog_push_config()['qq_target_id']);
+});
+test('QQ group binding handles an initial mention and chooses group_openid rather than member identity', static function (): void {
+    sblog_push_save_config(qqConfig(['qq_enabled' => false, 'qq_target_type' => 'group']));
+    $binding = sblog_push_qq_binding_start();
+    $event = qqWebhookBody('GROUP_AT_MESSAGE_CREATE', '<@123456> 绑定通知 ' . $binding['code'], 'GROUP_OPENID');
+    $event['d']['author']['user_openid'] = 'MEMBER_OPENID';
+    same(200, qqWebhookDeliver($event)['status']);
+    same('GROUP_OPENID', sblog_push_config()['qq_target_id']);
+    same('group', sblog_push_config()['qq_target_type']);
+    same(false, sblog_push_config()['qq_enabled']);
+});
+test('QQ wrong event type, incorrect codes and malformed recipients cannot consume pending binding', static function (): void {
+    sblog_push_save_config(qqConfig());
+    $binding = sblog_push_qq_binding_start();
+    $events = [
+        qqWebhookBody('GROUP_AT_MESSAGE_CREATE', '绑定通知 ' . $binding['code']),
+        qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 0000000000000000'),
+        qqWebhookBody('C2C_MESSAGE_CREATE', '前缀 绑定通知 ' . $binding['code']),
+        qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code'] . ' 尾缀'),
+        qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code'], '../bad-target'),
+    ];
+    $missingRecipient = qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code']);
+    unset($missingRecipient['d']['author']['user_openid']);
+    $events[] = $missingRecipient;
+    $malformedContent = qqWebhookBody('C2C_MESSAGE_CREATE', '');
+    $malformedContent['d']['content'] = [];
+    $events[] = $malformedContent;
+    foreach ($events as $event) {
+        same(200, qqWebhookDeliver($event)['status']);
+        same('USER_OPENID', sblog_push_config()['qq_target_id']);
+    }
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code']));
+    same('NEW_USER_OPENID', sblog_push_config()['qq_target_id']);
+});
+test('QQ binding expires after ten minutes and cancelled or replaced codes cannot bind', static function (): void {
+    sblog_push_save_config(qqConfig());
+    $started = time();
+    $binding = sblog_push_qq_binding_start();
+    check($binding['expires_at'] >= $started + 600 && $binding['expires_at'] <= time() + 600);
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code']), $binding['expires_at'] + 1);
+    same('USER_OPENID', sblog_push_config()['qq_target_id']);
+    $cancelled = sblog_push_qq_binding_start();
+    sblog_push_qq_binding_cancel();
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $cancelled['code']));
+    same('USER_OPENID', sblog_push_config()['qq_target_id']);
+    $old = sblog_push_qq_binding_start();
+    $current = sblog_push_qq_binding_start();
+    check($old['code'] !== $current['code']);
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $old['code']));
+    same('USER_OPENID', sblog_push_config()['qq_target_id']);
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $current['code']));
+    same('NEW_USER_OPENID', sblog_push_config()['qq_target_id']);
+});
+test('QQ credential changes clear callback status and pending binding; type changes cannot reuse it', static function (): void {
+    $config = qqConfig();
+    sblog_push_save_config($config);
+    $binding = sblog_push_qq_binding_start();
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '普通消息'));
+    sblog_push_save_config(array_replace($config, ['qq_app_secret' => 'changed-secret']));
+    $status = sblog_push_qq_webhook_status();
+    check(empty($status['last_event_at']));
+    check(empty($status['last_challenge_at']));
+    check(empty($status['binding']));
+    qqWebhookDeliver(qqWebhookBody('C2C_MESSAGE_CREATE', '绑定通知 ' . $binding['code']));
+    same('USER_OPENID', sblog_push_config()['qq_target_id']);
+    $binding = sblog_push_qq_binding_start();
+    sblog_push_save_config(array_replace(sblog_push_config(), ['qq_target_type' => 'group']));
+    qqWebhookDeliver(qqWebhookBody('GROUP_AT_MESSAGE_CREATE', '绑定通知 ' . $binding['code'], 'WRONG_GROUP'));
+    same('USER_OPENID', sblog_push_config()['qq_target_id']);
+});
+test('QQ binding requires saved credentials and a supported private or group target', static function (): void {
+    foreach ([['qq_app_id' => ''], ['qq_app_secret' => ''], ['qq_target_type' => 'channel']] as $changes) {
+        sblog_push_save_config(qqConfig($changes));
+        $before = pushSnapshot();
+        raises(static fn() => sblog_push_qq_binding_start());
+        same($before, pushSnapshot());
     }
 });
 test('notification reloads committed IDs and ignores untrusted context fields', static function (): void {
@@ -496,7 +726,7 @@ test('admin page and request both require authentication', static function (): v
     check($GLOBALS['authCalls'] >= 2);
 });
 test('every admin POST operation verifies CSRF before any mutation or HTTP call', static function (): void {
-    foreach (['save', 'test_qq', 'test_weixin', 'weixin_start', 'weixin_check', 'weixin_sync', 'weixin_bind', 'weixin_disconnect'] as $operation) {
+    foreach (['save', 'test_qq', 'test_weixin', 'qq_binding_start', 'qq_binding_cancel', 'weixin_start', 'weixin_check', 'weixin_sync', 'weixin_bind', 'weixin_disconnect'] as $operation) {
         fresh();
         $config = weixinBound();
         $_SERVER['REQUEST_METHOD'] = 'POST';

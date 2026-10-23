@@ -90,7 +90,11 @@ function sblog_push_validate(array $input, array $existing): array
 function sblog_push_save_config(array $config): void
 {
     $existing = sblog_push_config();
-    if ($existing['qq_app_id'] !== $config['qq_app_id'] || $existing['qq_app_secret'] !== $config['qq_app_secret']) { sblog_push_write('qq_token', []); }
+    if ($existing['qq_app_id'] !== $config['qq_app_id'] || $existing['qq_app_secret'] !== $config['qq_app_secret']) {
+        foreach (['qq_token', 'qq_binding', 'qq_webhook'] as $key) { sblog_push_write($key, []); }
+    } elseif ($existing['qq_target_type'] !== $config['qq_target_type'] || $existing['qq_target_id'] !== $config['qq_target_id']) {
+        sblog_push_write('qq_binding', []);
+    }
     sblog_push_write('config', array_intersect_key($config, sblog_push_defaults()));
 }
 

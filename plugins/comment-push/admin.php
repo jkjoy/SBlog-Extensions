@@ -9,6 +9,10 @@ function sblog_push_admin(array $config, array $errors = []): void
     require_admin();
     header('Cache-Control: no-store');
     $weixin = sblog_push_weixin_status();
+    $qqWebhook = sblog_push_qq_webhook_status();
+    $qqBinding = is_array($qqWebhook['binding'] ?? null) ? $qqWebhook['binding'] : [];
+    $qqSavedType = sblog_push_config()['qq_target_type'];
+    $qqCanBind = !empty($qqWebhook['available']) && !empty($qqWebhook['configured']) && in_array($qqSavedType, ['c2c', 'group'], true);
     $qrUrl = (string)($weixin['qrcode_url'] ?? '');
     $candidates = is_array($weixin['candidates'] ?? null) ? $weixin['candidates'] : [];
     $results = ['qq' => sblog_push_read('result_qq'), 'weixin' => sblog_push_read('result_weixin')];
@@ -52,7 +56,7 @@ function sblog_push_admin(array $config, array $errors = []): void
               <div class="field">
                 <label for="push-qq-target-id">QQ 接收 ID</label>
                 <input id="push-qq-target-id" name="qq_target_id" maxlength="128" pattern="[A-Za-z0-9_-]{1,128}" value="<?= h($config['qq_target_id']) ?>" autocomplete="off" aria-describedby="push-qq-target-hint">
-                <p class="field-hint" id="push-qq-target-hint">私聊填写机器人事件中的用户 OpenID，群聊填写群 OpenID；不能直接填写 QQ 号或群号。子频道填写频道接口返回的子频道 ID。</p>
+                <p class="field-hint" id="push-qq-target-hint">私聊填写机器人事件中的用户 OpenID，群聊填写群 OpenID；可在下方通过官方 Webhook 绑定，不能直接填写 QQ 号或群号。子频道填写频道接口返回的子频道 ID。</p>
                 <p class="field-hint">接收人须先添加机器人好友，或将机器人加入目标群，并允许主动消息。平台会限制主动消息权限和频率；频道推送还需其他程序维持机器人 WebSocket 在线。</p>
               </div>
               <fieldset class="field settings-field">
@@ -76,6 +80,51 @@ function sblog_push_admin(array $config, array $errors = []): void
               </fieldset>
               <div class="form-actions"><button class="button" type="submit">保存设置</button><a class="button button--secondary" href="<?= h(url_for('admin_plugins')) ?>">返回插件管理</a></div>
             </form>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel__header"><h2>QQ Webhook 与接收人绑定</h2><p class="panel__meta">接入官方消息事件后，通过一次性绑定码自动填写用户或群 OpenID。</p></div>
+          <div class="panel__body form-stack">
+            <div class="field">
+              <label for="push-qq-webhook-url">官方事件回调地址</label>
+              <input id="push-qq-webhook-url" type="text" value="<?= h($qqWebhook['url'] ?? '') ?>" readonly spellcheck="false" autocomplete="off" aria-describedby="push-qq-webhook-url-hint">
+              <p class="field-hint" id="push-qq-webhook-url-hint">选中并复制此地址到 QQ 开放平台。地址须为公网可访问的 HTTPS，允许平台请求直接到达，不受登录页或防火墙验证拦截，并保持本插件启用。</p>
+            </div>
+            <ol>
+              <li>在上方填写 AppID、AppSecret，选择「私聊」或「QQ群」并保存；尚无接收 ID 时先不勾选「启用 QQ 评论通知」。</li>
+              <li>进入 <a href="https://q.qq.com/" target="_blank" rel="noopener noreferrer">QQ 开放平台</a>的机器人管理，在事件订阅中填写回调地址并完成验证；私聊订阅单聊消息事件 <code>C2C_MESSAGE_CREATE</code>，群聊订阅群 @ 消息事件 <code>GROUP_AT_MESSAGE_CREATE</code>。</li>
+              <li>生成绑定码，在需要接收通知的 QQ 私聊中发送下方命令；若选择群聊，将机器人加入目标群并 @机器人发送命令。</li>
+              <li>发送后刷新本页，确认上方「QQ 接收 ID」已填写，再启用 QQ 评论通知、保存并发送测试通知。</li>
+            </ol>
+            <?php if (empty($qqWebhook['available'])): ?>
+              <p class="field-hint">当前 PHP 未启用 sodium 扩展，无法验证官方 Webhook 签名。请启用 sodium 后接入回调；手动填写接收 ID 的发送功能不依赖此扩展。</p>
+            <?php elseif (empty($qqWebhook['configured'])): ?>
+              <p class="field-hint">请先保存 AppID 和 AppSecret，再验证回调、生成绑定码。</p>
+            <?php elseif ($qqSavedType === 'channel'): ?>
+              <p class="field-hint">当前已保存的类型为 QQ 频道，请手动填写子频道 ID。自动绑定支持私聊和 QQ 群，修改类型后须先保存。</p>
+            <?php endif; ?>
+            <?php if ($qqBinding): ?>
+              <div class="field">
+                <label for="push-qq-binding-command">一次性绑定命令</label>
+                <input id="push-qq-binding-command" type="text" value="<?= h('绑定通知 ' . ($qqBinding['code'] ?? '')) ?>" readonly spellcheck="false" autocomplete="off" aria-describedby="push-qq-binding-hint">
+                <p class="field-hint" id="push-qq-binding-hint">绑定<?= ($qqBinding['target_type'] ?? '') === 'group' ? '目标 QQ 群（须 @机器人）' : '当前 QQ 私聊用户' ?>；有效期至 <?= h(date('Y-m-d H:i:s', (int)($qqBinding['expires_at'] ?? 0))) ?>。请仅在目标会话中发送，匹配成功后绑定码立即失效。</p>
+              </div>
+            <?php endif; ?>
+            <div class="form-actions">
+              <form method="post" action="<?= h(sblog_push_admin_url()) ?>">
+                <?= csrf_field() ?><input type="hidden" name="operation" value="qq_binding_start">
+                <button class="button button--secondary" type="submit"<?= $qqCanBind ? '' : ' disabled' ?>><?= $qqBinding ? '重新生成绑定码' : '生成绑定码' ?></button>
+              </form>
+              <?php if ($qqBinding): ?>
+                <form method="post" action="<?= h(sblog_push_admin_url()) ?>">
+                  <?= csrf_field() ?><input type="hidden" name="operation" value="qq_binding_cancel">
+                  <button class="button button--secondary" type="submit">取消本次绑定</button>
+                </form>
+              <?php endif; ?>
+              <a class="button button--secondary" href="<?= h(sblog_push_admin_url()) ?>">刷新绑定状态</a>
+            </div>
+            <p class="field-hint">回调验证：<?= !empty($qqWebhook['last_challenge_at']) ? '最近成功于 ' . h(date('Y-m-d H:i:s', (int)$qqWebhook['last_challenge_at'])) : '尚未收到成功验证' ?>；已验证消息事件：<?= !empty($qqWebhook['last_event_at']) ? '最近收到于 ' . h(date('Y-m-d H:i:s', (int)$qqWebhook['last_event_at'])) : '尚未收到' ?>。</p>
+            <p class="field-hint">绑定码有效期 10 分钟，仅按已保存的接收类型匹配；绑定只填写接收 ID，不会自动启用通知。<a href="https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/event-emit/webhook.html" target="_blank" rel="noopener noreferrer">查看官方 Webhook 文档</a>。</p>
           </div>
         </section>
         <section class="panel">
@@ -191,12 +240,20 @@ function sblog_push_admin_request(): void
                     redirect_to(sblog_push_admin_url(), 303);
                 }
             }
-        } elseif (in_array($operation, ['test_qq', 'test_weixin', 'weixin_start', 'weixin_check', 'weixin_sync', 'weixin_bind', 'weixin_disconnect'], true)) {
+        } elseif (in_array($operation, ['test_qq', 'test_weixin', 'qq_binding_start', 'qq_binding_cancel', 'weixin_start', 'weixin_check', 'weixin_sync', 'weixin_bind', 'weixin_disconnect'], true)) {
             try {
                 if ($operation === 'test_qq' || $operation === 'test_weixin') {
                     $result = sblog_push_test(substr($operation, 5));
                     $type = !empty($result['ok']) ? 'success' : 'error';
                     $message = (string)$result['message'];
+                } elseif ($operation === 'qq_binding_start') {
+                    sblog_push_qq_binding_start();
+                    $type = 'success';
+                    $message = 'QQ 一次性绑定码已生成，请在 10 分钟内向目标会话发送绑定命令。';
+                } elseif ($operation === 'qq_binding_cancel') {
+                    sblog_push_qq_binding_cancel();
+                    $type = 'success';
+                    $message = '本次 QQ 绑定已取消，现有接收 ID 保持不变。';
                 } elseif ($operation === 'weixin_start') {
                     $result = sblog_push_weixin_start();
                     $type = 'success';

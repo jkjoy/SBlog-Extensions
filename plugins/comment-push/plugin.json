@@ -1,10 +1,10 @@
 {
   "name": "QQ / 微信评论推送",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "requires": "1.14.8",
   "tested": "1.14.13",
   "author": "Simple PHP Blog",
   "url": "https://github.com/jkjoy/SBlog-Extensions",
-  "description": "通过官方 QQ Bot 和微信 iLink 通道向站长推送新评论，支持微信扫码绑定、连接测试与发送状态查看。",
+  "description": "通过官方 QQ Bot 和微信 iLink 通道推送新评论，支持 QQ Webhook 验签与 OpenID 绑定、微信扫码登录和发送测试。",
   "settings_action": "admin_comment_push"
 }
