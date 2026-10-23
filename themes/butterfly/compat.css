@@ -1,5 +1,11 @@
 /* Project compatibility overrides for Butterfly's canonical DOM. */
 
+body.butterfly-theme:not(.read-mode) #article-container.post-content :is(h1, h2, h3, h4, h5, h6)::before {
+  font-family: remixicon;
+  font-weight: 400;
+  content: "\eeb8";
+}
+
 #post > .pagination {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

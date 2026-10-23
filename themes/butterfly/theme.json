@@ -1,6 +1,6 @@
 {
   "name": "Butterfly",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "author": "老孙",
   "url": "https://www.imsun.org",
   "description": "移植自 Typecho-Butterfly，保留图片页头、交错文章列表、双栏布局、归档时间线与夜间模式，适配原生评论和文章搜索。"
