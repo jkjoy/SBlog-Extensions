@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-23T10:37:33+00:00",
+    "updated_at": "2026-10-23T11:10:38+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -328,15 +328,15 @@
             "type": "theme",
             "slug": "butterfly",
             "name": "Butterfly",
-            "version": "1.0.8",
+            "version": "1.0.9",
             "author": "老孙",
             "description": "移植自 Typecho-Butterfly，保留图片页头、交错文章列表、双栏布局、归档时间线与夜间模式，适配原生评论和文章搜索。",
             "homepage": "https://www.imsun.org",
             "requires": "1.13.6",
             "tested": "1.13.6",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-butterfly-v1.0.8/theme-butterfly-1.0.8.zip",
-            "sha256": "630638bec05bd6050c7ecdc7ddad335295ec25eeed6d5cfcbc4fec0be5c1b718",
-            "source_sha256": "2837271fed81e59310a91ea7ed675ab60854566b5d01c854c3ad8b2809a7ed61"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-butterfly-v1.0.9/theme-butterfly-1.0.9.zip",
+            "sha256": "0a0139377f7dc27a2f829e62cb0d5042e22ab3b8160574b278aded068d7bd78e",
+            "source_sha256": "2554d4a49c59671ae5cd36cbb56462de913d1daa987f4360ecdde480483466e6"
         },
         {
             "type": "theme",
