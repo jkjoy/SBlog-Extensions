@@ -1,7 +1,7 @@
 {
   "name": "Starter Contrast",
-  "version": "1.0.2",
-  "author": "Simple PHP Blog",
-  "url": "https://github.com/jkjoy/Simple-PHP-Blog",
+  "version": "1.0.3",
+  "author": "老孙",
+  "url": "https://www.imsun.org",
   "description": "演示样式覆盖、head action 与 body_class filter 的入门主题。"
 }

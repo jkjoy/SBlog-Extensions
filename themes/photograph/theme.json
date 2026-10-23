@@ -1,6 +1,7 @@
 {
   "name": "Photograph",
-  "version": "2.0.9-sblog.5",
-  "author": "siitake / SBlog port",
+  "version": "2.0.9-sblog.6",
+  "author": "老孙",
+  "url": "https://www.imsun.org",
   "description": "Photograph 2.0.9 photography and album theme ported to SBlog."
 }

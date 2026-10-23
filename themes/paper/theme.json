@@ -1,7 +1,7 @@
 {
   "name": "Paper",
-  "version": "1.0.5",
-  "author": "nanxiaobei",
-  "url": "https://github.com/nanxiaobei/hugo-paper",
+  "version": "1.0.6",
+  "author": "老孙",
+  "url": "https://www.imsun.org",
   "description": "移植自 Hugo Paper 的简洁单栏阅读主题，支持亮暗模式、移动导航、文章归档、标签、友链与评论。"
 }
