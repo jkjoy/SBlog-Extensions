@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-23T11:10:38+00:00",
+    "updated_at": "2026-10-26T04:06:34+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -29,6 +29,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-akismet-v1.0.1/plugin-akismet-1.0.1.zip",
             "sha256": "b1a3716efc13ca137a81f90a8690eb0d8b59d420328a54666c559f66c57cda55",
             "source_sha256": "d6ccfa3254451fa0bc9578a1b6e253c915d6f0eb3962137b99fdf3e5d59ce409"
+        },
+        {
+            "type": "plugin",
+            "slug": "article-likes",
+            "name": "文章点赞",
+            "version": "1.0.0",
+            "author": "Simple PHP Blog",
+            "description": "为主题提供文章点赞按钮，复用核心点赞记录，按访客 IP 去重并同步同页按钮。",
+            "homepage": "",
+            "requires": "1.14.13",
+            "tested": "1.14.13",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-article-likes-v1.0.0/plugin-article-likes-1.0.0.zip",
+            "sha256": "31e98f6b97e4e617e7a3c9ce14cf227d04deb89fe7ec24650a01712830d2a44c",
+            "source_sha256": "debf45b7df0f23a5153c57f021c7664480c5bb2beadd8d733adf3e1861b16656"
         },
         {
             "type": "plugin",
@@ -533,6 +547,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-starter-v1.0.3/theme-starter-1.0.3.zip",
             "sha256": "9a9ee5bc6a9bb8fcc65f513b1f1f269bdfc9611122b4e2f2be75ea201952ef2a",
             "source_sha256": "1367aa55b6ab8914bfa3131976029349ba80bb00958287a65ae41d457b412dfc"
+        },
+        {
+            "type": "theme",
+            "slug": "sunny",
+            "name": "Sunny",
+            "version": "1.0.0",
+            "author": "SBlog",
+            "description": "参照喵喵小站的 Sunny 风格制作：横向导航、动态卡片、评论预览与侧栏。文章点赞功能依赖文章点赞（article-likes）插件，请在插件管理中启用。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions",
+            "requires": "1.14.13",
+            "tested": "1.14.13",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-sunny-v1.0.0/theme-sunny-1.0.0.zip",
+            "sha256": "ccaa507363d189876add57548416f0437d333a81101a36b61cec5143a7071cf4",
+            "source_sha256": "b93a8a658138e181ffcbe57dc070cdcc26a4cf58c49f4651a34c1d459bfaa4be"
         },
         {
             "type": "theme",
