@@ -1,0 +1,43 @@
+.article-likes-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1.25;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+.article-likes-button svg { flex: 0 0 auto; }
+.article-likes-button b { font: inherit; font-variant-numeric: tabular-nums; }
+.article-likes-button:hover { background-color: rgb(128 128 128 / 10%); }
+.article-likes-button[aria-pressed="true"] { color: #cf4566; }
+.article-likes-button[aria-pressed="true"] svg { fill: currentColor; }
+.article-likes-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.article-likes-button:disabled { cursor: wait; opacity: .65; }
+.article-likes-status {
+  position: fixed;
+  right: 20px;
+  bottom: 82px;
+  z-index: 10000;
+  max-width: min(360px, calc(100vw - 40px));
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  color: #fff;
+  background: #333;
+  font: 14px/1.5 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.article-likes-status:empty { display: none; }
+.article-likes-nojs { margin: 12px; text-align: center; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .article-likes-button { transition: none; }
+}

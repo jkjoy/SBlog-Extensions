@@ -1,0 +1,8 @@
+{
+  "name": "文章点赞",
+  "version": "1.0.0",
+  "requires": "1.14.13",
+  "tested": "1.14.13",
+  "author": "Simple PHP Blog",
+  "description": "为主题提供文章点赞按钮，复用核心点赞记录，按访客 IP 去重并同步同页按钮。"
+}
