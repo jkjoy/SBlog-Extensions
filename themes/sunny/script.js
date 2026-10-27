@@ -30,6 +30,105 @@
     if (savedTheme !== 'dark' && savedTheme !== 'light') setTheme(event.matches ? 'dark' : 'light');
   });
 
+  document.querySelectorAll('.comments').forEach((comments) => {
+    let data = {};
+    try { data = JSON.parse(document.querySelector('#sunny-comments-data')?.textContent || '{}'); } catch (_) {}
+    const records = new Map((Array.isArray(data.comments) ? data.comments : []).map((item) => [String(item.id), item]));
+    const list = comments.querySelector(':scope > .comment-list');
+    const items = new Map([...list?.children || []].filter((item) => item.matches('.comment-item')).map((item) => [item.id.replace(/^comment-/, ''), item]));
+    items.forEach((item, id) => {
+      const meta = item.querySelector(':scope > .comment-item__meta');
+      const content = item.querySelector(':scope > .comment-item__body');
+      if (!meta || !content) return;
+      const message = document.createElement('div');
+      message.className = 'sunny-comment-message';
+      item.prepend(message);
+      message.append(meta, content);
+      item.classList.toggle('sunny-comment--owner', records.get(id)?.owner === true);
+      const avatar = meta.querySelector('.comment-item__avatar');
+      if (avatar) {
+        const avatarWrap = document.createElement('span');
+        avatarWrap.className = 'sunny-comment-avatar';
+        meta.prepend(avatarWrap);
+        avatarWrap.append(avatar);
+        const reply = meta.querySelector('[data-comment-reply]');
+        if (reply) avatarWrap.append(reply);
+      }
+      const identity = meta.querySelector('.comment-item__identity');
+      const replyTarget = content.querySelector('.comment-item__reply-target');
+      if (identity && replyTarget) identity.append(replyTarget);
+      const info = document.createElement('div');
+      info.className = 'sunny-comment-info';
+      const time = meta.querySelector('.comment-item__time');
+      if (time) info.append(time);
+      // Keep plugin nodes and their event handlers while placing metadata below the bubble.
+      meta.querySelectorAll('.comment-enhancer-meta').forEach((node) => info.append(node));
+      meta.append(info);
+    });
+    items.forEach((item, id) => {
+      const parentId = String(records.get(id)?.parent || '');
+      const parent = items.get(parentId);
+      if (!parent || parent === item) return;
+      const ancestors = new Set([id]);
+      let ancestorId = parentId;
+      while (items.has(ancestorId)) {
+        if (ancestors.has(ancestorId)) return;
+        ancestors.add(ancestorId);
+        ancestorId = String(records.get(ancestorId)?.parent || '');
+      }
+      let children = parent.querySelector(':scope > .sunny-comment-children');
+      if (!children) {
+        children = document.createElement('ol');
+        children.className = 'sunny-comment-children';
+        children.setAttribute('aria-label', '评论回复');
+        parent.append(children);
+      }
+      children.append(item);
+    });
+
+    const form = comments.querySelector('.comment-form');
+    const heading = comments.querySelector('.comments__head');
+    if (heading && Number.isInteger(data.total)) {
+      const count = heading.querySelector('.comments__count');
+      if (count) count.textContent = data.total > items.size ? `最新 ${items.size} / 共 ${data.total} 条` : `共 ${data.total} 条`;
+    }
+    if (form) {
+      comments.prepend(form);
+      if (heading) {
+        form.prepend(heading);
+        form.setAttribute('aria-labelledby', 'comments-title');
+      }
+      const grid = form.querySelector('.comment-form__grid');
+      if (grid) {
+        const avatar = document.createElement('span');
+        avatar.className = 'sunny-comment-form-avatar';
+        avatar.setAttribute('aria-hidden', 'true');
+        const icon = document.querySelector('.sunny-tools a .sunny-icon');
+        if (icon) avatar.append(icon.cloneNode(true));
+        if (typeof data.avatar === 'string' && data.avatar) {
+          const image = document.createElement('img');
+          image.alt = '';
+          image.src = data.avatar;
+          image.referrerPolicy = 'no-referrer';
+          image.addEventListener('error', () => image.remove());
+          avatar.append(image);
+        }
+        const fields = ['author_email', 'author_name', 'author_url'].map((name) => grid.querySelector(`[name="${name}"]`)?.closest('.comment-field')).filter(Boolean);
+        grid.prepend(avatar, ...fields);
+        fields.forEach((field) => {
+          const input = field.querySelector('input');
+          const label = field.querySelector('label');
+          if (input && label) input.placeholder = label.textContent.trim();
+        });
+      }
+      const textarea = form.querySelector('#comment-content');
+      if (textarea) textarea.placeholder = '注意文明发言哦！';
+      const replyText = form.querySelector('.comment-reply-state__text');
+      if (replyText?.firstChild?.nodeType === Node.TEXT_NODE) replyText.firstChild.textContent = '回复 ';
+    }
+    comments.classList.add('sunny-comments-ready');
+  });
+
   const nav = document.querySelector('#sunny-nav');
   const menuButton = document.querySelector('[data-sunny-menu]');
   const dropdowns = [...document.querySelectorAll('.sunny-nav-dropdown')];

@@ -17,7 +17,7 @@ foreach ($sunnySocialDefinitions as $sunnyNetwork => $sunnyDefinition) {
     }
 }
 $sunnyComments = all_rows(
-    'SELECT c.id, c.author_name, c.content, c.created_at, p.slug, p.title, p.kind
+    'SELECT c.id, c.author_name, c.author_email, c.content, c.created_at, p.slug, p.title, p.kind
      FROM comments c JOIN posts p ON p.id = c.post_id
      WHERE c.status = ? AND p.status = ? AND p.published_at <= ? AND COALESCE(p.content_password_hash, ?) = ?
      ORDER BY c.created_at DESC, c.id DESC LIMIT 5',
@@ -167,12 +167,16 @@ $sunnyNav = [
         <section class="sunny-panel sunny-recent-comments">
           <h2 class="sunny-label">近期评论</h2>
           <?php if (!$sunnyComments): ?><p class="sunny-muted sunny-widget-empty">期待你的第一条留言</p><?php endif; ?>
+          <?php if ($sunnyComments): ?><ul class="sunny-recent-comment-list"><?php endif; ?>
           <?php foreach ($sunnyComments as $sunnyComment): ?>
-          <a class="sunny-recent-comment" href="<?= h(sunny_url($sunnyComment['kind'] === 'page' ? 'page' : 'post', ['slug' => (string)$sunnyComment['slug']])) ?>#comment-<?= (int)$sunnyComment['id'] ?>">
-            <span class="sunny-comment-initial" aria-hidden="true"><?= h(str_sub_u((string)$sunnyComment['author_name'], 0, 1)) ?></span>
-            <span><span class="sunny-comment-byline"><strong><?= h($sunnyComment['author_name']) ?></strong><time datetime="<?= h(date(DATE_ATOM, (int)$sunnyComment['created_at'])) ?>"><?= h(friendly_public_date((int)$sunnyComment['created_at'])) ?></time></span><span class="sunny-comment-snippet"><?= h(str_sub_u((string)$sunnyComment['content'], 0, 65)) ?></span></span>
-          </a>
+          <li>
+            <a class="sunny-recent-comment" href="<?= h(sunny_url($sunnyComment['kind'] === 'page' ? 'page' : 'post', ['slug' => (string)$sunnyComment['slug']])) ?>#comment-<?= (int)$sunnyComment['id'] ?>" title="<?= h('来自《' . (string)$sunnyComment['title'] . '》') ?>">
+              <span class="sunny-recent-comment-avatar" aria-hidden="true"><?= h(str_sub_u((string)$sunnyComment['author_name'], 0, 1)) ?><img src="<?= h(gravatar_url((string)$sunnyComment['author_email'], 64)) ?>" width="32" height="32" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()"></span>
+              <span class="sunny-recent-comment-content"><span class="sunny-comment-byline"><strong><?= h($sunnyComment['author_name']) ?></strong><time datetime="<?= h(date(DATE_ATOM, (int)$sunnyComment['created_at'])) ?>"><?= h(friendly_public_date((int)$sunnyComment['created_at'])) ?></time></span><span class="sunny-comment-snippet"><span><?= h((string)$sunnyComment['content']) ?></span></span></span>
+            </a>
+          </li>
           <?php endforeach; ?>
+          <?php if ($sunnyComments): ?></ul><?php endif; ?>
         </section>
         <section class="sunny-panel sunny-site-info">
           <h2 class="sunny-label">站点信息</h2>
@@ -187,7 +191,15 @@ $sunnyNav = [
   </div>
 
   <?php theme_action('footer_before', $themeContext); ?>
-  <footer class="sunny-footer"><img src="<?= h(theme_asset_url('assets/footer.webp')) ?>" width="1200" height="368" alt="" loading="lazy"><p><?= h($siteName) ?> · <?= h(site_footer_text()) ?></p><p>Powered by SBlog &amp; 🌻 Sunny</p></footer>
+  <footer class="sunny-footer">
+    <img src="<?= h(theme_asset_url('assets/footer.webp')) ?>" width="1200" height="368" alt="" loading="lazy">
+    <div class="sunny-footer-info">
+      <p><?= h($siteName) ?> · <?= h(site_footer_text()) ?></p>
+      <?php if (trim(setting('footer_beian')) !== ''): ?><p><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer"><?= h(setting('footer_beian')) ?></a></p><?php endif; ?>
+      <p>Powered by <a href="https://github.com/jkjoy/Simple-PHP-Blog" target="_blank" rel="noopener noreferrer">SBlog</a> &amp; <a href="<?= h(sunny_url('home')) ?>">🌻 Sunny</a></p>
+      <p><a href="<?= h(sunny_url('rss')) ?>">RSS 订阅</a><span aria-hidden="true"> · </span><a href="<?= h(sunny_url('sitemap')) ?>">站点地图</a></p>
+    </div>
+  </footer>
   <?php theme_action('footer_after', $themeContext); ?>
 </div>
 

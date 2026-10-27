@@ -313,6 +313,30 @@ function sunny_render_tags(): string
     return $html . ($tags === [] ? '<p class="sunny-empty">还没有标签。</p>' : '') . '</div></section>';
 }
 
+add_theme_filter('comments_labels', static function (array $labels, array $context): array {
+    $identity = authenticated_comment_identity() ?? ($_SESSION['comment_identity'] ?? []);
+    $email = trim((string)($identity['author_email'] ?? ''));
+    $GLOBALS['sunny_comment_layout'] = [
+        'total' => (int)($context['total'] ?? 0),
+        'avatar' => $email !== '' ? gravatar_url($email, 96) : '',
+        'comments' => array_map(static fn(array $comment): array => [
+            'id' => (int)$comment['id'],
+            'parent' => (int)($comment['parent_id'] ?? 0),
+            'owner' => (int)($comment['user_id'] ?? 0) > 0,
+        ], public_comments_for_post((int)($context['post']['id'] ?? 0))),
+    ];
+    return array_replace($labels, ['title' => '评论：', 'submit' => '发表', 'cancel_reply' => '取消']);
+});
+
+add_theme_action('body_close', static function (): string {
+    if (!isset($GLOBALS['sunny_comment_layout'])) {
+        return '';
+    }
+    return '<script type="application/json" id="sunny-comments-data">'
+        . json_encode($GLOBALS['sunny_comment_layout'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)
+        . '</script>';
+});
+
 add_theme_filter('body_class', static function (string $classes, array $context): string {
     $active = (string)($context['active'] ?? '');
     $action = (string)($_GET['a'] ?? 'home');
