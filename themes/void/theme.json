@@ -1,0 +1,9 @@
+{
+  "name": "VOID · 无类型",
+  "version": "1.0.0",
+  "requires": "1.14.16",
+  "tested": "1.14.16",
+  "author": "AlanDecode / SBlog contributors",
+  "url": "https://github.com/jkjoy/SBlog-Extensions/tree/main/themes/void",
+  "description": "基于 VOID 3.5.1 原版样式的 Simple PHP Blog 移植：双栏卡片、夜间模式、阅读设置、目录、灯箱、PJAX、AJAX 评论与点赞。"
+}
