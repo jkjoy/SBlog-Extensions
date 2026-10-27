@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-27T05:49:56+00:00",
+    "updated_at": "2026-10-27T15:07:51+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -589,6 +589,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-timellow-v1.2.5-sblog.7/theme-timellow-1.2.5-sblog.7.zip",
             "sha256": "2a9915daadf4bed2df14d0ad98ac8aee8f5d04c367bc235f8e740c936b5e612f",
             "source_sha256": "c39127b849eda5d394924b76a7af0c80fae46a734e88276a98085a3525116c4c"
+        },
+        {
+            "type": "theme",
+            "slug": "void",
+            "name": "VOID · 无类型",
+            "version": "1.0.0",
+            "author": "AlanDecode / SBlog contributors",
+            "description": "基于 VOID 3.5.1 原版样式的 Simple PHP Blog 移植：双栏卡片、夜间模式、阅读设置、目录、灯箱、PJAX、AJAX 评论与点赞。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions/tree/main/themes/void",
+            "requires": "1.14.16",
+            "tested": "1.14.16",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-void-v1.0.0/theme-void-1.0.0.zip",
+            "sha256": "586cf9432f1b42b67548c994a836b84a9167bcac9347c8efbe203377748b7f35",
+            "source_sha256": "5fd5d79ace0534b06440f15a890c958352f46e5208280418137e1de73fb60f69"
         },
         {
             "type": "theme",
