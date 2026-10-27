@@ -589,15 +589,17 @@ $tests['ambiguous sending notices are not automatically resent'] = static functi
     sblog_lottery_tick(time(), 'test');
     lottery_test_same([], $GLOBALS['lottery_test_mail'], 'An interrupted send may already have reached SMTP and must not be automatically duplicated.');
 };
-$tests['public modules render inside an output callback and escape winner data without exposing email'] = static function (): void {
+$tests['public modules render inside an output callback and show only escaped current winner names'] = static function (): void {
     $lottery = lottery_test_create(['winners_count' => '1']);
     $name = '<script>alert("winner-name")</script>';
+    $originalName = 'Original winning identity';
     $body = '<img src=x onerror=alert("winner-body")> Winning comment';
     $email = 'private-winner@example.test';
-    lottery_test_comment((int)$lottery['post_id'], (int)$lottery['starts_at'], [
-        'author_name' => $name, 'author_email' => $email, 'content' => $body,
+    $commentId = lottery_test_comment((int)$lottery['post_id'], (int)$lottery['starts_at'], [
+        'author_name' => $originalName, 'author_email' => $email, 'content' => $body,
     ]);
     sblog_lottery_draw($lottery['id'], (int)$lottery['ends_at']);
+    q('UPDATE comments SET author_name=? WHERE id=?', [$name, $commentId]);
     $source = '<html><body><p>[comment-lottery id=&quot;' . $lottery['id'] . '&quot;]</p></body></html>';
     $post = one('SELECT * FROM posts WHERE id=?', [(int)$lottery['post_id']]);
     $GLOBALS['sblog_current_action'] = 'post';
@@ -607,9 +609,12 @@ $tests['public modules render inside an output callback and escape winner data w
         $html = lottery_test_buffered_output($source);
         lottery_test_assert(str_contains($html, '<section class="sblog-lottery"'), 'The public module was not rendered inside the output handler.');
         lottery_test_assert(!str_contains($html, '[comment-lottery'), 'The inserted shortcode must be replaced.');
-        lottery_test_assert(str_contains($html, h($name)) && str_contains($html, h($body)), 'Winner names and comment text must be rendered as escaped text.');
+        lottery_test_assert(str_contains($html, h($name)), 'The current winner name must be rendered as escaped text.');
+        lottery_test_assert(!str_contains($html, $originalName), 'A stale winner nickname from the draw snapshot must not remain public.');
+        lottery_test_assert(!str_contains($html, h($body)), 'The public result must never expose the winning comment text.');
         lottery_test_assert(!str_contains($html, $name) && !str_contains($html, $body), 'Raw winner markup reached the response.');
         lottery_test_assert(!str_contains($html, $email), 'The public result must never expose the winning email address.');
+        lottery_test_assert(!str_contains($html, '评论 #') && !str_contains($html, '#comment-' . $commentId), 'The public result must not expose the winning comment number or link.');
     }
 };
 $tests['locked article gates and withdrawn winning comments keep private content hidden'] = static function (): void {
@@ -628,6 +633,7 @@ $tests['locked article gates and withdrawn winning comments keep private content
         $html = lottery_test_buffered_output($source);
         lottery_test_assert(str_contains($html, '该评论已撤下'), 'A withdrawn winning comment must show its withdrawn status.');
         lottery_test_assert(!str_contains($html, $name) && !str_contains($html, $body), 'Withdrawn winning identity or comment text must not remain public.');
+        lottery_test_assert(!str_contains($html, '评论 #') && !str_contains($html, '#comment-' . $commentId), 'Withdrawn winning comment numbers must not remain public.');
         lottery_test_same(1, count(sblog_lottery_winners($lottery['id'])), 'Withdrawing a comment must preserve the draw audit record.');
     }
 };

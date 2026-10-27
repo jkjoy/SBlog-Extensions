@@ -59,18 +59,16 @@ function sblog_lottery_render(array $lottery): string
         . '截止时间不包含在参与范围内。</p>';
     if ($drawn) {
         if ($winners) {
-            $html .= '<h3>中奖评论公示</h3><ol class="sblog-lottery__winners">';
-            $statement = db()->prepare("SELECT id FROM comments WHERE id=? AND post_id=? AND status='approved'");
+            $html .= '<h3>中奖者公示</h3><ol class="sblog-lottery__winners">';
+            $statement = db()->prepare("SELECT author_name FROM comments WHERE id=? AND post_id=? AND status='approved'");
             foreach ($winners as $winner) {
                 $commentId = (int)$winner['comment_id'];
                 $statement->execute([$commentId, (int)$lottery['post_id']]);
-                if ($statement->fetchColumn() !== false) {
-                    $html .= '<li><a class="sblog-lottery__winner-name" href="#comment-' . h($commentId) . '">'
-                        . h($winner['author_name']) . ' · 评论 #' . h($commentId) . '</a><span class="sblog-lottery__winner-comment">'
-                        . h(str_sub_u($winner['content'], 0, 240)) . (str_len_u($winner['content']) > 240 ? '…' : '') . '</span></li>';
+                $comment = $statement->fetch(PDO::FETCH_ASSOC);
+                if ($comment !== false) {
+                    $html .= '<li><span class="sblog-lottery__winner-name">' . h($comment['author_name']) . '</span></li>';
                 } else {
-                    $html .= '<li><span class="sblog-lottery__winner-name">中奖评论 #' . h($commentId)
-                        . '</span><span class="sblog-lottery__winner-comment">该评论已撤下，中奖记录保留。</span></li>';
+                    $html .= '<li><span class="sblog-lottery__winner-name">该评论已撤下，中奖记录保留。</span></li>';
                 }
             }
             $html .= '</ol>';

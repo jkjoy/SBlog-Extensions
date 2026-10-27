@@ -30,6 +30,7 @@ function sblog_steam_route_action(string $action, array $context = []): string
 }
 
 add_plugin_filter('route_action', 'sblog_steam_route_action');
+add_plugin_filter('page_reserved_slugs', static fn(array $slugs): array => array_merge($slugs, ['steam']));
 
 add_plugin_action('request', static function (array $context): void {
     $action = (string)($context['action'] ?? '');

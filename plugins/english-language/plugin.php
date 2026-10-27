@@ -10,6 +10,26 @@ if (!defined('PLUGINS_DIR')) {
 function sblog_english_language_map(): array
 {
     return [
+        '语言' => 'Language',
+        '常规' => 'General',
+        '常规设置' => 'General settings',
+        '阅读' => 'Reading',
+        '讨论' => 'Discussion',
+        '讨论设置' => 'Discussion settings',
+        '固定链接' => 'Permalinks',
+        '固定链接设置' => 'Permalink settings',
+        '页脚与代码' => 'Footer and code',
+        '维护工具' => 'Maintenance tools',
+        '站点名称、语言、地址与图标。' => 'Site name, language, address, and icon.',
+        '首页文章数量与搜索引擎摘要。' => 'Posts per page and search engine summaries.',
+        '评论提交、审核与通知。' => 'Comment submission, moderation, and notifications.',
+        '文章链接格式与服务器配置。' => 'Post URL format and server configuration.',
+        '备案信息、页脚文案与 Head 自定义代码。' => 'Registration details, footer text, and custom head code.',
+        '清理更新备份与可重建缓存。' => 'Clean up update backups and rebuildable caches.',
+        '设置分组无效，请重新选择。' => 'The settings group is invalid. Choose another group.',
+        '主题与插件' => 'Themes and plugins',
+        '安装语言包后可在此选择，保存后应用于前台、登录页和后台；所选语言包会自动启用。' => 'Installed language packs appear here. Save your selection to apply it to the public site, sign-in page, and admin panel; the selected language pack will be enabled automatically.',
+        '所选语言不可用，请重新选择。' => 'The selected language is unavailable. Choose another language.',
         '无法锁定更新流程，请稍后重试。' => 'Could not lock the update process. Try again shortly.',
         '无法锁定扩展安装流程，请稍后重试。' => 'Could not lock the extension operation. Try again shortly.',
         '无法删除文件或目录 {path}。' => 'Could not delete file or directory {path}.',
@@ -101,7 +121,8 @@ function sblog_english_language_map(): array
         '更新会自动备份并覆盖程序与内置主题文件，' => 'The update will back up and replace application and bundled theme files. ',
         '开启后文章链接会变成 `/archive/slug`，需要服务器 rewrite 支持。' => 'When enabled, post URLs use `/archive/slug` and require server rewrite support.',
         '使用英文逗号分隔，页面将输出为 SEO keywords 元信息。' => 'Separate values with commas. They are emitted as the SEO keywords meta tag.',
-        'RSS 会优先使用这里的绝对地址，子目录部署时请带上完整路径。' => 'RSS prefers this absolute URL. Include the complete path for a subdirectory installation.',
+        'RSS 和找回密码链接会优先使用这里的绝对地址，子目录部署时请带上完整路径。' => 'RSS and password reset links prefer this absolute URL. Include the complete path for a subdirectory installation.',
+        '站点地址必须是不带查询参数的完整 HTTP 或 HTTPS 地址。' => 'The site URL must be a complete HTTP or HTTPS address without query parameters.',
         '默认使用项目根目录的 {file}，也可以填写完整图片 URL 或站内绝对路径。' => 'Defaults to {file} in the project root. A full image URL or site-absolute path is also supported.',
         '访客首次留言需审核后展示（按邮箱判断）' => 'Hold a visitor\'s first comment for approval (matched by email)',
         '原样插入前台页面的 &lt;/head&gt; 前，可用于统计脚本、meta 或 style；请仅使用可信代码。' => 'Inserted unchanged before &lt;/head&gt; on public pages. Use only trusted analytics, meta, or style code.',
@@ -332,6 +353,10 @@ function sblog_english_language_map(): array
         '新标签不能包含逗号。' => 'The new tag cannot contain commas.',
         'Slug 格式不正确。' => 'The slug format is invalid.',
         'Slug 已被其他标签使用。' => 'The slug is already used by another tag.',
+        'Slug 与系统或插件路径冲突，请更换。' => 'This slug conflicts with a system or plugin route. Choose another slug.',
+        'Slug 与现有文件或目录冲突，请更换。' => 'This slug conflicts with an existing file or directory. Choose another slug.',
+        'Slug 已被其他文章或独立页面使用，请更换。' => 'This slug is already used by another post or page. Choose another slug.',
+        'Slug 可用：{slug}' => 'Slug available: {slug}',
         '请先选择需要删除的标签。' => 'Select tags to remove.',
         '找不到需要编辑的文章。' => 'The post to edit was not found.',
         '找不到需要变更状态的文章。' => 'The post was not found.',
@@ -343,6 +368,14 @@ function sblog_english_language_map(): array
         '编辑文章' => 'Edit Post',
         '编辑内容' => 'Edit Content',
         '文章管理' => 'Posts',
+        '内容管理' => 'Content',
+        '文章、分类与标签' => 'Posts, categories, and tags',
+        '扩展设置' => 'Extension Settings',
+        '已启用插件的设置' => 'Settings for enabled plugins',
+        '选择语言' => 'Choose language',
+        '语言包安装后自动启用，插件设置可在扩展设置中打开。' => 'Language packs are enabled after installation. Open plugin settings under Extension Settings.',
+        '语言包安装后自动启用；在此选择并保存后，应用于前台、登录页和后台。' => 'Installed language packs are enabled automatically. Save your selection here to apply it to the public site, sign-in page, and admin panel.',
+        '语言包安装后自动启用，请在常规设置中选择站点语言。' => 'Language packs are enabled automatically after installation. Choose the site language in General settings.',
         '评论管理' => 'Comments',
         '分类管理' => 'Categories',
         '标签管理' => 'Tags',
@@ -373,6 +406,7 @@ function sblog_english_language_map(): array
         '关闭后台菜单' => 'Close admin menu',
         '展开侧边栏' => 'Expand sidebar',
         '收起侧边栏' => 'Collapse sidebar',
+        '收起边栏' => 'Collapse sidebar',
         '切换到深色模式' => 'Switch to dark mode',
         '切换到浅色模式' => 'Switch to light mode',
         '用户设置' => 'User settings',
@@ -1332,6 +1366,8 @@ function sblog_english_language_map(): array
 function sblog_english_client_translations(): array
 {
     return [
+        'slug_checking' => 'Checking slug…',
+        'slug_check_failed' => 'Cannot check right now. The slug will be validated when you save.',
         'switch_to_light' => 'Switch to light mode',
         'switch_to_dark' => 'Switch to dark mode',
         'hide_password' => 'Hide password',
@@ -1454,4 +1490,3 @@ sblog_i18n_register('en', array_merge(
     ]
 ));
 sblog_i18n_register_client('en', sblog_english_client_translations());
-sblog_i18n_set_locale('en');
