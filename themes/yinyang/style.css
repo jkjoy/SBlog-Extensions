@@ -495,6 +495,37 @@ textarea:focus-visible {
   margin-left: auto;
 }
 
+.post-navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.post-navigation .page-item {
+  max-width: none;
+}
+
+.post-navigation .page-next {
+  margin-left: 0;
+}
+
+.post-navigation a {
+  display: block;
+  max-width: 100%;
+  color: var(--secondary-text);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.post-navigation a::after {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-color);
+  content: attr(data-post-title);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
 .yinyang-pagination {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
