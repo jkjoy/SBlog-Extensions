@@ -147,8 +147,15 @@
 .void-theme .pagination { list-style: none; display: flex; justify-content: center; gap: 12px; padding: 0; margin: 40px 0; }
 .void-theme .pagination a { display: block; padding: 10px 18px; border: 1px solid var(--void-line); font-size: 14px; }
 .void-theme .pagination a:hover { background: var(--void-ink); color: var(--void-bg); }
-.void-theme .post-navigation { justify-content: space-between; }
-.void-theme .post-navigation a::after { content: attr(data-post-title); display: block; margin-top: 6px; font-size: 16px; }
+.void-theme .post-navigation { justify-content: space-between; align-items: stretch; }
+.void-theme .post-navigation > li { flex: 1; min-width: 0; }
+.void-theme .post-navigation .page-next { text-align: right; }
+.void-theme .post-navigation a { height: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+.void-theme .post-navigation .void-post-nav-label { display: block; color: var(--void-muted); }
+.void-theme .post-navigation a:is(:hover, :focus-visible) .void-post-nav-label { color: inherit; }
+.void-theme .post-navigation .void-post-nav-title { display: block; margin-top: 6px; font-size: 16px; line-height: 1.6; }
+.void-theme .post-navigation a:not(.void-post-nav-link)::after { content: attr(data-post-title); display: block; margin-top: 6px; font-size: 16px; }
+.void-theme .post-navigation .void-post-nav-link::after { content: none; }
 .void-theme .post-content { overflow-wrap: anywhere; }
 .void-theme .post-content > :first-child { margin-top: 0; }
 .void-theme .post-tag-list { display: inline-flex; flex-wrap: wrap; gap: 10px; }

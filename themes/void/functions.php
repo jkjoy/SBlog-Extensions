@@ -166,6 +166,29 @@ function sbvoid_detail(string $html): array
     foreach ($xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " post-content ")]', $root) as $node) {
         $node->setAttribute('class', $node->getAttribute('class') . ' articleBody full');
     }
+    foreach ($xpath->query('.//ul[contains(concat(" ", normalize-space(@class), " "), " post-navigation ")]//a', $root) as $link) {
+        $label = trim($link->textContent);
+        $postTitle = $link->getAttribute('data-post-title');
+        if ($postTitle === '') {
+            // Some core versions only include the neighbor title in the accessible label.
+            foreach (['：', ':'] as $separator) {
+                $prefix = $label . $separator;
+                if ($label !== '' && str_starts_with($link->getAttribute('aria-label'), $prefix)) {
+                    $postTitle = ltrim(substr($link->getAttribute('aria-label'), strlen($prefix)));
+                    break;
+                }
+            }
+        }
+        if ($postTitle === '') { continue; }
+        $link->setAttribute('class', trim($link->getAttribute('class') . ' void-post-nav-link'));
+        while ($link->firstChild) { $link->removeChild($link->firstChild); }
+        foreach (['void-post-nav-label' => $label, 'void-post-nav-title' => $postTitle] as $class => $text) {
+            $span = $document->createElement('span');
+            $span->setAttribute('class', $class);
+            $span->appendChild($document->createTextNode($text));
+            $link->appendChild($span);
+        }
+    }
     sbvoid_enhance_body($root);
     $comments = $xpath->query('.//section[@id="comments"]', $root)->item(0);
     $commentsHtml = $comments ? $document->saveHTML($comments) : '';

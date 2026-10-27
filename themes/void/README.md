@@ -8,7 +8,7 @@
 
 推荐在后台「扩展商店」搜索 **VOID** 并安装，再到「主题管理」预览或启用 **VOID · 无类型**。
 
-也可从 [1.0.0 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.0.0) 下载 `theme-void-1.0.0.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
+也可从 [1.0.1 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.0.1) 下载 `theme-void-1.0.1.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
 
 ## 已实现
 

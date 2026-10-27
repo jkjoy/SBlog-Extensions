@@ -206,6 +206,28 @@ $tests['detail transformation retains gate forms, comments, feedback and plugin 
     [$replyBody] = sbvoid_detail('<article><div class="post-content">' . render_reply_content_gate($post) . '</div></article>');
     check(str_contains($replyBody, 'content-gate--reply') && str_contains($replyBody, '#comments'), 'Reply gate action was lost.');
 };
+$tests['neighbor titles render as visible escaped text with legacy label fallback'] = static function (): void {
+    $previousTitle = '上一篇的标题 “引号” & <img src=x onerror=alert(1)>';
+    $nextTitle = str_repeat('下一篇长标题', 20);
+    $html = '<ul class="pagination post-navigation"><li class="page-previous"><a href="/previous" data-post-title="' . h($previousTitle) . '" aria-label="' . h('上一篇：' . $previousTitle) . '">上一篇</a></li><li class="page-next"><a href="/next" aria-label="' . h('下一篇：' . $nextTitle) . '">下一篇</a></li></ul>';
+    [$body] = sbvoid_detail($html);
+    $xpath = fragment($body);
+    $titles = $xpath->query('//a/span[@class="void-post-nav-title"]');
+    same(2, $titles->length, 'Both neighbors need real title text, without CSS-generated content.');
+    same($previousTitle, $titles->item(0)->textContent, 'Attribute title was corrupted.');
+    same($nextTitle, $titles->item(1)->textContent, 'Legacy accessible-label title was lost or truncated.');
+    same('上一篇', $xpath->query('//a/span[@class="void-post-nav-label"]')->item(0)->textContent, 'Previous label was lost.');
+    same('下一篇', $xpath->query('//a/span[@class="void-post-nav-label"]')->item(1)->textContent, 'Next label was lost.');
+    same('/previous', $xpath->query('//a')->item(0)->getAttribute('href'), 'Previous destination changed.');
+    same('/next', $xpath->query('//a')->item(1)->getAttribute('href'), 'Next destination changed.');
+    same(0, $xpath->query('//img')->length, 'Title text became HTML.');
+
+    [$single] = sbvoid_detail('<ul class="pagination post-navigation"><li></li><li><a href="/next" data-post-title="唯一相邻文章">下一篇</a></li></ul>');
+    $singleXpath = fragment($single);
+    same(1, $singleXpath->query('//a/span[@class="void-post-nav-title"]')->length, 'Single-sided navigation gained a phantom neighbor.');
+    [$none] = sbvoid_detail('<article><div class="post-content">没有相邻文章</div></article>');
+    same(0, fragment($none)->query('//ul[contains(@class,"post-navigation")]')->length, 'A page without neighbors gained navigation.');
+};
 $tests['preview URLs persist only for administrators'] = static function (): void {
     $_GET = ['theme_preview' => 'void'];
     same('/blog/archive/test', sbvoid_url('/blog/archive/test'), 'Preview leaked into public navigation.');
