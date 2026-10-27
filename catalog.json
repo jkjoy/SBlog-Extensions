@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-27T15:07:51+00:00",
+    "updated_at": "2026-10-27T15:10:55+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -617,6 +617,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-ying-v1.0.10/theme-ying-1.0.10.zip",
             "sha256": "1f8749a1ea9957d61cce0c4399447898e4be674b5c8f5a928051357d2c463573",
             "source_sha256": "d67f3c73ddbb0073da4c45ec2087673d23c601b0c7307f4d5602d41e4bb567e6"
+        },
+        {
+            "type": "theme",
+            "slug": "yinyang",
+            "name": "yinyang",
+            "version": "1.0.0",
+            "author": "Joway / SBlog contributors",
+            "description": "移植 Hugo YinYang 原版样式：本地衬线字体、黑白配色、年份归档、分类边框与深浅色切换。",
+            "homepage": "https://github.com/joway/hugo-theme-yinyang",
+            "requires": "1.14.16",
+            "tested": "1.14.16",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-yinyang-v1.0.0/theme-yinyang-1.0.0.zip",
+            "sha256": "cbffd631a1bc68c0234df7b7432a8524fd21273773e4e0495c59daf0f48f8209",
+            "source_sha256": "9da2affb3b64cfea27fe4f640e79c9107475458e3647e73d20b324959dae9933"
         }
     ]
 }
