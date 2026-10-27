@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-27T15:29:18+00:00",
+    "updated_at": "2026-10-27T15:34:27+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -594,15 +594,15 @@
             "type": "theme",
             "slug": "void",
             "name": "VOID · 无类型",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "author": "AlanDecode / SBlog contributors",
             "description": "基于 VOID 3.5.1 原版样式的 Simple PHP Blog 移植：双栏卡片、夜间模式、阅读设置、目录、灯箱、PJAX、AJAX 评论与点赞。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions/tree/main/themes/void",
             "requires": "1.14.16",
             "tested": "1.14.16",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-void-v1.0.0/theme-void-1.0.0.zip",
-            "sha256": "586cf9432f1b42b67548c994a836b84a9167bcac9347c8efbe203377748b7f35",
-            "source_sha256": "5fd5d79ace0534b06440f15a890c958352f46e5208280418137e1de73fb60f69"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-void-v1.0.1/theme-void-1.0.1.zip",
+            "sha256": "8811e7acb0e65773460634749a9fd56df323b10b51adbb6fdb0f58e7109eb347",
+            "source_sha256": "8e8d95b806f60950d553d558aaa7576c5d117d6769ff7fab2ae3a6280c7d45e8"
         },
         {
             "type": "theme",
