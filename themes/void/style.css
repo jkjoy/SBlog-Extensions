@@ -121,8 +121,8 @@
 .void-theme #index-list > #masonry { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; align-items: start; }
 .void-theme #index-list > #masonry > .masonry-item { width: 100%; min-width: 0; margin: 0; opacity: 1; break-inside: avoid; }
 .void-theme #index-list > #masonry > .masonry-item > a { display: block; }
-.void-theme #index-list .banner img { aspect-ratio: 16 / 10; }
-.void-theme #index-list .style-2 .banner img { aspect-ratio: auto; }
+.void-theme #index-list .banner img { height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
+.void-theme #index-list .style-2 .banner img { height: 100%; aspect-ratio: auto; }
 .void-theme #index-list .post-meta-index { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
 .void-theme #index-list .word-count { font-size: 12px; }
 .void-theme #index-list .pinned-badge { margin-left: auto; padding: 2px 5px; border: 1px solid currentColor; font-size: 10px; line-height: 1.2; font-weight: 400; }

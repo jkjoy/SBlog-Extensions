@@ -13,6 +13,8 @@ return [
     'index_style' => 'grid',          // grid / single
     'cover_style' => 1,               // 0: text, 1: image above, 2: image background
     'auto_cover' => true,             // First publicly visible article image.
+    'default_cover' => '',            // Optional shared list cover: HTTPS URL or /uploads/image.jpg.
+    'title_cover' => true,            // Generate local title artwork when no image is available.
     'post_banner' => true,
     'color_scheme' => 'auto',         // auto / light / dark
     'follow_system' => true,

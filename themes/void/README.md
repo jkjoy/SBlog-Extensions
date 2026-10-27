@@ -8,7 +8,7 @@
 
 推荐在后台「扩展商店」搜索 **VOID** 并安装，再到「主题管理」预览或启用 **VOID · 无类型**。
 
-也可从 [1.0.1 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.0.1) 下载 `theme-void-1.0.1.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
+也可从 [1.0.2 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.0.2) 下载 `theme-void-1.0.2.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
 
 ## 已实现
 
@@ -34,6 +34,7 @@
 | `banner` / `banner_height` / `mobile_banner_height` | 首页/索引头图及桌面/手机高度，单位 vh |
 | `index_style` | `grid` 双栏，`single` 单栏 |
 | `cover_style` / `auto_cover` / `post_banner` | 0 纯文字、1 顶部封面、2 背景封面；从公开正文首张图片取图；详情头图开关 |
+| `default_cover` / `title_cover` | 列表统一默认图片地址；没有图片时本地生成标题封面（默认开启） |
 | `color_scheme` / `follow_system` / `dark_start` / `dark_end` | 默认配色与自动时段；访客个人选择优先 |
 | `font_size` / `serif` | 默认字号档位和衬线字体，使用可用的本地字体 |
 | `mac_code` / `line_numbers` / `pjax` / `math` | 对应功能开关 |
@@ -43,6 +44,10 @@
 | `social` / `navigation` | 设置面板社交链接及自定义导航下拉组，示例见配置文件 |
 
 除开启公式渲染时按需获取 MathJax 外，主题样式、图标、Prism 和交互脚本均来自本地。公式资源无法加载时保留原文。图片 URL 支持 HTTP(S) 或站点绝对路径。
+
+列表封面依次使用**公开正文首图 → `default_cover` → 按标题生成的 SVG 封面**。标题封面的颜色与几何图案由标题稳定生成，支持中文、英文和长标题，不需要图床、API 密钥或服务器写入文件。图片加载失败时会回退一次到默认封面。背景封面布局只生成配色底纹，标题由卡片正文显示，避免文字重叠。
+
+设置 `auto_cover => false` 可跳过正文首图，`title_cover => false` 可关闭自动生成；`cover_style => 0` 保留纯文字列表。保留旧版 `config.php` 的站点即使没有新配置项，也会默认启用标题封面。列表默认封面不用于文章详情头图。
 
 ## 写作语法
 

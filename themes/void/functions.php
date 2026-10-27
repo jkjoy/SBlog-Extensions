@@ -36,9 +36,9 @@ function sbvoid_image_url(string $url): string
     return valid_http_url($url) || (str_starts_with($url, '/') && safe_link_url($url) !== '#') ? $url : '';
 }
 
-function sbvoid_cover(array $post): string
+function sbvoid_cover(array $post, ?array $config = null): string
 {
-    if (empty(sbvoid_config()['auto_cover'])) { return ''; }
+    if (empty(($config ?? sbvoid_config())['auto_cover'])) { return ''; }
     // Never infer images from password-protected or reply-hidden source text.
     $post = public_content_context($post);
     $content = (string)($post['content'] ?? '');
@@ -51,6 +51,86 @@ function sbvoid_cover(array $post): string
         }
     }
     return '';
+}
+
+/** A self-contained title illustration; never reads article content or calls a remote service. */
+function sbvoid_title_cover(string $title, bool $showTitle = true): string
+{
+    $title = trim(preg_replace('/[\x00-\x1f\x7f\s]+/u', ' ', $title) ?? '');
+    if ($title === '') { $title = '未命名文章'; }
+    // Bound pathological combining sequences while keeping the string valid UTF-8.
+    if (preg_match('/\A.{0,512}/us', $title, $bounded)) { $title = $bounded[0]; }
+    $hash = hash('sha256', $title);
+    $palettes = [
+        ['#e7eeeb', '#243e35', '#8ba99a'],
+        ['#eee7df', '#503b2d', '#c09c7c'],
+        ['#e4ebf2', '#293d54', '#8ea9c2'],
+        ['#efe5e8', '#593d47', '#c297a5'],
+        ['#eae6f0', '#483956', '#aa9cbd'],
+        ['#e9ecdf', '#3d482e', '#a2ad7b'],
+    ];
+    [$background, $ink, $accent] = $palettes[hexdec(substr($hash, 0, 2)) % count($palettes)];
+    $escape = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_DISALLOWED | ENT_XML1, 'UTF-8');
+    $lines = [];
+    $line = '';
+    $width = 0;
+    preg_match_all('/\X/u', $title, $characters);
+    $characters = array_slice($characters[0], 0, 180);
+    $shortTitle = implode('', $characters);
+    foreach ($characters as $character) {
+        $advance = preg_match('/^[MWmw@#%&]$/', $character) ? 1
+            : (preg_match('/^[A-Z]$/', $character) ? .75 : (preg_match('/^[\x20-\x7e]$/', $character) ? .6 : 1));
+        if ($width + $advance > 13 && $line !== '') {
+            $lines[] = trim($line);
+            if (count($lines) === 3) {
+                $lines[2] = (preg_replace('/\X$/u', '', $lines[2]) ?? $lines[2]) . '…';
+                $line = '';
+                break;
+            }
+            $line = '';
+            $width = 0;
+        }
+        $line .= $character;
+        $width += $advance;
+    }
+    if (trim($line) !== '') { $lines[] = trim($line); }
+    $text = '';
+    if ($showTitle) {
+        foreach ($lines as $index => $part) {
+            $text .= '<text x="72" y="' . (270 + $index * 80) . '">' . $escape($part) . '</text>';
+        }
+    }
+    $circleY = 70 + hexdec(substr($hash, 2, 2));
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">'
+        . '<title>' . $escape($shortTitle) . '</title>'
+        . '<rect width="960" height="600" fill="' . $background . '"/>'
+        . '<g fill="' . $accent . '"><circle cx="940" cy="' . $circleY . '" r="270" opacity=".28"/>'
+        . '<circle cx="840" cy="600" r="200" opacity=".16"/></g>'
+        . '<circle cx="940" cy="' . $circleY . '" r="195" fill="none" stroke="' . $background . '" stroke-width="2"/>'
+        . '<path d="M72 168h52" stroke="' . $ink . '" stroke-width="5"/>'
+        . '<g fill="' . $ink . '" font-family="PingFang SC,Microsoft YaHei,Noto Sans CJK SC,sans-serif">'
+        . '<text x="72" y="86" font-size="20" letter-spacing="5" opacity=".6">VOID / NOTES</text>'
+        . '<g font-size="60" font-weight="600">' . $text . '</g>'
+        . '<path d="M72 522h816" stroke="' . $ink . '" opacity=".15"/>'
+        . '<text x="72" y="560" font-size="18" letter-spacing="3" opacity=".55">READ &amp; REFLECT</text>'
+        . '<text x="888" y="560" text-anchor="end" font-size="18" font-family="monospace" opacity=".55">'
+        . strtoupper(substr($hash, 0, 6)) . '</text></g></svg>';
+    return 'data:image/svg+xml;base64,' . base64_encode($svg);
+}
+
+/** List-only fallbacks leave the article header and private-content projection unchanged. */
+function sbvoid_list_cover(array $post, ?array $config = null): array
+{
+    $config ??= sbvoid_config();
+    if ((int)($config['cover_style'] ?? 1) === 0) { return ['src' => '', 'fallback' => '']; }
+    $default = sbvoid_image_url((string)($config['default_cover'] ?? ''));
+    $generated = ($config['title_cover'] ?? true)
+        ? sbvoid_title_cover((string)($post['title'] ?? ''), (int)($config['cover_style'] ?? 1) !== 2)
+        : '';
+    $cover = sbvoid_cover($post, $config);
+    $fallback = $default !== '' ? $default : $generated;
+    if ($cover !== '') { return ['src' => $cover, 'fallback' => $cover !== $fallback ? $fallback : $generated]; }
+    return ['src' => $fallback, 'fallback' => $default !== '' && $default !== $generated ? $generated : ''];
 }
 
 function sbvoid_word_count(array $post): int
@@ -73,8 +153,8 @@ function sbvoid_cards(array $posts): string
     <section id="index-list" class="float-up"><ul id="masonry">
     <?php foreach ($posts as $post):
         $post = public_content_context($post);
-        $cover = sbvoid_cover($post);
-        $style = $cover === '' ? 0 : max(0, min(2, (int)$config['cover_style']));
+        $cover = sbvoid_list_cover($post, $config);
+        $style = $cover['src'] === '' ? 0 : max(0, min(2, (int)$config['cover_style']));
         $time = (int)($post['published_at'] ?: $post['created_at']);
         $excerpt = trim((string)($post['excerpt'] ?? '')) ?: derive_excerpt((string)($post['content'] ?? ''), 100);
         $excerpt = preg_replace('/(?:^|\s)#{1,6}\s+/u', ' ', $excerpt) ?? $excerpt;
@@ -84,7 +164,7 @@ function sbvoid_cards(array $posts): string
         <li id="p-<?= (int)$post['id'] ?>" class="masonry-item style-<?= $style ?> done">
           <a href="<?= h(sbvoid_url(content_permalink($post))) ?>">
             <article class="yue">
-              <?php if ($cover !== '' && $style !== 0): ?><div class="banner"><img src="<?= h($cover) ?>" alt="" loading="lazy" decoding="async"></div><?php endif; ?>
+              <?php if ($cover['src'] !== '' && $style !== 0): ?><div class="banner"><img src="<?= h($cover['src']) ?>"<?php if ($cover['fallback'] !== ''): ?> data-void-cover-fallback="<?= h($cover['fallback']) ?>"<?php endif; ?> width="960" height="600" alt="" loading="lazy" decoding="async"></div><?php endif; ?>
               <div class="content-wrap">
                 <div class="post-meta-index"><time datetime="<?= h(date(DATE_ATOM, $time)) ?>"><?= h(date('M d, Y', $time)) ?></time><?php if ($config['show_word_count'] && $wordCount > 0): ?><span class="word-count"> + <?= $wordCount ?> 字</span><?php endif; ?><?php if (!empty($post['is_pinned'])): ?><span class="void-pinned"> · 置顶</span><?php endif; ?></div>
                 <h1 class="title"><?= h($post['title']) ?></h1>

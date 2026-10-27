@@ -127,6 +127,12 @@ $tests['password and reply gates hide cover, word count and card excerpts'] = st
     check(!str_contains(sbvoid_cards([$reply]), $secret), 'Hidden reply source or private excerpt leaked into a card.');
     $mixed = post_fixture(['content' => "![visible](/visible.jpg)\n[reply]\n![secret](/$secret.jpg)\n[/reply]"]);
     same('/visible.jpg', sbvoid_cover($mixed), 'A public cover before a hidden block must remain usable.');
+    foreach ([$password, $reply] as $protected) {
+        $cover = sbvoid_list_cover($protected);
+        check(str_starts_with($cover['src'], 'data:image/svg+xml;base64,'), 'Protected article should receive a public-title cover.');
+        $svg = base64_decode(substr($cover['src'], strlen('data:image/svg+xml;base64,')), true);
+        check(is_string($svg) && !str_contains($svg, $secret), 'Private content leaked into the generated cover.');
+    }
 };
 $tests['search uses public projections and excludes unpublished content'] = static function (): void {
     insert_post(post_fixture(['id' => 1, 'title' => '正常标题', 'content' => "公开文本\n[reply]\nHIDDENSEARCHTOKEN\n[/reply]", 'excerpt' => 'HIDDENSEARCHTOKEN']));
@@ -169,7 +175,8 @@ $tests['cards escape titles and reject executable image schemes'] = static funct
     $card = sbvoid_cards([$post]);
     $xpath = fragment($card);
     same(0, $xpath->query('//script')->length, 'Malicious title became executable HTML.');
-    same(0, $xpath->query('//img')->length, 'Executable image URL reached a card.');
+    same(1, $xpath->query('//img')->length, 'A safe local fallback should replace an executable cover URL.');
+    check(str_starts_with($xpath->query('//img')->item(0)->getAttribute('src'), 'data:image/svg+xml;base64,'), 'Executable image URL reached a card.');
     same($title, $xpath->query('//h1')->item(0)->textContent, 'Escaping corrupted the visible title.');
     $href = $xpath->query('//li/a')->item(0)->getAttribute('href');
     check(str_contains($href, rawurlencode($post['slug'])), 'Permalink must encode an adversarial slug.');
@@ -177,6 +184,62 @@ $tests['cards escape titles and reject executable image schemes'] = static funct
         same('', sbvoid_image_url($url), 'Unsafe image URL accepted: ' . json_encode($url));
     }
     same('https://example.com/a.jpg?x=1&y=2', sbvoid_image_url('https://example.com/a.jpg?x=1&amp;y=2'), 'Valid image URL entity decoding failed.');
+};
+$tests['title covers are deterministic, valid SVG with safe bounded Unicode text'] = static function (): void {
+    $title = '中文标题 👩‍💻 & "引号" <script>alert(1)</script>';
+    $url = sbvoid_title_cover($title);
+    same($url, sbvoid_title_cover($title), 'The same title should generate the same cover.');
+    check($url !== sbvoid_title_cover('另一个标题'), 'Different titles should produce distinct covers.');
+    $svg = base64_decode(substr($url, strlen('data:image/svg+xml;base64,')), true);
+    $dom = new DOMDocument();
+    check($dom->loadXML($svg, LIBXML_NONET), 'Generated SVG is not valid XML.');
+    same('http://www.w3.org/2000/svg', $dom->documentElement->namespaceURI, 'Cover is not SVG.');
+    $xpath = new DOMXPath($dom);
+    same($title, $xpath->query('//*[local-name()="title"]')->item(0)->textContent, 'SVG title was corrupted.');
+    same(0, $xpath->query('//*[local-name()="script" or local-name()="image" or local-name()="foreignObject"]')->length, 'Title became executable or external SVG content.');
+    $long = base64_decode(substr(sbvoid_title_cover(str_repeat('长标题W👩‍💻', 200)), strlen('data:image/svg+xml;base64,')), true);
+    check(strlen($long) < 5000, 'Long titles should produce bounded SVG output.');
+    check($dom->loadXML($long, LIBXML_NONET), 'Long Unicode title broke SVG.');
+    $xpath = new DOMXPath($dom);
+    $lines = $xpath->query('//*[local-name()="g" and @font-size="60"]/*[local-name()="text"]');
+    same(3, $lines->length, 'Long titles should use at most three visible lines.');
+    check(str_ends_with($lines->item(2)->textContent, '…'), 'Clipped titles should end with an ellipsis.');
+    $control = base64_decode(substr(sbvoid_title_cover("控制\x01字符"), strlen('data:image/svg+xml;base64,')), true);
+    check($dom->loadXML($control, LIBXML_NONET), 'Control characters broke SVG XML.');
+    $invalid = base64_decode(substr(sbvoid_title_cover("无效\u{FFFE}\u{FFFF}字符"), strlen('data:image/svg+xml;base64,')), true);
+    check($dom->loadXML($invalid, LIBXML_NONET), 'Disallowed XML characters broke SVG.');
+    check(strlen(sbvoid_title_cover('a' . str_repeat("\u{0301}", 10000))) < 10000, 'Combining sequences should not produce unbounded cover output.');
+};
+$tests['list cover priority, disabled options and background layout preserve existing behavior'] = static function (): void {
+    $config = sbvoid_config();
+    $post = post_fixture(['content' => '![cover](/real-cover.jpg)']);
+    $config['default_cover'] = '/uploads/default.jpg';
+    $cover = sbvoid_list_cover($post, $config);
+    same('/real-cover.jpg', $cover['src'], 'Default cover replaced a real article image.');
+    same('/uploads/default.jpg', $cover['fallback'], 'Real image needs a fallback for load errors.');
+    $shared = sbvoid_list_cover(post_fixture(['content' => '![cover](/uploads/default.jpg)']), $config);
+    check(str_starts_with($shared['fallback'], 'data:image/svg+xml;base64,'), 'A failed body image identical to the default still needs a generated fallback.');
+    $post['content'] = '没有图片';
+    same('/uploads/default.jpg', sbvoid_list_cover($post, $config)['src'], 'Configured default cover was ignored.');
+    $config['default_cover'] = 'javascript:alert(1)';
+    check(str_starts_with(sbvoid_list_cover($post, $config)['src'], 'data:image/svg+xml;base64,'), 'Unsafe configured cover was accepted.');
+    $config['default_cover'] = '';
+    $config['auto_cover'] = false;
+    $post['content'] = '![cover](/real-cover.jpg)';
+    check(str_starts_with(sbvoid_list_cover($post, $config)['src'], 'data:image/svg+xml;base64,'), 'Disabling body images should retain title covers.');
+    $config['title_cover'] = false;
+    same('', sbvoid_list_cover($post, $config)['src'], 'Disabled fallback still generated an image.');
+    $config['title_cover'] = true;
+    $config['cover_style'] = 0;
+    same('', sbvoid_list_cover($post, $config)['src'], 'Text-only layout gained a cover.');
+    $config['cover_style'] = 2;
+    $svg = base64_decode(substr(sbvoid_list_cover($post, $config)['src'], strlen('data:image/svg+xml;base64,')), true);
+    $dom = new DOMDocument();
+    check($dom->loadXML($svg, LIBXML_NONET), 'Background cover is invalid.');
+    same(0, (new DOMXPath($dom))->query('//*[local-name()="g" and @font-size="60"]/*[local-name()="text"]')->length, 'Background cover duplicates the overlay title.');
+    unset($config['title_cover'], $config['default_cover']);
+    $config['cover_style'] = 1;
+    check(str_starts_with(sbvoid_list_cover($post, $config)['src'], 'data:image/svg+xml;base64,'), 'Retained old configuration should enable title covers by default.');
 };
 $tests['detail transformation retains gate forms, comments, feedback and plugin HTML'] = static function (): void {
     $post = post_fixture(['content_password_hash' => 'hash']);

@@ -24,6 +24,7 @@
   let previousScroll = scrollY;
   let scrollFrame;
   let historyTimer;
+  const initializedCoverFallbacks = new WeakSet();
   const behavior = () => reducedMotion.matches ? 'auto' : 'smooth';
 
   function automaticDark() {
@@ -184,9 +185,28 @@
     if (!copied) throw new Error('copy');
   }
 
+  function enhanceCoverFallbacks(container) {
+    $$('img[data-void-cover-fallback]', container).forEach(image => {
+      if (initializedCoverFallbacks.has(image)) return;
+      initializedCoverFallbacks.add(image);
+      const fallback = () => {
+        const source = image.getAttribute('data-void-cover-fallback');
+        image.removeAttribute('data-void-cover-fallback');
+        image.removeEventListener('error', fallback);
+        if (!source) return;
+        image.removeAttribute('srcset');
+        image.removeAttribute('sizes');
+        image.src = source;
+      };
+      image.addEventListener('error', fallback, { once: true });
+      if (image.complete && image.naturalWidth === 0) fallback();
+    });
+  }
+
   function enhanceContent() {
     const main = $('#pjax-container');
     if (!main) return;
+    enhanceCoverFallbacks(main);
     lightboxImages = $$('.articleBody img', main).filter(image => {
       if (image.closest('[data-no-lightbox], .no-lightbox')) return false;
       const anchor = image.closest('a');
