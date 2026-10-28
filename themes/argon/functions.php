@@ -19,15 +19,8 @@ function argon_options(): array
         'custom_css' => '', 'social_github' => '', 'social_email' => '', 'social_rss' => true,
         'font_family' => 'sans', 'card_shadow' => 'small', 'immersion_color' => false, 'amoled_dark' => false,
     ];
-    // Native settings are authoritative after the first save. Keep old plugin
-    // values readable until then, without writing during public requests.
-    $stored = function_exists('theme_settings') ? theme_settings('argon') : [];
-    if (!is_array(json_decode(setting('theme_settings_argon', ''), true))) {
-        $legacy = json_decode(setting('argon_options', '{}'), true);
-        if (is_array($legacy) && $legacy) { $stored = $legacy; }
-    }
+    $stored = theme_settings('argon');
     $options = $defaults;
-    if (!is_array($stored)) { return $options; }
     foreach ($defaults as $key => $default) {
         $value = $stored[$key] ?? $default;
         if (is_bool($default)) { $options[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN); }
