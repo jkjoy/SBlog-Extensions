@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-28T15:04:50+00:00",
+    "updated_at": "2026-10-28T15:09:49+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -146,15 +146,15 @@
             "type": "plugin",
             "slug": "english-language",
             "name": "英文语言包",
-            "version": "1.0.18",
+            "version": "1.0.19",
             "author": "Simple PHP Blog",
             "description": "将博客前台、登录页面和后台管理界面翻译为英文。",
             "homepage": "https://github.com/jkjoy/Simple-PHP-Blog",
             "requires": "1.14.13",
-            "tested": "1.14.16",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.18/plugin-english-language-1.0.18.zip",
-            "sha256": "8082107359dd27b62ec7542323d3011fc02dc554c928aae4012c6773b4060a5a",
-            "source_sha256": "763537c66c0fe147d003709c6ec5e9ff71eca9e95cd7aea8a4f55b23995da4ad"
+            "tested": "1.14.18",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-english-language-v1.0.19/plugin-english-language-1.0.19.zip",
+            "sha256": "58a9fc4351296b1f17c227cf564ab4b9f808866b0a428c5f2518ebdc9da51f29",
+            "source_sha256": "65e02c963909dbef3322a3c00bf1bf8c8d8793a0d72cdb72d8a4af6ea534f50e"
         },
         {
             "type": "plugin",
@@ -244,15 +244,15 @@
             "type": "plugin",
             "slug": "russian-language",
             "name": "俄语语言包",
-            "version": "1.0.19",
+            "version": "1.0.20",
             "author": "zalexstudios",
             "description": "将博客前台、登录页面和后台管理界面翻译为俄语。",
             "homepage": "https://github.com/zalexstudios",
             "requires": "1.14.13",
-            "tested": "1.14.16",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-russian-language-v1.0.19/plugin-russian-language-1.0.19.zip",
-            "sha256": "385a17a431edd1773a711ad2e578c645010b06ef2f8fd5628d5db267d5575dc2",
-            "source_sha256": "412fc94afd9783aaa5711028091d5fd26306995bf1038ac792b7029a37f86197"
+            "tested": "1.14.18",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-russian-language-v1.0.20/plugin-russian-language-1.0.20.zip",
+            "sha256": "ae3a81ef94d3ff7ad55b6efa8c52335f62538d23623338385df63fbe0ec8f1ee",
+            "source_sha256": "1f78830c31ead38194f5d44bb5d3c1c269519aef93ab4bafbf1561a71e5d10bc"
         },
         {
             "type": "plugin",
@@ -435,6 +435,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-farallon-v1.0.6/theme-farallon-1.0.6.zip",
             "sha256": "c2f42a2e15da38d5c98459f38eaaf334147bb78ffc6bb43454559dcc71e5530b",
             "source_sha256": "445f9b0102960c3d8d1b26d40d08f9093ea171a3767166bdb82a0a21932a0b96"
+        },
+        {
+            "type": "theme",
+            "slug": "h-siren",
+            "name": "H-Siren",
+            "version": "1.0.0",
+            "author": "后宫学长 / SBlog contributors",
+            "description": "H-Siren 移植主题：全屏封面、个人头像、交错图文卡片、高斯背景与原生后台主题设置。",
+            "homepage": "https://github.com/galnetwen/H-Siren",
+            "requires": "1.14.18",
+            "tested": "1.14.18",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-h-siren-v1.0.0/theme-h-siren-1.0.0.zip",
+            "sha256": "696e8261c7acdf687d13cf7e1542fcad934458e15cb7525502c6c297b3dcbb0f",
+            "source_sha256": "887aafba4814e843e8ced9bb94665128cd96e83e48450dc4cabeb8589bf8cb24"
         },
         {
             "type": "theme",
