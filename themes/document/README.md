@@ -1,15 +1,14 @@
 # Document for SBlog
 
-将[友人a丶的 WordPress Document 主题](https://github.com/friend-nicen/theme-document)移植到 SBlog，适配版本为 `v1.14.16`。保留白色顶栏、绿色主题色、左右侧栏与中间文章区域的文档博客布局，在窄屏下收起侧栏，正文自动铺满。
+将[友人a丶的 WordPress Document 主题](https://github.com/friend-nicen/theme-document)移植到 SBlog，要求 `v1.14.18` 或更新版本。保留白色顶栏、绿色主题色、左右侧栏与中间文章区域的文档博客布局，在窄屏下收起侧栏，正文自动铺满。
 
 ## 安装与设置
 
 1. 将 `themes/document/` 放入博客的 `themes/` 目录。
-2. 在“后台 → 主题管理”预览或启用 **Document**。
-3. 将配套的 `plugins/document-settings/` 放入 `plugins/`，在“插件管理”启用 **Document 主题设置**。
-4. 进入“扩展设置 → Document 主题设置”，修改配置后点击“保存全部设置”。
+2. 在“后台 → 主题管理”中找到 **Document**，点击“主题设置”。
+3. 修改配置后点击“保存设置”，再预览或启用主题。未启用的主题也可以先配置。
 
-主题可以独立使用；未启用设置插件时使用默认配置或已经保存的配置。启用设置插件不会自动切换主题，卸载或停用插件不会清除数据库中的 `document_options`。
+所有配置由主题的 `settings.json` 声明，使用 SBlog 原生通用主题设置页验证并保存，无需安装设置插件。配置独立保存在数据库 `theme_settings_document`，不会写回主题文件。1.1.0 起不再读取或迁移旧的 `document_options`；升级后请在原生主题设置中重新配置，可卸载旧的“Document 主题设置”插件。
 
 ## 已移植
 
@@ -27,7 +26,7 @@
 
 ## 平台适配
 
-WordPress 专用的编辑器增强、Gutenberg 开关、短代码、SMTP、百度推送、点赞/踩接口与小工具管理器未直接移入 SBlog；邮件、内容格式、评论和 URL 使用 SBlog 自身能力。侧栏部件由配套设置页配置。分页使用普通链接，首页横幅为单张静态横幅。
+WordPress 专用的编辑器增强、Gutenberg 开关、短代码、SMTP、百度推送、点赞/踩接口与小工具管理器未直接移入 SBlog；邮件、内容格式、评论和 URL 使用 SBlog 自身能力。侧栏部件由原生主题设置页配置。分页使用普通链接，首页横幅为单张静态横幅。
 
 文章目录从已经通过门禁的页面正文标题生成；不收录密码或回复可见提示。JavaScript 关闭时文章、分类导航、分页、搜索和评论提交仍可使用。
 

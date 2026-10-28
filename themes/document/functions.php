@@ -4,7 +4,24 @@ declare(strict_types=1);
 
 if (!defined('APP_VERSION')) { http_response_code(403); exit; }
 
-require_once __DIR__ . '/settings.php';
+/** Read the core's native theme settings; all stored values initially are strings. */
+function document_config(): array
+{
+    $values = theme_settings('document');
+    foreach (theme_settings_schema('document') as $section) {
+        foreach ($section['fields'] as $field) {
+            $key = $field['key'];
+            if ($field['type'] === 'checkbox') { $values[$key] = $values[$key] === '1'; }
+            elseif ($field['type'] === 'url') { $values[$key] = document_safe_url($values[$key]); }
+        }
+    }
+    foreach (['excerpt_length' => [30, 500, 120], 'recent_posts_count' => [0, 20, 5], 'footer_since' => [1970, (int)date('Y'), (int)date('Y')]] as $key => [$min, $max, $default]) {
+        $value = (string)$values[$key];
+        $values[$key] = preg_match('/^\d+$/D', $value) && (int)$value >= $min && (int)$value <= $max ? (int)$value : $default;
+    }
+    $values['social_email'] = filter_var($values['social_email'], FILTER_VALIDATE_EMAIL) !== false ? $values['social_email'] : '';
+    return $values;
+}
 
 function document_asset(string $path): string
 {

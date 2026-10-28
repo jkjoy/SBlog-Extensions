@@ -1,0 +1,364 @@
+{
+    "sections": [
+        {
+            "title": "基础与外观",
+            "description": "设置主题配色、阅读模式与顶部导航。",
+            "fields": [
+                {
+                    "key": "primary_color",
+                    "label": "主题主要颜色",
+                    "type": "color",
+                    "default": "#3eaf7c",
+                    "required": true
+                },
+                {
+                    "key": "background_color",
+                    "label": "全局背景颜色",
+                    "type": "color",
+                    "default": "#f5f7fd",
+                    "required": true
+                },
+                {
+                    "key": "darkmode",
+                    "label": "默认阅读模式",
+                    "type": "select",
+                    "default": "auto",
+                    "options": {
+                        "auto": "跟随系统",
+                        "light": "白天模式",
+                        "dark": "暗黑模式"
+                    },
+                    "description": "访客手动切换后，优先使用其浏览器中保存的选择。"
+                },
+                {
+                    "key": "show_theme_toggle",
+                    "label": "显示白天 / 暗黑模式切换",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "show_color_picker",
+                    "label": "显示主题调色板",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "show_logo",
+                    "label": "导航栏显示 Logo",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "logo_url",
+                    "label": "Logo 图片",
+                    "type": "url",
+                    "default": "",
+                    "description": "填写完整 HTTP(S) 图片地址或以 / 开头的站内路径。 留空使用站点 Logo。",
+                    "maxlength": 2048
+                },
+                {
+                    "key": "show_title",
+                    "label": "导航栏显示站点标题",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "navbar_title",
+                    "label": "导航栏标题",
+                    "type": "text",
+                    "default": "",
+                    "maxlength": 100,
+                    "description": "留空使用站点名称。"
+                },
+                {
+                    "key": "show_search",
+                    "label": "显示文章搜索",
+                    "type": "checkbox",
+                    "default": "1"
+                }
+            ]
+        },
+        {
+            "title": "首页与列表",
+            "description": "设置文章列表、缩略图、摘要与首页横幅。",
+            "fields": [
+                {
+                    "key": "list_columns",
+                    "label": "文章列表栏数",
+                    "type": "select",
+                    "default": "1",
+                    "options": {
+                        "1": "单栏",
+                        "2": "双栏"
+                    },
+                    "description": "小屏幕自动改为单栏。"
+                },
+                {
+                    "key": "thumbnail_position",
+                    "label": "文章缩略图位置",
+                    "type": "select",
+                    "default": "right",
+                    "options": {
+                        "left": "文章左侧",
+                        "right": "文章右侧",
+                        "none": "不显示"
+                    },
+                    "description": "使用文章正文中的第一张图片；受保护的正文不会用于提取图片。"
+                },
+                {
+                    "key": "show_excerpt",
+                    "label": "显示文章摘要",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "excerpt_length",
+                    "label": "文章摘要字数",
+                    "type": "text",
+                    "default": "120",
+                    "maxlength": 3,
+                    "description": "填写 30–500 的整数；超出范围或格式无效时使用默认值。"
+                },
+                {
+                    "key": "show_home_banner",
+                    "label": "显示首页横幅",
+                    "type": "checkbox",
+                    "default": "0"
+                },
+                {
+                    "key": "banner_title",
+                    "label": "首页横幅标题",
+                    "type": "text",
+                    "default": "",
+                    "maxlength": 200,
+                    "description": "留空使用站点名称。"
+                },
+                {
+                    "key": "banner_subtitle",
+                    "label": "首页横幅描述",
+                    "type": "textarea",
+                    "default": "",
+                    "maxlength": 1000,
+                    "description": "留空使用站点简介。"
+                },
+                {
+                    "key": "banner_image",
+                    "label": "首页横幅背景图",
+                    "type": "url",
+                    "default": "",
+                    "description": "填写完整 HTTP(S) 图片地址或以 / 开头的站内路径。",
+                    "maxlength": 2048
+                },
+                {
+                    "key": "banner_mobile",
+                    "label": "移动端显示首页横幅",
+                    "type": "checkbox",
+                    "default": "1"
+                }
+            ]
+        },
+        {
+            "title": "侧栏与作者",
+            "description": "设置分类导航、作者资料、公告与最新文章。",
+            "fields": [
+                {
+                    "key": "sidebar_left",
+                    "label": "显示左侧分类导航",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "sidebar_right",
+                    "label": "显示右侧资料栏",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "avatar",
+                    "label": "作者头像",
+                    "type": "url",
+                    "default": "",
+                    "description": "填写完整 HTTP(S) 图片地址或以 / 开头的站内路径。",
+                    "maxlength": 2048
+                },
+                {
+                    "key": "author_name",
+                    "label": "作者昵称",
+                    "type": "text",
+                    "default": "",
+                    "maxlength": 100,
+                    "description": "留空使用站点名称。"
+                },
+                {
+                    "key": "author_description",
+                    "label": "作者简介",
+                    "type": "textarea",
+                    "default": "",
+                    "maxlength": 1000,
+                    "description": "纯文本，支持换行。"
+                },
+                {
+                    "key": "announcement",
+                    "label": "站点公告",
+                    "type": "textarea",
+                    "default": "",
+                    "maxlength": 3000,
+                    "description": "纯文本，支持换行；留空隐藏公告。"
+                },
+                {
+                    "key": "social_github",
+                    "label": "GitHub 地址",
+                    "type": "url",
+                    "default": "",
+                    "maxlength": 2048
+                },
+                {
+                    "key": "social_email",
+                    "label": "联系邮箱",
+                    "type": "text",
+                    "default": "",
+                    "maxlength": 254,
+                    "description": "填写有效的电子邮箱地址；留空隐藏邮箱链接。"
+                },
+                {
+                    "key": "social_rss",
+                    "label": "显示 RSS 订阅链接",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "recent_posts_count",
+                    "label": "最新文章数量",
+                    "type": "select",
+                    "default": "5",
+                    "description": "0 表示隐藏最新文章。",
+                    "options": {
+                        "0": "隐藏最新文章",
+                        "1": "1 篇",
+                        "2": "2 篇",
+                        "3": "3 篇",
+                        "4": "4 篇",
+                        "5": "5 篇",
+                        "6": "6 篇",
+                        "7": "7 篇",
+                        "8": "8 篇",
+                        "9": "9 篇",
+                        "10": "10 篇",
+                        "11": "11 篇",
+                        "12": "12 篇",
+                        "13": "13 篇",
+                        "14": "14 篇",
+                        "15": "15 篇",
+                        "16": "16 篇",
+                        "17": "17 篇",
+                        "18": "18 篇",
+                        "19": "19 篇",
+                        "20": "20 篇"
+                    }
+                }
+            ]
+        },
+        {
+            "title": "文章与阅读",
+            "description": "设置目录、相邻文章、版权信息与赞赏图片。",
+            "fields": [
+                {
+                    "key": "show_toc",
+                    "label": "显示文章阅读目录",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "toc_depth",
+                    "label": "目录收录标题深度",
+                    "type": "select",
+                    "default": "3",
+                    "options": {
+                        "2": "一级、二级标题",
+                        "3": "一级至三级标题",
+                        "4": "一级至四级标题"
+                    }
+                },
+                {
+                    "key": "toc_collapsed",
+                    "label": "默认折叠子级目录",
+                    "type": "checkbox",
+                    "default": "0"
+                },
+                {
+                    "key": "show_post_navigation",
+                    "label": "显示上一篇 / 下一篇文章",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "show_copyright",
+                    "label": "显示文章版权信息",
+                    "type": "checkbox",
+                    "default": "1"
+                },
+                {
+                    "key": "copyright_text",
+                    "label": "文章版权信息",
+                    "type": "textarea",
+                    "default": "本文由 {author} 发布，转载请注明出处。\n文章标题：{title}\n本文链接：{url}",
+                    "maxlength": 3000,
+                    "description": "支持纯文本与占位符 {title}（文章标题）、{url}（文章链接）、{author}（文章作者）；不支持 HTML。"
+                },
+                {
+                    "key": "donation_image",
+                    "label": "赞赏收款码",
+                    "type": "url",
+                    "default": "",
+                    "description": "填写完整 HTTP(S) 图片地址或以 / 开头的站内路径。 留空隐藏赞赏按钮。",
+                    "maxlength": 2048
+                }
+            ]
+        },
+        {
+            "title": "页脚与样式",
+            "description": "设置页脚文字、备案信息与自定义 CSS。",
+            "fields": [
+                {
+                    "key": "footer_text",
+                    "label": "页脚文字",
+                    "type": "textarea",
+                    "default": "",
+                    "maxlength": 2000,
+                    "description": "纯文本，支持换行。"
+                },
+                {
+                    "key": "footer_since",
+                    "label": "建站年份",
+                    "type": "text",
+                    "default": "",
+                    "maxlength": 4,
+                    "description": "填写 1970 至当前年份的四位年份；留空或格式无效时使用当前年份。"
+                },
+                {
+                    "key": "icp_text",
+                    "label": "备案号",
+                    "type": "text",
+                    "default": "",
+                    "maxlength": 100
+                },
+                {
+                    "key": "icp_url",
+                    "label": "备案查询地址",
+                    "type": "url",
+                    "default": "https://beian.miit.gov.cn/",
+                    "description": "填写完整 HTTP(S) 地址。",
+                    "maxlength": 2048
+                },
+                {
+                    "key": "custom_css",
+                    "label": "自定义 CSS",
+                    "type": "textarea",
+                    "default": "",
+                    "maxlength": 20000,
+                    "description": "仅填写 CSS 规则，无需 <style> 标签，最多 20000 字符。"
+                }
+            ]
+        }
+    ]
+}

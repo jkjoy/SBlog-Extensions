@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 if (!defined('APP_VERSION')) { http_response_code(403); exit; }
 
-$documentConfig = document_settings_values();
+$documentConfig = document_config();
 $documentAction = (string)($GLOBALS['sblog_current_action'] ?? 'home');
 $documentDetail = in_array($documentAction, ['post', 'page'], true) && $status < 400;
 $documentTitle = trim((string)$documentConfig['navbar_title']) ?: $siteName;
