@@ -1,0 +1,10 @@
+{
+  "name": "Argon 主题设置",
+  "version": "1.0.0",
+  "author": "Argon / Simple PHP Blog",
+  "url": "https://github.com/solstice23/argon-theme",
+  "description": "为 Argon 主题提供配色、横幅、侧栏、文章与页脚的可视化配置。",
+  "settings_action": "admin_argon_settings",
+  "requires": "1.14.16",
+  "tested": "1.14.16"
+}

@@ -1,0 +1,26 @@
+/* Progressive enhancement for Argon's native SBlog interactions. */
+.argon-code-block { position: relative; }
+.argon-code-copy { position: absolute; right: 9px; top: 9px; border: 0; border-radius: 3px; padding: 3px 9px; font-family: inherit; font-size: 12px; line-height: 1.5; color: #8898aa; background: rgba(255,255,255,.1); cursor: pointer; }
+.argon-code-copy:hover, .argon-code-copy:focus-visible { color: #fff; background: var(--themecolor); }
+.argon-zoomable { cursor: zoom-in; }
+.argon-lightbox { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 45px; border: 0; background: transparent; outline: 0; overflow: hidden; }
+.argon-lightbox[open] { display: flex; align-items: center; justify-content: center; }
+.argon-lightbox::backdrop { background: rgba(0,0,0,.86); }
+.argon-lightbox img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.argon-lightbox-close { position: absolute; top: 10px; right: 18px; width: 36px; height: 36px; font-size: 32px; line-height: 32px; border: none; color: #fff; background: transparent; cursor: pointer; }
+.argon-toc-level-3 { padding-left: 12px; }
+.argon-toc-level-4 { padding-left: 24px; }
+#post_content :is(h2,h3,h4), .post-content :is(h2,h3,h4) { scroll-margin-top: 90px; }
+#leftbar_catalog .index-link.active { color: var(--themecolor); background: rgba(var(--themecolor-rgbstr),.1); }
+#leftbar_catalog ul { list-style: none; padding-left: 0; }
+#leftbar_catalog .index-link { display: block; padding: 5px 8px; line-height: 1.6; border-radius: 3px; }
+[data-argon-color][aria-pressed="true"] { outline: 2px solid var(--themecolor); outline-offset: 3px; }
+@media (max-width: 575px) { .argon-lightbox { padding: 45px 12px; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto !important; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* Fixed sidebar matches Argon's scroll behavior without the float's sticky boundary. */
+@media (min-width: 901px) {
+  #leftbar #leftbar_part2 { position: relative; top: auto; }
+  #leftbar #leftbar_part2.sticky { position: fixed; top: 85px; margin-top: 0; margin-bottom: 0; transition: none; animation: none !important; }
+}
+.argon-sidebar-placeholder { display: block; pointer-events: none; visibility: hidden; }

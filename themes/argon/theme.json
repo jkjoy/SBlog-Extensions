@@ -1,0 +1,10 @@
+{
+  "name": "Argon",
+  "version": "1.0.0",
+  "author": "solstice23 · SBlog port",
+  "url": "https://github.com/solstice23/argon-theme",
+  "description": "Argon 原版样式移植：渐变横幅、双栏卡片、夜间模式、文章目录与配套后台设置。",
+  "license": "GPL-3.0",
+  "requires": "1.14.16",
+  "tested": "1.14.16"
+}
