@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-28T15:29:35+00:00",
+    "updated_at": "2026-10-28T15:39:09+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -356,15 +356,15 @@
             "type": "theme",
             "slug": "argon",
             "name": "Argon",
-            "version": "1.1.0",
+            "version": "1.1.1",
             "author": "solstice23 · SBlog port",
             "description": "Argon 原版样式移植：渐变横幅、双栏卡片、夜间模式、文章目录与原生主题设置。",
             "homepage": "https://github.com/solstice23/argon-theme",
             "requires": "1.14.18",
             "tested": "1.14.18",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-argon-v1.1.0/theme-argon-1.1.0.zip",
-            "sha256": "5c9cfb67c8be3d34d8da29a78ceafdb7d8976485d3ea17ceb3d677f181c9de93",
-            "source_sha256": "3f494e9e727ce290f233cda8f2bcf5316cb1d0588b4631c246f5b89368b119b2"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-argon-v1.1.1/theme-argon-1.1.1.zip",
+            "sha256": "5a1d0da61bdebdcd7ad0fc01688cdab32ba9c39e7754dfcf8fa601b506a01f74",
+            "source_sha256": "43ad7870ac3d5baef3c8ea1fd5378c7d9820dc387c1b106d30ec79c843be6997"
         },
         {
             "type": "theme",
