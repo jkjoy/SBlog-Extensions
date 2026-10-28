@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-28T15:02:35+00:00",
+    "updated_at": "2026-10-28T15:04:50+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -99,6 +99,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-comment-push-v1.0.1/plugin-comment-push-1.0.1.zip",
             "sha256": "9bd513a55613ab0255bfff75bfd7ff1d610fdeaf6025d9ae1efcf41278dae971",
             "source_sha256": "3e25468e751f1f08c5d27c5c245cf182306ed31da7e7eac6385aa38e600c66b9"
+        },
+        {
+            "type": "plugin",
+            "slug": "document-settings",
+            "name": "Document 主题设置",
+            "version": "1.0.0",
+            "author": "友人a丶 / SBlog contributors",
+            "description": "配置 Document 主题的配色、导航、首页、侧栏、阅读目录、版权和页脚。",
+            "homepage": "https://github.com/friend-nicen/theme-document",
+            "requires": "1.14.16",
+            "tested": "1.14.16",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-document-settings-v1.0.0/plugin-document-settings-1.0.0.zip",
+            "sha256": "0dc0553906d4ceb58402fcd194059c6a2f02f7edb7ae1b497cc9e6e65a77896c",
+            "source_sha256": "cf35c07acf10e6b05ef5959732b7152c9e5fbfdec3d271c41e71799f7b28088a"
         },
         {
             "type": "plugin",
@@ -393,6 +407,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-clay-v1.0.6/theme-clay-1.0.6.zip",
             "sha256": "11adf435a0ecd8a3d6795d3a534b46ff184c910d70a14d681d6d31b5e9ce9350",
             "source_sha256": "19156102a41c53f36703a8566c1dca9486a30119351d61032a660a11897c91aa"
+        },
+        {
+            "type": "theme",
+            "slug": "document",
+            "name": "Document",
+            "version": "1.0.0",
+            "author": "友人a丶 / SBlog contributors",
+            "description": "移植 Document 文档博客主题：三栏布局、分类导航、阅读目录、深浅色与主题色切换，搭配 Document 主题设置插件使用。",
+            "homepage": "https://github.com/friend-nicen/theme-document",
+            "requires": "1.14.16",
+            "tested": "1.14.16",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-document-v1.0.0/theme-document-1.0.0.zip",
+            "sha256": "042b9370f371e07e5a7481b7ec04f6adb0626c6d0d567ffeb2b354f42347cd10",
+            "source_sha256": "7ac3d9f29be6f7aa43a80abd57e8bd4952b36458e5f6a884e0d7c7dc35f5d0a8"
         },
         {
             "type": "theme",
