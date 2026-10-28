@@ -1,0 +1,9 @@
+{
+  "name": "Kratos",
+  "version": "1.0.0",
+  "requires": "1.14.16",
+  "tested": "1.14.16",
+  "author": "Seaton Jiang / SBlog contributors",
+  "url": "https://github.com/seatonjiang/kratos",
+  "description": "移植 Kratos 4.3.4 原版：海岸横幅、双栏卡片、侧栏小工具、本地图标、文章工具栏及响应式导航。"
+}
