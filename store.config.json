@@ -6,5 +6,7 @@
     "requires": "1.13.6",
     "tested": "1.13.6"
   },
-  "retired": []
+  "retired": [
+    "plugin:argon-settings"
+  ]
 }

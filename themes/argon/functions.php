@@ -19,7 +19,13 @@ function argon_options(): array
         'custom_css' => '', 'social_github' => '', 'social_email' => '', 'social_rss' => true,
         'font_family' => 'sans', 'card_shadow' => 'small', 'immersion_color' => false, 'amoled_dark' => false,
     ];
-    $stored = json_decode(setting('argon_options', '{}'), true);
+    // Native settings are authoritative after the first save. Keep old plugin
+    // values readable until then, without writing during public requests.
+    $stored = function_exists('theme_settings') ? theme_settings('argon') : [];
+    if (!is_array(json_decode(setting('theme_settings_argon', ''), true))) {
+        $legacy = json_decode(setting('argon_options', '{}'), true);
+        if (is_array($legacy) && $legacy) { $stored = $legacy; }
+    }
     $options = $defaults;
     if (!is_array($stored)) { return $options; }
     foreach ($defaults as $key => $default) {
@@ -33,6 +39,8 @@ function argon_options(): array
     }
     foreach (['banner_background', 'avatar', 'social_github'] as $key) { $options[$key] = argon_safe_url($options[$key]); }
     $options['darkmode'] = in_array($options['darkmode'], ['auto', 'light', 'dark'], true) ? $options['darkmode'] : 'auto';
+    $options['font_family'] = in_array($options['font_family'], ['sans', 'serif'], true) ? $options['font_family'] : 'sans';
+    $options['card_shadow'] = in_array($options['card_shadow'], ['small', 'big'], true) ? $options['card_shadow'] : 'small';
     $options['banner_height'] = $options['banner_height'] === 0 ? 0 : max(200, min(900, $options['banner_height']));
     $options['card_radius'] = max(0, min(24, $options['card_radius']));
     $options['excerpt_length'] = max(40, min(500, $options['excerpt_length']));

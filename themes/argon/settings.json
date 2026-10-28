@@ -1,0 +1,262 @@
+{
+  "sections": [
+    {
+      "title": "外观",
+      "description": "主题颜色、显示模式和卡片外观。",
+      "fields": [
+        {
+          "key": "primary_color",
+          "label": "主题颜色",
+          "type": "color",
+          "default": "#5e72e4"
+        },
+        {
+          "key": "background_color",
+          "label": "页面背景颜色",
+          "type": "color",
+          "default": "#f4f5f7"
+        },
+        {
+          "key": "darkmode",
+          "label": "默认显示模式",
+          "type": "select",
+          "default": "auto",
+          "options": {
+            "auto": "跟随系统",
+            "light": "浅色",
+            "dark": "深色"
+          }
+        },
+        {
+          "key": "font_family",
+          "label": "字体风格",
+          "type": "select",
+          "default": "sans",
+          "options": {
+            "sans": "无衬线字体（原版默认）",
+            "serif": "衬线字体"
+          }
+        },
+        {
+          "key": "card_shadow",
+          "label": "卡片阴影",
+          "type": "select",
+          "default": "small",
+          "options": {
+            "small": "浅阴影（原版默认）",
+            "big": "深阴影"
+          }
+        },
+        {
+          "key": "immersion_color",
+          "label": "沉浸式主题色",
+          "type": "checkbox",
+          "default": "0"
+        },
+        {
+          "key": "amoled_dark",
+          "label": "深色模式使用纯黑背景",
+          "type": "checkbox",
+          "default": "0"
+        },
+        {
+          "key": "card_radius",
+          "label": "卡片圆角（像素）",
+          "type": "text",
+          "default": "4",
+          "maxlength": 2,
+          "description": "填写 0–24 的整数，单位为像素。"
+        },
+        {
+          "key": "navbar_title",
+          "label": "导航栏标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 100,
+          "description": "留空使用站点名称。"
+        }
+      ]
+    },
+    {
+      "title": "横幅",
+      "description": "横幅标题、背景与装饰。",
+      "fields": [
+        {
+          "key": "banner_title",
+          "label": "横幅标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 200,
+          "description": "留空使用站点名称。"
+        },
+        {
+          "key": "banner_subtitle",
+          "label": "横幅副标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 500,
+          "description": "留空使用站点简介。"
+        },
+        {
+          "key": "banner_background",
+          "label": "横幅背景图片",
+          "type": "url",
+          "default": "",
+          "description": "完整 HTTP(S) 图片地址或以 / 开头的站内路径；留空使用原版渐变。",
+          "maxlength": 2048
+        },
+        {
+          "key": "banner_height",
+          "label": "横幅高度（像素）",
+          "type": "text",
+          "default": "0",
+          "description": "填写 0 使用原版 71.8vh，随视口高度变化；自定义高度填写 200–900 的整数，单位为像素。",
+          "maxlength": 3
+        },
+        {
+          "key": "banner_shape",
+          "label": "显示横幅几何装饰",
+          "type": "checkbox",
+          "default": "1"
+        }
+      ]
+    },
+    {
+      "title": "侧栏与作者",
+      "description": "侧栏、个人资料、公告与社交链接。",
+      "fields": [
+        {
+          "key": "sidebar_left",
+          "label": "显示左侧栏",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "sidebar_right",
+          "label": "显示右侧栏",
+          "type": "checkbox",
+          "default": "0"
+        },
+        {
+          "key": "avatar",
+          "label": "作者头像",
+          "type": "url",
+          "default": "",
+          "description": "完整 HTTP(S) 图片地址或以 / 开头的站内路径。",
+          "maxlength": 2048
+        },
+        {
+          "key": "author_name",
+          "label": "作者昵称",
+          "type": "text",
+          "default": "",
+          "maxlength": 100
+        },
+        {
+          "key": "author_description",
+          "label": "作者简介",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 1000
+        },
+        {
+          "key": "announcement",
+          "label": "公告",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 3000,
+          "description": "纯文本，支持换行；留空隐藏公告。"
+        },
+        {
+          "key": "social_github",
+          "label": "GitHub 地址",
+          "type": "url",
+          "default": "",
+          "maxlength": 2048
+        },
+        {
+          "key": "social_email",
+          "label": "联系邮箱",
+          "type": "text",
+          "default": "",
+          "maxlength": 254,
+          "description": "填写有效的电子邮箱地址；留空隐藏邮箱链接。"
+        },
+        {
+          "key": "social_rss",
+          "label": "显示 RSS 链接",
+          "type": "checkbox",
+          "default": "1"
+        }
+      ]
+    },
+    {
+      "title": "文章",
+      "description": "列表摘要、阅读时间、文章目录与相邻文章。",
+      "fields": [
+        {
+          "key": "show_excerpt",
+          "label": "显示文章摘要",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "excerpt_length",
+          "label": "摘要长度（字符）",
+          "type": "text",
+          "default": "120",
+          "maxlength": 3,
+          "description": "填写 40–500 的整数，单位为字符。"
+        },
+        {
+          "key": "show_reading_time",
+          "label": "显示预计阅读时间",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_post_navigation",
+          "label": "显示上一篇 / 下一篇",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_toc",
+          "label": "显示文章目录",
+          "type": "checkbox",
+          "default": "1"
+        }
+      ]
+    },
+    {
+      "title": "页脚与自定义样式",
+      "description": "页脚文字、建站时间和自定义 CSS。",
+      "fields": [
+        {
+          "key": "footer_text",
+          "label": "页脚文字",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 2000,
+          "description": "纯文本，支持换行。"
+        },
+        {
+          "key": "footer_since",
+          "label": "建站年份",
+          "type": "text",
+          "default": "",
+          "maxlength": 4,
+          "description": "填写 1970 至当前年份的四位年份；留空使用当前年份。"
+        },
+        {
+          "key": "custom_css",
+          "label": "自定义 CSS",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 20000,
+          "description": "仅填写 CSS 规则，无需 <style> 标签，最多 20000 字符。"
+        }
+      ]
+    }
+  ]
+}
