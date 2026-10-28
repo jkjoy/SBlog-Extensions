@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-28T13:45:29+00:00",
+    "updated_at": "2026-10-28T15:02:35+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -435,6 +435,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-jaguar-v1.1.6/theme-jaguar-1.1.6.zip",
             "sha256": "2182e1c3d2c4861dc8e10de6860fe42bd331d72a8e85cec9de9bc2f05825449d",
             "source_sha256": "b5c8dc23174d17ef40634a6ea49eb103c8b6b376d59af15202f56385ab27673d"
+        },
+        {
+            "type": "theme",
+            "slug": "kratos",
+            "name": "Kratos",
+            "version": "1.0.0",
+            "author": "Seaton Jiang / SBlog contributors",
+            "description": "移植 Kratos 4.3.4 原版：海岸横幅、双栏卡片、侧栏小工具、本地图标、文章工具栏及响应式导航。",
+            "homepage": "https://github.com/seatonjiang/kratos",
+            "requires": "1.14.16",
+            "tested": "1.14.16",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-kratos-v1.0.0/theme-kratos-1.0.0.zip",
+            "sha256": "23b8c90bb678b347fa6d96e3498b0404ecdbd3ceee0a6a0e52620f4c49ef4816",
+            "source_sha256": "f9853729c8365e281c1830431681e002ad97f24a1933febc9a0830ceb50dd095"
         },
         {
             "type": "theme",
