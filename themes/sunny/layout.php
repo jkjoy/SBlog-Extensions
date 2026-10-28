@@ -94,10 +94,9 @@ $sunnyNav = [
       <details class="sunny-nav-dropdown">
         <summary>🍪更多<?= sunny_icon('chevron-down', 12) ?></summary>
         <div class="sunny-dropdown-panel">
-          <a href="<?= h(sunny_url('categories')) ?>">全部分类</a>
+          <a href="<?= h(sunny_url('categories')) ?>">🗂️ 全部分类</a>
           <a href="<?= h(sunny_url('archives')) ?>">🗃️ 文章归档</a>
           <a href="<?= h(sunny_url('tags')) ?>">🏷️ 标签小集</a>
-          <a href="<?= h(sunny_url('rss')) ?>">📡 订阅更新</a>
         </div>
       </details>
       <?php foreach ($navPages as $sunnyPage): ?>
