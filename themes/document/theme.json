@@ -1,0 +1,9 @@
+{
+  "name": "Document",
+  "version": "1.0.0",
+  "requires": "1.14.16",
+  "tested": "1.14.16",
+  "author": "友人a丶 / SBlog contributors",
+  "url": "https://github.com/friend-nicen/theme-document",
+  "description": "移植 Document 文档博客主题：三栏布局、分类导航、阅读目录、深浅色与主题色切换，搭配 Document 主题设置插件使用。"
+}
