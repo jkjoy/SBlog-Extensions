@@ -27,6 +27,10 @@
 
 安装后进入“后台 -> 主题管理”预览或启用。主题 PHP 是服务器端可信代码，只安装来源可信的主题。
 
+## 原生主题设置（SBlog 1.14.18+）
+
+主题可以在 `settings.json` 中声明表单，通过 `theme_setting()` 和 `theme_settings()` 读取配置。核心在「主题管理 → 更多 → 主题设置」中提供入口，校验后按主题独立存入数据库，切换与升级主题保留配置，无需单独安装设置插件。使用此接口的主题应将 `requires` 设置为 `1.14.18` 或更高版本。完整字段规范见 [核心主题开发文档](https://github.com/jkjoy/Simple-PHP-Blog/blob/main/themes/README.md#主题设置)，使用示例见 [H-Siren](h-siren/README.md)。
+
 ## 钩子 API
 
 注册 action：

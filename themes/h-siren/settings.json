@@ -1,0 +1,249 @@
+{
+  "sections": [
+    {
+      "title": "外观与首页",
+      "fields": [
+        {
+          "key": "logo_image",
+          "label": "导航 Logo",
+          "type": "url",
+          "default": "",
+          "description": "留空显示站点名称；图片可先在媒体库上传，再粘贴地址。"
+        },
+        {
+          "key": "accent_color",
+          "label": "强调色",
+          "type": "color",
+          "default": "#FE9600"
+        },
+        {
+          "key": "background_style",
+          "label": "网页背景",
+          "type": "select",
+          "default": "simple",
+          "options": {
+            "simple": "白色简约",
+            "blur": "高斯模糊"
+          }
+        },
+        {
+          "key": "show_hero",
+          "label": "显示首页大图",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "hero_image",
+          "label": "首页背景图",
+          "type": "url",
+          "default": "",
+          "description": "留空使用主题内置图片。支持 HTTP(S) 或以 / 开头的站内路径。"
+        },
+        {
+          "key": "random_covers",
+          "label": "随机使用内置背景",
+          "type": "checkbox",
+          "default": "1",
+          "description": "关闭后使用第一张内置图片；文章无公开图片时也使用内置封面。"
+        },
+        {
+          "key": "avatar_image",
+          "label": "个人头像",
+          "type": "url",
+          "default": "",
+          "description": "留空使用原主题头像。"
+        },
+        {
+          "key": "profile_description",
+          "label": "个人描述",
+          "type": "textarea",
+          "default": "",
+          "description": "留空读取站点副标题，按纯文本显示。",
+          "maxlength": 500
+        },
+        {
+          "key": "notice",
+          "label": "首页公告",
+          "type": "textarea",
+          "default": "",
+          "description": "留空隐藏公告，按纯文本显示。",
+          "maxlength": 1000
+        }
+      ]
+    },
+    {
+      "title": "文章与交互",
+      "fields": [
+        {
+          "key": "list_style",
+          "label": "文章列表",
+          "type": "select",
+          "default": "cards",
+          "options": {
+            "cards": "交错图文卡片",
+            "text": "简洁文字列表"
+          }
+        },
+        {
+          "key": "show_post_cover",
+          "label": "显示文章和页面顶部大图",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_search",
+          "label": "显示文章标题搜索",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "image_lightbox",
+          "label": "正文图片点击放大",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "click_effects",
+          "label": "鼠标点击光点效果",
+          "type": "checkbox",
+          "default": "0"
+        }
+      ]
+    },
+    {
+      "title": "首页聚焦",
+      "description": "最多展示三张入口卡片；只有同时填写标题和链接的卡片才会显示。",
+      "fields": [
+        {
+          "key": "show_features",
+          "label": "显示聚焦区域",
+          "type": "checkbox",
+          "default": "0"
+        },
+        {
+          "key": "feature_title",
+          "label": "聚焦标题",
+          "type": "text",
+          "default": "聚焦",
+          "maxlength": 80
+        },
+        {
+          "key": "feature1_title",
+          "label": "卡片 1 标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 80
+        },
+        {
+          "key": "feature1_url",
+          "label": "卡片 1 链接",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "feature1_image",
+          "label": "卡片 1 图片",
+          "type": "url",
+          "default": "",
+          "description": "留空使用内置封面。"
+        },
+        {
+          "key": "feature2_title",
+          "label": "卡片 2 标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 80
+        },
+        {
+          "key": "feature2_url",
+          "label": "卡片 2 链接",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "feature2_image",
+          "label": "卡片 2 图片",
+          "type": "url",
+          "default": "",
+          "description": "留空使用内置封面。"
+        },
+        {
+          "key": "feature3_title",
+          "label": "卡片 3 标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 80
+        },
+        {
+          "key": "feature3_url",
+          "label": "卡片 3 链接",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "feature3_image",
+          "label": "卡片 3 图片",
+          "type": "url",
+          "default": "",
+          "description": "留空使用内置封面。"
+        }
+      ]
+    },
+    {
+      "title": "社交与页脚",
+      "fields": [
+        {
+          "key": "github_url",
+          "label": "GitHub",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "bilibili_url",
+          "label": "哔哩哔哩",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "weibo_url",
+          "label": "微博",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "twitter_url",
+          "label": "X / Twitter",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "mastodon_url",
+          "label": "Mastodon",
+          "type": "url",
+          "default": ""
+        },
+        {
+          "key": "footer_text",
+          "label": "页脚文字",
+          "type": "textarea",
+          "default": "",
+          "description": "留空读取站点页脚，按纯文本显示。",
+          "maxlength": 1000
+        },
+        {
+          "key": "show_credit",
+          "label": "显示主题来源",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "start_date",
+          "label": "建站日期",
+          "type": "date",
+          "default": "",
+          "description": "填写后在页脚显示运行天数，留空隐藏。"
+        }
+      ]
+    }
+  ]
+}

@@ -71,6 +71,8 @@ function theme_favicon_url(): string { return '/fixture/favicon.ico'; }
 function asset_url(string $path): string { return '/' . $path; }
 function theme_asset_url(string $path): string { return '/themes/' . $GLOBALS['menu_theme_test_slug'] . '/' . $path; }
 function active_theme_file(string $path): string { return dirname(__DIR__) . '/themes/' . $GLOBALS['menu_theme_test_slug'] . '/' . $path; }
+function theme_setting(string $name, string $default = '', ?string $slug = null): string { return $default; }
+function script_url(): string { return '/index.php'; }
 function count_published_posts(): int { return 0; }
 function tag_index_data(): array { return []; }
 function fetch_categories(): array { return []; }
@@ -113,6 +115,10 @@ function menu_theme_test_child(string $slug, string $mode, bool $guest): void
         require dirname(__DIR__) . '/plugins/menu-manager/plugin.php';
     }
     require dirname(__DIR__) . '/themes/' . $slug . '/functions.php';
+    $GLOBALS['sblog_current_action'] = 'archives';
+    $status = 200;
+    $keywords = '';
+    $customHeadCode = '';
     $theme = ['version' => 'fixture'];
     $active = 'archives';
     $_GET = ['a' => 'archives'];
@@ -205,6 +211,7 @@ try {
         'clay' => ['//*[@id="clay-nav-links"]', 'is-active', ''],
         'farallon' => ['//header//nav[@aria-label="主导航"]', 'current', ''],
         'hammeros' => ['//*[@id="hammer-nav"]', 'is-active', ''],
+        'h-siren' => ['//*[@id="siren-navigation"]', '', ''],
         'jaguar' => ['//nav[@class="site--nav"]', 'current', ''],
         'liquid-glass' => ['//*[@id="aqua-nav-links"]', 'is-active', ''],
         'mango' => ['//nav[@class="header-menu"] | //aside[@class="mobile_nav"]/nav', 'current', ''],

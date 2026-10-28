@@ -1,0 +1,9 @@
+{
+  "name": "H-Siren",
+  "version": "1.0.0",
+  "requires": "1.14.18",
+  "tested": "1.14.18",
+  "author": "后宫学长 / SBlog contributors",
+  "url": "https://github.com/galnetwen/H-Siren",
+  "description": "H-Siren 移植主题：全屏封面、个人头像、交错图文卡片、高斯背景与原生后台主题设置。"
+}
