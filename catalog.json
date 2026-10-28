@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-28T15:11:21+00:00",
+    "updated_at": "2026-10-28T15:29:35+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -29,20 +29,6 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-akismet-v1.0.1/plugin-akismet-1.0.1.zip",
             "sha256": "b1a3716efc13ca137a81f90a8690eb0d8b59d420328a54666c559f66c57cda55",
             "source_sha256": "d6ccfa3254451fa0bc9578a1b6e253c915d6f0eb3962137b99fdf3e5d59ce409"
-        },
-        {
-            "type": "plugin",
-            "slug": "argon-settings",
-            "name": "Argon 主题设置",
-            "version": "1.0.0",
-            "author": "Argon / Simple PHP Blog",
-            "description": "为 Argon 主题提供配色、横幅、侧栏、文章与页脚的可视化配置。",
-            "homepage": "https://github.com/solstice23/argon-theme",
-            "requires": "1.14.16",
-            "tested": "1.14.16",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-argon-settings-v1.0.0/plugin-argon-settings-1.0.0.zip",
-            "sha256": "9771ebad84179c14bef68ccbcccf049a690d6150d886ede4f012f5bd425e5ef9",
-            "source_sha256": "04dfb031dafd763b051f151f1e07981304a1452d169f2f85e4233531cc3acabd"
         },
         {
             "type": "plugin",
@@ -370,15 +356,15 @@
             "type": "theme",
             "slug": "argon",
             "name": "Argon",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "author": "solstice23 · SBlog port",
-            "description": "Argon 原版样式移植：渐变横幅、双栏卡片、夜间模式、文章目录与配套后台设置。",
+            "description": "Argon 原版样式移植：渐变横幅、双栏卡片、夜间模式、文章目录与原生主题设置。",
             "homepage": "https://github.com/solstice23/argon-theme",
-            "requires": "1.14.16",
-            "tested": "1.14.16",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-argon-v1.0.0/theme-argon-1.0.0.zip",
-            "sha256": "203e9c7152f1217a65ef77bbb0aa72d7bbb6b85422668b113f1d6b7a2d6e23ac",
-            "source_sha256": "252e0c99c279654e56e74a00cc2e335a64d26152aa66f6641d100210ac1e6f6d"
+            "requires": "1.14.18",
+            "tested": "1.14.18",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-argon-v1.1.0/theme-argon-1.1.0.zip",
+            "sha256": "5c9cfb67c8be3d34d8da29a78ceafdb7d8976485d3ea17ceb3d677f181c9de93",
+            "source_sha256": "3f494e9e727ce290f233cda8f2bcf5316cb1d0588b4631c246f5b89368b119b2"
         },
         {
             "type": "theme",
