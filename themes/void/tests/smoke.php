@@ -269,6 +269,32 @@ $tests['detail transformation retains gate forms, comments, feedback and plugin 
     [$replyBody] = sbvoid_detail('<article><div class="post-content">' . render_reply_content_gate($post) . '</div></article>');
     check(str_contains($replyBody, 'content-gate--reply') && str_contains($replyBody, '#comments'), 'Reply gate action was lost.');
 };
+$tests['article metadata is separated once with and without DOM'] = static function (): void {
+    $function = new ReflectionFunction('sbvoid_detail');
+    $source = array_slice(file($function->getFileName()), $function->getStartLine() - 1, $function->getEndLine() - $function->getStartLine() + 1);
+    // Exercise the actual fallback on PHP builds where DOM is compiled in.
+    eval('namespace SBlogVoidWithoutDom; function class_exists(string $name): bool { return false; }' . implode('', $source));
+
+    foreach (['sbvoid_detail', 'SBlogVoidWithoutDom\\sbvoid_detail'] as $transform) {
+        foreach (['meta', 'meta extra-class', 'extra-class meta'] as $class) {
+            $metadata = '<div class="' . $class . '"><time datetime="2026-10-29T08:00:00+08:00">2026-10-29</time><span>作者：测试作者</span><span>分类：<a href="/category/test">测试分类</a></span><span>浏览：42</span></div>';
+            $html = '<article class="post-detail"><h1 class="post-title" itemprop="name headline">正文标题</h1>' . $metadata
+                . '<div class="post-content"><p>正文内容</p><div class="meta">正文内的自定义信息</div><aside class="content-gate"><form><input name="csrf_token" value="must-survive"></form></aside></div></article>'
+                . '<section id="comments"><p>评论内容</p></section>';
+            [$body, $meta, $comments] = $transform($html);
+            $xpath = fragment($body);
+            same(0, $xpath->query('//article/div[contains(concat(" ", normalize-space(@class), " "), " meta ")]')->length, 'Core article metadata remained in the body: ' . $transform . ', ' . $class);
+            same(1, fragment($meta)->query('//time')->length, 'Publication time was lost or duplicated.');
+            check(str_contains($meta, '测试作者') && str_contains($meta, '/category/test') && str_contains($meta, '浏览：42'), 'Article metadata changed while moving it.');
+            same(1, $xpath->query('//div[@class="post-content" or contains(@class,"articleBody")]/div[@class="meta"]')->length, 'Custom metadata inside the article body was removed.');
+            same('must-survive', $xpath->query('//input[@name="csrf_token"]')->item(0)->getAttribute('value'), 'Content gate changed while removing metadata.');
+            same(1, fragment($body . $comments)->query('//section[@id="comments"]')->length, 'Comments were lost or duplicated.');
+        }
+        [$body, $meta] = $transform('<article><h1 class="post-title">独立页</h1><div class="post-content"><article><div class="meta">正文嵌套文章的信息</div><p>正文内容</p></article></div></article>');
+        same('', $meta, 'Nested article metadata was mistaken for the page header.');
+        check(str_contains($body, '正文嵌套文章的信息'), 'Custom nested article metadata was removed from a page without header metadata.');
+    }
+};
 $tests['neighbor titles render as visible escaped text with legacy label fallback'] = static function (): void {
     $previousTitle = '上一篇的标题 “引号” & <img src=x onerror=alert(1)>';
     $nextTitle = str_repeat('下一篇长标题', 20);

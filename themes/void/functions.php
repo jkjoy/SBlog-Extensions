@@ -221,8 +221,14 @@ function sbvoid_detail(string $html): array
     if (!class_exists(DOMDocument::class)) {
         // Preserve the complete core response on hosts without the optional DOM extension.
         $html = preg_replace('/<h1\b[^>]*class="post-title"[^>]*>.*?<\/h1>/s', '', $html, 1) ?? $html;
+        $metaHtml = '';
+        // Move only the leading core metadata; leave body markup and content gates intact.
+        $html = preg_replace_callback('/\A(\s*<article\b[^>]*>\s*)(<div\b[^>]*\sclass="(?:[^"]*\s)?meta(?:\s[^"]*)?"[^>]*>(?:(?!<\/?div\b).)*<\/div>)/s', static function (array $match) use (&$metaHtml): string {
+            $metaHtml = $match[2];
+            return $match[1];
+        }, $html, 1) ?? $html;
         $html = str_replace('class="post-content"', 'class="post-content articleBody full"', $html);
-        return ['<div class="post yue">' . $html . '</div>', '', ''];
+        return ['<div class="post yue">' . $html . '</div>', $metaHtml, ''];
     }
     $document = new DOMDocument('1.0', 'UTF-8');
     $previous = libxml_use_internal_errors(true);
@@ -237,7 +243,7 @@ function sbvoid_detail(string $html): array
     $article = $xpath->query('.//article[1]', $root)->item(0);
     if ($article instanceof DOMElement) {
         $article->setAttribute('class', trim($article->getAttribute('class') . ' post yue'));
-        $meta = $xpath->query('./div[@class="meta"]', $article)->item(0);
+        $meta = $xpath->query('./div[contains(concat(" ", normalize-space(@class), " "), " meta ")]', $article)->item(0);
         if ($meta) {
             $metaHtml = $document->saveHTML($meta);
             $meta->parentNode->removeChild($meta);
