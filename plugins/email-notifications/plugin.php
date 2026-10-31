@@ -159,6 +159,12 @@ function sblog_mail_render_settings(): void
           <div class="action-row"><button class="button"><?= h(sblog_t('保存邮件设置')) ?></button></div>
         </form>
       </div></section>
+      <section class="panel admin-list-panel"><div class="panel__header"><h2><?= h(sblog_t('测试发信')) ?></h2><p class="panel__meta"><?= h(sblog_t('使用已保存的邮件设置发送测试邮件；修改配置后请先保存。')) ?></p></div><div class="panel__body">
+        <form class="form-stack" method="post" action="<?= h(script_url() . '?a=test_mail_settings') ?>"><?= csrf_field() ?>
+          <div class="field"><label for="test_email"><?= h(sblog_t('测试收件邮箱')) ?></label><input id="test_email" name="test_email" type="email" value="<?= h(comment_notify_email()) ?>" maxlength="160" placeholder="admin@example.com" required></div>
+          <div class="action-row"><button class="button" type="submit"><?= h(sblog_t('发送测试邮件')) ?></button></div>
+        </form>
+      </div></section>
     </div></div><?php
     render_layout(sblog_t('邮件通知'), (string)ob_get_clean(), ['active' => 'plugins', 'wide' => true, 'description' => sblog_t('SMTP 邮件通知设置')]);
 }
@@ -170,10 +176,29 @@ function sblog_mail_handle_request(array $context): void
         sblog_mail_render_settings();
         exit;
     }
-    if ($action !== 'save_mail_settings') {
+    if (!in_array($action, ['save_mail_settings', 'test_mail_settings'], true)) {
         return;
     }
     require_admin_post(url_for('admin_mail'));
+    if ($action === 'test_mail_settings') {
+        $recipient = is_string($_POST['test_email'] ?? null) ? trim($_POST['test_email']) : '';
+        if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+            set_flash('error', sblog_t('请输入有效的测试收件邮箱。'));
+            redirect_to(url_for('admin_mail'));
+        }
+        $siteName = setting('site_name', default_settings()['site_name']);
+        $subject = sblog_t('[{site}] 测试邮件', ['site' => $siteName]);
+        $body = sblog_t("这是一封来自 {site} 的测试邮件。\n\n收到此邮件说明当前邮件发送配置可以正常工作。", ['site' => $siteName]);
+        try {
+            $sent = send_site_mail($recipient, $subject, $body);
+        } catch (Throwable) {
+            $sent = false;
+        }
+        set_flash($sent ? 'success' : 'error', $sent
+            ? sblog_t('测试邮件已提交发送至 {email}，请检查收件箱或垃圾邮件。', ['email' => $recipient])
+            : sblog_t('测试邮件发送失败，请检查邮件设置及服务器发信配置。'));
+        redirect_to(url_for('admin_mail'));
+    }
     $enabled = isset($_POST['smtp_enabled']) ? '1' : '0';
     $host = trim((string)($_POST['smtp_host'] ?? ''));
     $port = max(1, min(65535, (int)($_POST['smtp_port'] ?? 465)));
