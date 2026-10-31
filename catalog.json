@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-10-31T06:14:41+00:00",
+    "updated_at": "2026-10-31T07:31:45+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -118,15 +118,15 @@
             "type": "plugin",
             "slug": "email-notifications",
             "name": "邮件通知",
-            "version": "1.0.1",
+            "version": "1.1.0",
             "author": "Simple PHP Blog",
             "description": "通过 SMTP 或 PHP mail 发送密码重置和评论通知邮件。",
             "homepage": "https://github.com/jkjoy/Simple-PHP-Blog",
             "requires": "1.13.6",
             "tested": "1.13.6",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-email-notifications-v1.0.1/plugin-email-notifications-1.0.1.zip",
-            "sha256": "87772fdd0c365c6beec267b66762af01160a24f51102b465e3f23927cb1b5959",
-            "source_sha256": "f6233b97cd2f25d155649f30069b04f1229c3382222f38a82823a631926f3285"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-email-notifications-v1.1.0/plugin-email-notifications-1.1.0.zip",
+            "sha256": "032f8242855c735cc5593fac6d6cad6e57696ef95661ded2d474387263b7ff77",
+            "source_sha256": "c5e23e17bcb1e074015baac23a27641fa3d906cc4a75cbb4a52972893b392f4c"
         },
         {
             "type": "plugin",
