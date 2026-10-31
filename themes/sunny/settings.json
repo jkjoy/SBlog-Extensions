@@ -1,0 +1,19 @@
+{
+  "sections": [
+    {
+      "title": "首页公告",
+      "description": "自定义首页文章列表上方的公告内容。",
+      "fields": [
+        {
+          "key": "announcement_content",
+          "label": "公告内容",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 2000,
+          "placeholder": "输入要在首页显示的公告内容",
+          "description": "支持换行，以纯文本显示。首次保存前沿用原公告；留空保存后显示“暂时没有新的内容”。"
+        }
+      ]
+    }
+  ]
+}

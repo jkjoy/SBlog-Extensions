@@ -95,7 +95,7 @@ html[data-sunny-theme="dark"] .sunny-theme .sunny-sun { display: inline-flex; }
 .sunny-theme .sunny-label { display: flex; width: fit-content; gap: 8px; align-items: center; margin: 0 0 16px; padding: 5px 13px; background: var(--sunny-soft); border-radius: 40px; font-size: 14.4px; font-weight: 600; line-height: 24px; }
 .sunny-theme .sunny-label::before { content: ""; width: 6px; height: 6px; flex: none; border-radius: 50%; background: currentColor; opacity: .6; }
 .sunny-theme .sunny-announcement .sunny-label { margin-bottom: 12px; }
-.sunny-theme .sunny-announcement p { margin: 0; padding: 16px; line-height: 24px; text-align: center; color: var(--sunny-faint); background: var(--sunny-soft); border-radius: 12px; }
+.sunny-theme .sunny-announcement p { margin: 0; padding: 16px; line-height: 24px; text-align: center; color: var(--sunny-faint); background: var(--sunny-soft); border-radius: 12px; white-space: pre-line; overflow-wrap: anywhere; }
 .sunny-theme .sunny-post-grid { display: flex; flex-direction: column; gap: 24px; }
 .sunny-theme .sunny-post-card { padding: 32px; min-width: 0; }
 .sunny-theme .sunny-post-author { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }

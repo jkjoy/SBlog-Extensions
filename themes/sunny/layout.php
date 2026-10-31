@@ -2,6 +2,10 @@
 declare(strict_types=1);
 
 $sunnyHome = $active === 'home' && $title === $siteName && (string)($_GET['a'] ?? 'home') === 'home';
+$sunnySavedSettings = json_decode(setting('theme_settings_sunny', '{}'), true);
+$sunnyAnnouncement = is_array($sunnySavedSettings) && array_key_exists('announcement_content', $sunnySavedSettings)
+    ? trim(theme_setting('announcement_content', '', 'sunny'))
+    : trim(setting('home_intro'));
 $sunnyCategories = sunny_categories();
 $sunnyRecent = fetch_published_posts(5, 0);
 $sunnyArchives = fetch_archive_posts();
@@ -119,7 +123,7 @@ $sunnyNav = [
       <?php if ($sunnyHome): ?>
       <section class="sunny-panel sunny-announcement" aria-label="公告">
         <h2 class="sunny-label">公告</h2>
-        <p><?= h(trim(setting('home_intro')) ?: '暂时没有新的内容') ?></p>
+        <p><?= h($sunnyAnnouncement !== '' ? $sunnyAnnouncement : '暂时没有新的内容') ?></p>
       </section>
       <?php endif; ?>
       <div class="sunny-content<?= !$sunnyHome && !in_array((string)($_GET['a'] ?? ''), ['category', 'tag'], true) ? ' sunny-content--page' : '' ?>"><?= $content ?></div>
