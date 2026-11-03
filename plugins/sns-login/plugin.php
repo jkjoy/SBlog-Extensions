@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_SNS_LOGIN_VERSION = '1.0.0';
+const SBLOG_SNS_LOGIN_VERSION = '1.0.1';
 const SBLOG_SNS_STATE_TTL = 600;
 const SBLOG_SNS_MAX_PENDING = 8;
 

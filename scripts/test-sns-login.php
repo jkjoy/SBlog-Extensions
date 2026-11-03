@@ -203,6 +203,80 @@ try {
         sns_test_reject(static fn() => sns_callback_url('github'), 'Unsafe or mismatched callback origin was accepted: ' . $invalidOrigin);
     }
     $GLOBALS['sns_test_settings']['site_url'] = 'https://blog.example.test/blog';
+    $_SERVER['HTTP_HOST'] = 'blog.example.test';
+    $_SERVER['HTTPS'] = 'on';
+
+    $canonicalLogin = 'https://blog.example.test/blog/index.php?a=login';
+    $canonicalSettings = 'https://blog.example.test/blog/index.php?a=admin_sns_login';
+    foreach (['blog.example.test', 'BLOG.EXAMPLE.TEST', 'blog.example.test:443'] as $canonicalHost) {
+        $_SERVER['HTTP_HOST'] = $canonicalHost;
+        sns_test_same(null, sns_entry_redirect('login'), 'A canonical OAuth entry host was redirected: ' . $canonicalHost);
+    }
+    $_SERVER['HTTPS'] = 'off';
+    sns_test_same(null, sns_entry_redirect('login'), 'A TLS-terminating proxy caused an OAuth entry redirect loop.');
+    $_SERVER['HTTPS'] = 'on';
+
+    $entryPending = sns_pending_create('fixture', 'login', $snsConfig['fixture']);
+    $entrySession = $_SESSION;
+    $GLOBALS['sns_test_adapter_calls'] = [];
+    $_SERVER['REQUEST_URI'] = '/blog/index.php?a=login&return_url=https://attacker.example/steal';
+    foreach (['www.blog.example.test', 'attacker.example', 'blog.example.test:8443', 'blog.example.test@attacker.example'] as $aliasHost) {
+        $_SERVER['HTTP_HOST'] = $aliasHost;
+        foreach (['GET', 'HEAD'] as $entryMethod) {
+            $_SERVER['REQUEST_METHOD'] = $entryMethod;
+            foreach (['login' => $canonicalLogin, 'admin_sns_login' => $canonicalSettings] as $entryAction => $entryTarget) {
+                $entryResponse = sns_test_response(static fn() => sns_handle_request(['action' => $entryAction]));
+                sns_test_same($entryTarget, $entryResponse->target, 'An alias OAuth entry did not use the fixed configured site address.');
+                sns_test_same(303, $entryResponse->status, 'An alias OAuth entry did not redirect to a fresh GET.');
+            }
+        }
+    }
+    $_SERVER['REQUEST_METHOD'] = 'POST';
+    foreach (['login' => $canonicalLogin, 'bind' => $canonicalSettings] as $entryPurpose => $entryTarget) {
+        $_POST = [
+            'provider' => 'fixture', 'purpose' => $entryPurpose,
+            'password' => 'entry-password-must-stay-private', 'csrf_token' => 'entry-csrf-must-stay-private',
+            'return_url' => 'https://attacker.example/steal',
+        ];
+        $entryResponse = sns_test_response(static fn() => sns_handle_request(['action' => 'sns_login_start']));
+        sns_test_same($entryTarget, $entryResponse->target, 'A stale alias authorization form did not return to the correct canonical entry page.');
+        sns_test_same(303, $entryResponse->status, 'A stale alias form forwarded its POST instead of requesting a fresh GET.');
+        sns_test_assert(!str_contains($entryResponse->target, 'entry-password') && !str_contains($entryResponse->target, 'entry-csrf')
+            && !str_contains($entryResponse->target, 'return_url'), 'An alias authorization handoff exposed submitted credentials or visitor redirects.');
+    }
+    sns_test_same($entrySession, $_SESSION, 'An alias handoff created or consumed an authorization state.');
+    sns_test_same([], $GLOBALS['sns_test_adapter_calls'], 'An alias handoff contacted a provider adapter.');
+    sns_test_same('login', sns_pending_take('fixture', $entryPending['state'])['purpose'], 'An alias handoff invalidated an existing authorization state.');
+    unset($_SESSION['sns_login_pending'], $_SERVER['REQUEST_URI']);
+
+    foreach (['GET' => 'sns_login_start', 'POST' => 'login', 'HEAD' => 'sns_login_callback'] as $entryMethod => $entryAction) {
+        $_SERVER['REQUEST_METHOD'] = $entryMethod;
+        sns_test_same(null, sns_entry_redirect($entryAction), 'Origin alignment intercepted an unrelated route or method.');
+    }
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+    sns_test_same(null, sns_entry_redirect('sns_login_callback'), 'Origin alignment intercepted an OAuth callback.');
+    sns_test_same(null, sns_entry_redirect('home'), 'Origin alignment redirected a public page.');
+
+    $inactiveConfig = $snsConfig;
+    $inactiveConfig['fixture']['enabled'] = false;
+    sns_save_config($inactiveConfig);
+    sns_test_same(null, sns_entry_redirect('login'), 'Disabled OAuth providers redirected the core password login page.');
+    foreach (['client_id', 'client_secret'] as $missingCredential) {
+        $incompleteConfig = $snsConfig;
+        $incompleteConfig['fixture'][$missingCredential] = '';
+        q('UPDATE sblog_sns_settings SET value = ? WHERE name = ?', [json_encode($incompleteConfig), 'config']);
+        sns_test_same(null, sns_entry_redirect('login'), 'An unconfigured OAuth provider redirected the core password login page.');
+    }
+    sns_save_config($snsConfig);
+    foreach (['http://blog.example.test/blog', 'https://blog.example.test/wrong'] as $invalidEntrySite) {
+        $GLOBALS['sns_test_settings']['site_url'] = $invalidEntrySite;
+        sns_test_same(null, sns_entry_redirect('login'), 'Invalid OAuth site settings blocked the core password login page.');
+    }
+    $GLOBALS['sns_test_settings']['site_url'] = 'https://blog.example.test/blog';
+    $_SERVER['HTTP_HOST'] = 'blog.example.test';
+    $_SERVER['HTTPS'] = 'on';
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+    $_POST = [];
 
     foreach ([
         ['enabled', '1'], ['client_id', ['array']], ['client_secret', ['array']],

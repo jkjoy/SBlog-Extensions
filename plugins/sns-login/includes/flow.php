@@ -31,6 +31,40 @@ function sns_check_rate(): void
     }
 }
 
+function sns_entry_redirect(string $action): ?string
+{
+    $method = (string)($_SERVER['REQUEST_METHOD'] ?? '');
+    $entryPage = in_array($action, ['login', 'admin_sns_login'], true) && in_array($method, ['GET', 'HEAD'], true);
+    $start = $action === 'sns_login_start' && $method === 'POST';
+    if (!$entryPage && !$start) {
+        return null;
+    }
+    try {
+        $callback = sns_callback_url('github');
+    } catch (SnsLoginException) {
+        // An unconfigured provider must not prevent local password login.
+        return null;
+    }
+    $parts = parse_url($callback);
+    $host = strtolower((string)$parts['host']);
+    if (isset($parts['port']) && $parts['port'] !== 443) {
+        $host .= ':' . $parts['port'];
+    }
+    $requestHost = preg_replace('/:443$/D', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? '')));
+    if ($requestHost === $host) {
+        return null;
+    }
+    foreach (sns_config() as $config) {
+        if (!$config['enabled'] || $config['client_id'] === '' || $config['client_secret'] === '') {
+            continue;
+        }
+        $destination = $start ? (($_POST['purpose'] ?? '') === 'bind' ? 'admin_sns_login' : 'login') : $action;
+        // Start a fresh form on the callback host; never forward passwords or CSRF tokens between hosts.
+        return explode('?', $callback, 2)[0] . '?' . http_build_query(['a' => $destination], '', '&', PHP_QUERY_RFC3986);
+    }
+    return null;
+}
+
 function sns_start(): string
 {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -132,6 +166,12 @@ function sns_complete(): array
 function sns_handle_request(array $context): void
 {
     $action = (string)($context['action'] ?? '');
+    $entryRedirect = sns_entry_redirect($action);
+    if ($entryRedirect !== null) {
+        sns_no_store();
+        redirect_to($entryRedirect, 303);
+        return;
+    }
     if ($action === 'login') {
         sns_no_store();
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && current_admin() === null) {

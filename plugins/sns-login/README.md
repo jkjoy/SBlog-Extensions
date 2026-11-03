@@ -23,6 +23,8 @@ https://blog.example.com/index.php?a=sns_login_callback&provider=qq
 
 第三方授权需要浏览器允许站点 Session Cookie，服务器能通过 HTTPS 访问对应服务商。插件使用 PHP cURL；没有 cURL 时可使用启用 `allow_url_fopen` 的 HTTPS streams，不依赖 Composer。站点地址必须与用户实际访问的域名、协议和部署目录一致。
 
+启用服务后，登录页和绑定设置页会先统一到站点设置中的域名，再发起授权，避免 `www` 与非 `www` 域名的 Session 不共享而提示“授权请求无效或已过期”。旧页面在其他域名提交时会返回正确域名的表单，需要重新点击登录或输入绑定密码。
+
 ## 各平台应用配置
 
 | 平台 | 创建应用 | 配置要点 |
