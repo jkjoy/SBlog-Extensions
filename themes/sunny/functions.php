@@ -56,6 +56,23 @@ function sunny_url(string $action, array $params = []): string
     return sunny_preview_url(url_for($action, $params));
 }
 
+function sunny_author_name(int $authorId = 0): string
+{
+    static $names = [];
+    $authorId = max(0, $authorId);
+    if (isset($names[$authorId])) {
+        return $names[$authorId];
+    }
+    $author = $authorId > 0
+        ? one('SELECT nickname, username FROM users WHERE id = ?', [$authorId])
+        : one('SELECT nickname, username FROM users ORDER BY id ASC LIMIT 1');
+    $name = trim((string)($author['nickname'] ?? ''));
+    if ($name === '') {
+        $name = trim((string)($author['username'] ?? ''));
+    }
+    return $names[$authorId] = $name !== '' ? $name : ($authorId > 0 ? sunny_author_name() : setting('site_name'));
+}
+
 function sunny_home_posts(): array
 {
     static $posts;
@@ -232,6 +249,7 @@ function sunny_render_card(array $post, array $counts = [], array $comments = []
 {
     $images = sunny_post_images($post);
     $post = public_content_context($post);
+    $authorName = sunny_author_name((int)($post['author_id'] ?? 0));
     $url = sunny_preview_url(content_permalink($post));
     $title = (string)($post['title'] ?? '');
     $excerpt = trim(strip_tags((string)($post['excerpt'] ?? '')));
@@ -248,8 +266,8 @@ function sunny_render_card(array $post, array $counts = [], array $comments = []
     ?>
     <article class="sunny-post-card<?= $images !== [] ? ' sunny-post-card--image' : '' ?>" itemscope itemtype="https://schema.org/BlogPosting">
       <header class="sunny-post-author">
-        <a class="sunny-post-avatar" href="<?= h(sunny_url('home')) ?>" aria-label="<?= h(setting('author_name', setting('site_name'))) ?>"><img src="<?= h(theme_logo_url()) ?>" alt="" loading="lazy" decoding="async"></a>
-        <div class="sunny-post-author-info"><a class="sunny-post-author-name" href="<?= h(sunny_url('home')) ?>"><?= h(setting('author_name', setting('site_name'))) ?></a><div class="sunny-post-date"><time datetime="<?= h(date(DATE_ATOM, $date)) ?>" title="<?= h(public_date($date)) ?>"><?= h(friendly_public_date($date)) ?></time><?php if ($category): ?><span aria-hidden="true"> · </span><a href="<?= h(sunny_url('category', ['slug' => (string)$category['slug']])) ?>"><?= h((string)$category['name']) ?></a><?php endif; ?></div></div>
+        <a class="sunny-post-avatar" href="<?= h(sunny_url('home')) ?>" aria-label="<?= h($authorName) ?>"><img src="<?= h(theme_logo_url()) ?>" alt="" loading="lazy" decoding="async"></a>
+        <div class="sunny-post-author-info"><a class="sunny-post-author-name" href="<?= h(sunny_url('home')) ?>"><?= h($authorName) ?></a><div class="sunny-post-date"><time datetime="<?= h(date(DATE_ATOM, $date)) ?>" title="<?= h(public_date($date)) ?>"><?= h(friendly_public_date($date)) ?></time><?php if ($category): ?><span aria-hidden="true"> · </span><a href="<?= h(sunny_url('category', ['slug' => (string)$category['slug']])) ?>"><?= h((string)$category['name']) ?></a><?php endif; ?></div></div>
         <?php if (!empty($post['is_pinned'])): ?><span class="sunny-pinned" title="置顶文章"><?= sunny_icon('pin', 15) ?><span>置顶</span></span><?php endif; ?>
       </header>
       <div class="sunny-post-body">

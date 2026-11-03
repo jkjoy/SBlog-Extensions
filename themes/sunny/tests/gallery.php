@@ -68,7 +68,20 @@ function gallery_post(string $content, array $extra = []): array
 function add_theme_filter(string $name, callable $callback, int $priority = 10): void {}
 function add_theme_action(string $name, callable $callback, int $priority = 10): void {}
 function is_admin(): bool { return (bool)($GLOBALS['gallery_admin'] ?? false); }
-function setting(string $name, string $default = ''): string { return $default; }
+function setting(string $name, string $default = ''): string { return (string)($GLOBALS['gallery_settings'][$name] ?? $default); }
+function one(string $sql, array $parameters = []): ?array
+{
+    $sql = trim((string)preg_replace('/\s+/', ' ', $sql));
+    if (preg_match('/^SELECT nickname,\s*username FROM users WHERE id = \?$/i', $sql) && count($parameters) === 1) {
+        $id = (int)$parameters[0];
+    } elseif (preg_match('/^SELECT nickname,\s*username FROM users ORDER BY id ASC LIMIT 1$/i', $sql) && $parameters === []) {
+        $id = 0;
+    } else {
+        throw new RuntimeException('Author fixtures accept only public nickname/username queries.');
+    }
+    $GLOBALS['gallery_author_queries'][$id] = (int)($GLOBALS['gallery_author_queries'][$id] ?? 0) + 1;
+    return $GLOBALS['gallery_users'][$id === 0 ? 1 : $id] ?? null;
+}
 function all_rows(string $sql, array $parameters = []): array { return []; }
 function tag_descriptors(array $post): array { return []; }
 function content_permalink(array $post): string { return '/blog/archive/fixture'; }
@@ -86,6 +99,14 @@ try {
     $_SERVER['SCRIPT_NAME'] = '/blog/index.php';
     $_GET = [];
     $_SESSION = [];
+    $GLOBALS['gallery_settings'] = ['site_name' => 'Fixture site title'];
+    $GLOBALS['gallery_users'] = [
+        1 => ['nickname' => 'Owner nickname', 'username' => 'owner-login'],
+        2 => ['nickname' => '  Writer <script>alert("author")</script> & "name"  ', 'username' => 'second-login'],
+        3 => ['nickname' => " \t\n", 'username' => 'writer-login'],
+        4 => ['nickname' => '', 'username' => ''],
+    ];
+    $GLOBALS['gallery_author_queries'] = [];
     gallery_load_core($corePath);
     require dirname(__DIR__) . '/functions.php';
 
@@ -202,7 +223,23 @@ MARKDOWN;
     gallery_same(3, $manyXpath->query('//*[@data-sunny-gallery]//a[@hidden and not(img)]')->length, 'All three overflow originals remain available to the viewer.');
     gallery_same('+3', trim($manyXpath->query('//*[@data-sunny-gallery]//a[9]/span')->item(0)?->textContent ?? ''), 'The ninth image shows the remaining photo count.');
 
-    echo 'Sunny gallery extraction, public visibility and markup: ' . $GLOBALS['gallery_assertions'] . " assertions passed.\n";
+    gallery_same('Owner nickname', sunny_author_name(), 'The sidebar owner uses the profile nickname instead of the site title.');
+    $writerName = 'Writer <script>alert("author")</script> & "name"';
+    gallery_same($writerName, sunny_author_name(2), 'A different article author uses their own trimmed nickname.');
+    gallery_same('writer-login', sunny_author_name(3), 'An empty nickname falls back to that author\'s username.');
+    gallery_same('Owner nickname', sunny_author_name(99), 'A deleted or unknown author falls back to the site owner.');
+    gallery_same('Owner nickname', sunny_author_name(4), 'An author without either public name falls back to the site owner.');
+    gallery_same($writerName, sunny_author_name(2), 'Repeated author lookups preserve the same display name.');
+    $authorHtml = sunny_render_card(gallery_post('Author card fixture.', ['author_id' => 2]));
+    $authorXpath = gallery_xpath($authorHtml);
+    gallery_same($writerName, $authorXpath->query('//a[@class="sunny-post-author-name"]')->item(0)?->textContent, 'Cards display the article author profile instead of the owner or site title.');
+    gallery_same($writerName, $authorXpath->query('//a[@class="sunny-post-avatar"]')->item(0)?->getAttribute('aria-label'), 'The avatar accessible label uses the same author name.');
+    gallery_same(0, $authorXpath->query('//script')->length, 'Author nicknames cannot inject script markup into cards.');
+    gallery_assert(str_contains($authorHtml, '&lt;script&gt;alert(&quot;author&quot;)&lt;/script&gt;'), 'Author names are escaped in generated card markup.');
+    gallery_same(1, $GLOBALS['gallery_author_queries'][2] ?? 0, 'Repeated lookups and card rendering query each author only once per request.');
+    gallery_same(1, $GLOBALS['gallery_author_queries'][0] ?? 0, 'Owner fallbacks reuse one cached public profile query.');
+
+    echo 'Sunny gallery extraction, public visibility, authors and markup: ' . $GLOBALS['gallery_assertions'] . " assertions passed.\n";
 } catch (Throwable $exception) {
     fwrite(STDERR, 'Sunny gallery test failed: ' . $exception->getMessage() . "\n");
     exit(1);
