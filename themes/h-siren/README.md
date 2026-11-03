@@ -22,6 +22,10 @@
 
 WordPress 专用的 Options Framework、后台修改、PJAX、说说数据、旧版第三方评论、Live2D 与统计服务没有直接搬入；这类功能可通过适合 SBlog 的插件扩展。
 
+## 更新记录
+
+- 1.0.2：预留竖向滚动条空间，修复长短页面切换及搜索、图片预览弹层开关时的横向偏移。
+
 ## 来源
 
 `assets/images/cover-1.jpg` 至 `cover-5.jpg` 分别来自原仓库的 `images/custom/default/pic_10.jpg` 至 `pic_14.jpg`；头像、页脚图标、网格与社交图标也来自该仓库。`style.css` 与 `assets/theme.js` 针对 SBlog 重新适配，不依赖 WordPress 或原版的 CDN 脚本。原始仓库的说明保留在 `UPSTREAM-README.md`。

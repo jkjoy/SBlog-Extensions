@@ -1,7 +1,7 @@
 @charset "UTF-8";
 /* H-Siren for SBlog. Layout adapted from galnetwen/H-Siren 4.3.8.190419. */
 :root { color-scheme: light; }
-html { scroll-padding-top: 95px; background: #fff; }
+html { scroll-padding-top: 95px; scrollbar-gutter: stable; background: #fff; }
 body.h-siren {
   --siren-accent: #fe9600; --page: #fff; --ink: #504e4e; --muted: #888;
   --faint: #aaa; --line: #eee; --soft: #f8f8f8; --inverse: #fff;
