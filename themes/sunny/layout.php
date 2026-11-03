@@ -220,7 +220,12 @@ $sunnyNav = [
   <p class="sunny-search-status" role="status" aria-live="polite">输入标题或摘要关键词</p><div class="sunny-search-results"></div>
   <div class="sunny-search-tags"><?php foreach (array_slice(tag_index_data(), 0, 12) as $sunnyTag): ?><a href="<?= h(sunny_url('tag', ['slug' => (string)$sunnyTag['slug']])) ?>">#<?= h($sunnyTag['label']) ?></a><?php endforeach; ?></div>
 </dialog>
-<dialog class="sunny-lightbox" aria-label="图片预览"><button class="sunny-icon-button" type="button" data-sunny-lightbox-close aria-label="关闭图片" title="关闭图片"><?= sunny_icon('x', 24) ?></button><img alt=""></dialog>
+<dialog class="sunny-lightbox" aria-label="图片预览">
+  <button class="sunny-icon-button" type="button" data-sunny-lightbox-close aria-label="关闭图片" title="关闭图片"><?= sunny_icon('x', 24) ?></button>
+  <button class="sunny-icon-button" type="button" data-sunny-lightbox-prev aria-label="上一张图片" title="上一张图片" hidden><?= sunny_icon('arrow-right', 24) ?></button>
+  <figure class="sunny-lightbox-figure"><img alt="" draggable="false"><figcaption class="sunny-lightbox-counter" aria-live="polite" aria-atomic="true"></figcaption><p class="sunny-lightbox-status" role="status" hidden>图片加载失败，<a data-sunny-lightbox-original target="_blank" rel="noopener noreferrer">打开原图</a></p></figure>
+  <button class="sunny-icon-button" type="button" data-sunny-lightbox-next aria-label="下一张图片" title="下一张图片" hidden><?= sunny_icon('arrow-right', 24) ?></button>
+</dialog>
 <script type="application/json" id="sunny-search-data"><?= json_encode(sunny_search_items(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
 <script src="<?= h(asset_url('assets/index.js')) ?>?v=<?= h(APP_VERSION) ?>" defer></script>
 <script src="<?= h(theme_asset_url('script.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/script.js')) ?>" defer></script>

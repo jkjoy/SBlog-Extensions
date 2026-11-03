@@ -112,6 +112,32 @@ html[data-sunny-theme="dark"] .sunny-theme .sunny-sun { display: inline-flex; }
 .sunny-theme .sunny-post-cover img { display: block; max-height: 400px; width: auto; object-fit: cover; transition: transform .3s; }
 .sunny-theme .sunny-post-cover:hover img { transform: scale(1.025); }
 .sunny-theme .sunny-post-cover--empty { display: none; }
+.sunny-theme .sunny-post-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); grid-template-areas: "one two three" "four five six" "seven eight nine"; gap: 8px; width: min(100%, 400px); aspect-ratio: 1; margin: 0 0 16px; }
+.sunny-theme .sunny-post-gallery-item { display: block; position: relative; min-width: 0; min-height: 0; overflow: hidden; border-radius: 8px; background: var(--sunny-soft); cursor: zoom-in; }
+.sunny-theme .sunny-post-gallery-item img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .25s ease; }
+.sunny-theme .sunny-post-gallery-item:hover img { transform: scale(1.025); }
+.sunny-theme .sunny-post-gallery-item:nth-child(1 of :not([hidden])) { grid-area: one; }
+.sunny-theme .sunny-post-gallery-item:nth-child(2 of :not([hidden])) { grid-area: two; }
+.sunny-theme .sunny-post-gallery-item:nth-child(3 of :not([hidden])) { grid-area: three; }
+.sunny-theme .sunny-post-gallery-item:nth-child(4 of :not([hidden])) { grid-area: four; }
+.sunny-theme .sunny-post-gallery-item:nth-child(5 of :not([hidden])) { grid-area: five; }
+.sunny-theme .sunny-post-gallery-item:nth-child(6 of :not([hidden])) { grid-area: six; }
+.sunny-theme .sunny-post-gallery-item:nth-child(7 of :not([hidden])) { grid-area: seven; }
+.sunny-theme .sunny-post-gallery-item:nth-child(8 of :not([hidden])) { grid-area: eight; }
+.sunny-theme .sunny-post-gallery-item:nth-child(9 of :not([hidden])) { grid-area: nine; }
+.sunny-theme .sunny-post-gallery[data-count="1"] { width: fit-content; max-width: min(100%, 400px); aspect-ratio: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "one"; }
+.sunny-theme .sunny-post-gallery[data-count="1"] img { position: static; width: auto; height: auto; max-height: 480px; object-fit: contain; }
+.sunny-theme .sunny-post-gallery[data-count="2"] { aspect-ratio: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; grid-template-areas: "one two"; }
+.sunny-theme .sunny-post-gallery[data-count="2"] .sunny-post-gallery-item { aspect-ratio: 1; }
+.sunny-theme .sunny-post-gallery[data-count="3"] { aspect-ratio: 1.5151515; grid-template-rows: repeat(2, minmax(0, 1fr)); grid-template-areas: "one one two" "one one three"; }
+.sunny-theme .sunny-post-gallery[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); grid-template-areas: "one two" "three four"; }
+.sunny-theme .sunny-post-gallery[data-count="5"] { aspect-ratio: auto; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: auto auto auto; grid-template-areas: "one one one one two two" "one one one one three three" "four four four five five five"; }
+.sunny-theme .sunny-post-gallery[data-count="5"] .sunny-post-gallery-item { aspect-ratio: 1; }
+.sunny-theme .sunny-post-gallery[data-count="5"] .sunny-post-gallery-item:nth-child(n+4 of :not([hidden])) { aspect-ratio: 1.5; }
+.sunny-theme .sunny-post-gallery[data-count="6"] { grid-template-areas: "one one two" "one one three" "four five six"; }
+.sunny-theme .sunny-post-gallery[data-count="7"] { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); grid-template-areas: "one one two two" "one one two two" "three three four five" "three three six seven"; }
+.sunny-theme .sunny-post-gallery[data-count="8"] { grid-template-areas: "one two three" "four five six" "seven eight eight"; }
+.sunny-theme .sunny-post-gallery-more { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 55%); color: #fff; font-size: 28px; font-weight: 600; pointer-events: none; }
 .sunny-theme .sunny-post-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .sunny-theme .sunny-post-tags a { color: var(--sunny-muted); font-size: 12px; line-height: 22px; padding: 1px 8px; background: var(--sunny-soft); border-radius: 6px; }
 .sunny-theme .sunny-post-meta { margin: 24px 0 0 64px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--sunny-text); font-size: 13.6px; line-height: normal; }
@@ -392,10 +418,20 @@ html[data-sunny-theme="dark"] .sunny-theme .sunny-sun { display: inline-flex; }
 .sunny-theme.sunny-dialog-open { overflow: hidden; }
 .sunny-theme .sunny-search-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .sunny-theme .sunny-search-tags a { font-size: 12px; color: var(--sunny-muted); background: var(--sunny-soft); padding: 4px 10px; border-radius: 6px; }
-.sunny-theme .sunny-lightbox { border: 0; background: transparent; box-shadow: none; max-width: 96vw; max-height: 96dvh; overflow: visible; }
+.sunny-theme .sunny-lightbox { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 64px 56px; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: hidden; }
+.sunny-theme .sunny-lightbox[open] { display: flex; align-items: center; justify-content: center; }
 .sunny-theme .sunny-lightbox::backdrop { background: rgb(0 0 0 / 80%); }
-.sunny-theme .sunny-lightbox img { display: block; max-height: 88dvh; max-width: 92vw; width: auto; height: auto; object-fit: contain; border-radius: 8px; }
-.sunny-theme .sunny-lightbox button { position: fixed; right: 20px; top: 15px; color: white; width: 44px; height: 44px; background: rgb(0 0 0 / 20%); }
+.sunny-theme .sunny-lightbox-figure { display: grid; place-items: center; margin: 0; max-width: 100%; }
+.sunny-theme .sunny-lightbox img { display: block; max-height: calc(100dvh - 128px); max-width: 100%; width: auto; height: auto; object-fit: contain; border-radius: 8px; touch-action: pan-y; user-select: none; }
+.sunny-theme .sunny-lightbox .sunny-icon-button { position: fixed; color: #fff; width: 44px; height: 44px; background: rgb(0 0 0 / 25%); }
+.sunny-theme .sunny-lightbox .sunny-icon-button:hover { color: #fff; background: rgb(255 255 255 / 18%); }
+.sunny-theme [data-sunny-lightbox-close] { right: max(16px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); }
+.sunny-theme [data-sunny-lightbox-prev] { left: max(8px, env(safe-area-inset-left)); top: calc(50% - 22px); }
+.sunny-theme [data-sunny-lightbox-prev] svg { transform: rotate(180deg); }
+.sunny-theme [data-sunny-lightbox-next] { right: max(8px, env(safe-area-inset-right)); top: calc(50% - 22px); }
+.sunny-theme .sunny-lightbox-counter { position: fixed; bottom: max(22px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); color: #fff; font-size: 14px; line-height: 24px; white-space: nowrap; }
+.sunny-theme .sunny-lightbox-status { margin: 0; color: #fff; text-align: center; font-size: 14px; }
+.sunny-theme .sunny-lightbox-status a { text-decoration: underline; text-underline-offset: 4px; }
 
 @media (max-width: 1260px) {
   .sunny-theme .sunny-shell { margin-left: 24px; margin-right: 24px; }
@@ -505,6 +541,9 @@ html[data-sunny-theme="dark"] .sunny-theme .sunny-sun { display: inline-flex; }
   .sunny-theme .sunny-mobile-dock .sunny-dock-home { padding: 0; }
   .sunny-theme .sunny-dock-home img { height: 44px; width: 44px; object-fit: cover; border-radius: 50%; border: 2px solid var(--sunny-paper); box-shadow: 0 4px 12px #a48fff30; }
   .sunny-theme .sunny-search-dialog { padding: 20px; max-height: calc(100dvh - 40px); }
+  .sunny-theme .sunny-lightbox { padding: 64px 14px 80px; }
+  .sunny-theme .sunny-lightbox img { max-height: calc(100dvh - 144px); }
+  .sunny-theme [data-sunny-lightbox-prev], .sunny-theme [data-sunny-lightbox-next] { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
   .sunny-theme .sunny-search-form kbd { display: none; }
   .sunny-theme .sunny-pagination { gap: 7px; }
   .sunny-theme .sunny-pagination > * { min-width: 36px; height: 38px; }

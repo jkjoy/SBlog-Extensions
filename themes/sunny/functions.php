@@ -79,7 +79,7 @@ function sunny_categories(): array
 function sunny_image_url(string $url): string
 {
     $url = html_entity_decode(trim($url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    if ($url === '' || preg_match('/[\x00-\x20\x7f]/', $url)) {
+    if ($url === '' || str_starts_with($url, '#') || preg_match('/[\x00-\x20\x7f\\\\]/', $url)) {
         return '';
     }
     if (str_starts_with($url, '//')) {
@@ -94,32 +94,66 @@ function sunny_image_url(string $url): string
     return $url !== '#' && !str_starts_with($url, '#') ? $url : '';
 }
 
-function sunny_post_cover(array $post): string
+function sunny_post_images(array $post): array
 {
+    if (content_requires_password($post)) {
+        return [];
+    }
     $post = public_content_context($post);
+    $images = [];
     foreach (['cover_url', 'cover', 'thumbnail', 'image'] as $key) {
         $image = sunny_image_url((string)($post[$key] ?? ''));
         if ($image !== '') {
-            return $image;
+            $images[$image] = true;
+            break;
         }
     }
-    $content = preg_replace('/```.*?```/s', '', (string)($post['content'] ?? '')) ?? '';
-    $patterns = [
-        '/!\[[^\]]*\]\(\s*<?([^\s)>]+)>?(?:\s+["\'][^"\']*["\'])?\s*\)/u',
-        '/<img\b[^>]*\bsrc\s*=\s*["\']([^"\']+)["\']/i',
-        '#(https?://[^\s<>"\']+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s<>"\']*)?)#i',
-    ];
-    foreach ($patterns as $pattern) {
-        if (preg_match_all($pattern, $content, $matches)) {
-            foreach ($matches[1] as $candidate) {
-                $image = sunny_image_url((string)$candidate);
-                if ($image !== '') {
-                    return $image;
+    $content = preg_replace(
+        '~```.*?(?:```|\z)|\~\~\~.*?(?:\~\~\~|\z)|`[^`\r\n]*`|<!--.*?(?:-->|\z)|<(pre|code|script|style)\b[^>]*>.*?</\1\s*>~is',
+        '',
+        (string)($post['content'] ?? '')
+    ) ?? '';
+    $pattern = '~!\[[^\]]*\]\(\s*(?:<(?<angled>[^<>\r\n]+)>|(?<markdown>(?:[^\s()<>]|\([^\s()]*\))+))(?:\s+["\'][^"\']*["\'])?\s*\)'
+        . '|<img\b[^>]*?\s+src\s*=\s*(?:"(?<double>[^"]+)"|\'(?<single>[^\']+)\'|(?<unquoted>[^\s>]+))[^>]*>'
+        . '|(?<bare>https?://[^\s<>"\']+)~iu';
+    if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL)) {
+        foreach ($matches as $match) {
+            $candidate = $match['angled'] ?? $match['markdown'] ?? $match['double'] ?? $match['single'] ?? $match['unquoted'] ?? $match['bare'] ?? '';
+            if ($match['bare'] !== null) {
+                [$candidate] = split_bare_url_suffix($candidate);
+                if (!preg_match('/\.(?:jpe?g|png|webp|gif|avif)$/i', (string)parse_url($candidate, PHP_URL_PATH))) {
+                    continue;
                 }
+            }
+            $image = sunny_image_url($candidate);
+            if ($image !== '') {
+                $images[$image] = true;
             }
         }
     }
-    return '';
+    return array_keys($images);
+}
+
+function sunny_post_cover(array $post): string
+{
+    return sunny_post_images($post)[0] ?? '';
+}
+
+function sunny_render_post_gallery(array $images, string $title): string
+{
+    $total = count($images);
+    if ($total === 0) {
+        return '';
+    }
+    ob_start();
+    ?>
+    <div class="sunny-post-gallery" data-sunny-gallery data-count="<?= min(9, $total) ?>" aria-label="文章图片">
+      <?php foreach ($images as $index => $image): ?>
+      <a class="sunny-post-gallery-item" href="<?= h($image) ?>" data-sunny-gallery-image aria-label="查看第 <?= $index + 1 ?> 张图片，共 <?= $total ?> 张"<?= $index >= 9 ? ' hidden' : '' ?>><?php if ($index < 9): ?><img src="<?= h($image) ?>" alt="<?= h($title . ' · 图片 ' . ($index + 1)) ?>" loading="lazy" decoding="async"><?php endif; ?><?php if ($index === 8 && $total > 9): ?><span class="sunny-post-gallery-more" aria-hidden="true">+<?= $total - 9 ?></span><?php endif; ?></a>
+      <?php endforeach; ?>
+    </div>
+    <?php
+    return (string)ob_get_clean();
 }
 
 function sunny_post_counts(array $posts): array
@@ -196,9 +230,9 @@ function sunny_render_card_comments(array $post, array $comments, int $total): s
 
 function sunny_render_card(array $post, array $counts = [], array $comments = []): string
 {
+    $images = sunny_post_images($post);
     $post = public_content_context($post);
     $url = sunny_preview_url(content_permalink($post));
-    $cover = sunny_post_cover($post);
     $title = (string)($post['title'] ?? '');
     $excerpt = trim(strip_tags((string)($post['excerpt'] ?? '')));
     $date = (int)($post['published_at'] ?? 0);
@@ -212,7 +246,7 @@ function sunny_render_card(array $post, array $counts = [], array $comments = []
     $tags = array_slice(tag_descriptors($post), 0, 3);
     ob_start();
     ?>
-    <article class="sunny-post-card<?= $cover !== '' ? ' sunny-post-card--image' : '' ?>" itemscope itemtype="https://schema.org/BlogPosting">
+    <article class="sunny-post-card<?= $images !== [] ? ' sunny-post-card--image' : '' ?>" itemscope itemtype="https://schema.org/BlogPosting">
       <header class="sunny-post-author">
         <a class="sunny-post-avatar" href="<?= h(sunny_url('home')) ?>" aria-label="<?= h(setting('author_name', setting('site_name'))) ?>"><img src="<?= h(theme_logo_url()) ?>" alt="" loading="lazy" decoding="async"></a>
         <div class="sunny-post-author-info"><a class="sunny-post-author-name" href="<?= h(sunny_url('home')) ?>"><?= h(setting('author_name', setting('site_name'))) ?></a><div class="sunny-post-date"><time datetime="<?= h(date(DATE_ATOM, $date)) ?>" title="<?= h(public_date($date)) ?>"><?= h(friendly_public_date($date)) ?></time><?php if ($category): ?><span aria-hidden="true"> · </span><a href="<?= h(sunny_url('category', ['slug' => (string)$category['slug']])) ?>"><?= h((string)$category['name']) ?></a><?php endif; ?></div></div>
@@ -221,7 +255,7 @@ function sunny_render_card(array $post, array $counts = [], array $comments = []
       <div class="sunny-post-body">
         <h2 class="sunny-post-title" itemprop="headline"><a href="<?= h($url) ?>" itemprop="url"><?= h($title) ?></a></h2>
         <?php if ($excerpt !== ''): ?><a class="sunny-post-excerpt" href="<?= h($url) ?>" itemprop="description"><?= h($excerpt) ?></a><?php endif; ?>
-        <?php if ($cover !== ''): ?><a class="sunny-post-cover" href="<?= h($url) ?>" aria-label="<?= h($title) ?>"><img src="<?= h($cover) ?>" alt="<?= h($title) ?>" loading="lazy" decoding="async" onerror="this.closest('.sunny-post-cover').classList.add('sunny-post-cover--empty');this.remove()"></a><?php endif; ?>
+        <?= sunny_render_post_gallery($images, $title) ?>
         <?php if ($tags !== []): ?><div class="sunny-post-tags"><?php foreach ($tags as $tag): ?><a href="<?= h(sunny_url('tag', ['slug' => (string)$tag['slug']])) ?>">#<?= h((string)$tag['label']) ?></a><?php endforeach; ?></div><?php endif; ?>
       </div>
       <footer class="sunny-post-meta"><a class="sunny-post-kind" href="<?= h($url) ?>"><?= sunny_icon('post-kind', 16) ?><span>文章</span></a><span title="阅读次数"><?= sunny_icon('library', 16) ?><span>阅读</span><b><?= h((string)(int)($post['views'] ?? 0)) ?></b></span><a href="<?= h($url . '#comments') ?>" title="查看评论"><?= sunny_icon('comment-square', 16) ?><span>评论</span><b><?= h((string)(int)($counts['comments'] ?? 0)) ?></b></a><?php if (sunny_likes_available()): ?><?= article_likes_button((int)$post['id'], ['count' => (int)($counts['likes'] ?? 0), 'liked' => (bool)($counts['liked'] ?? false)]) ?><?php endif; ?></footer>

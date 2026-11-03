@@ -285,27 +285,128 @@
 
   const lightbox = document.querySelector('.sunny-lightbox');
   const lightboxImage = lightbox?.querySelector('img');
-  const showImage = (image) => {
-    if (!lightboxImage) return;
-    const url = safeUrl(image.currentSrc || image.src, false);
-    if (!url) return;
-    lightboxImage.src = url.href;
-    lightboxImage.alt = image.alt || '文章图片';
-    openDialog(lightbox);
+  const lightboxCounter = lightbox?.querySelector('.sunny-lightbox-counter');
+  const lightboxStatus = lightbox?.querySelector('.sunny-lightbox-status');
+  const lightboxOriginal = lightbox?.querySelector('[data-sunny-lightbox-original]');
+  const lightboxPrevious = lightbox?.querySelector('[data-sunny-lightbox-prev]');
+  const lightboxNext = lightbox?.querySelector('[data-sunny-lightbox-next]');
+  const canPreview = lightboxImage && typeof lightbox?.showModal === 'function';
+  let lightboxItems = [];
+  let lightboxIndex = 0;
+  const renderLightbox = () => {
+    const item = lightboxItems[lightboxIndex];
+    if (!item || !lightboxImage) return;
+    lightboxImage.hidden = false;
+    if (lightboxStatus) lightboxStatus.hidden = true;
+    lightboxImage.alt = item.alt || '文章图片';
+    lightboxImage.src = item.url;
+    if (lightboxOriginal) lightboxOriginal.href = item.url;
+    if (lightboxCounter) lightboxCounter.textContent = `${lightboxIndex + 1} / ${lightboxItems.length}`;
+    [lightboxPrevious, lightboxNext].forEach((button) => { if (button) button.hidden = lightboxItems.length < 2; });
   };
+  const showImages = (items, index, trigger) => {
+    if (!canPreview || !items.length) return;
+    lightboxItems = items;
+    lightboxIndex = Math.max(0, index);
+    renderLightbox();
+    openDialog(lightbox);
+    modalState.set(lightbox, trigger);
+  };
+  const moveImage = (direction) => {
+    if (!lightbox?.open || lightboxItems.length < 2) return;
+    lightboxIndex = (lightboxIndex + direction + lightboxItems.length) % lightboxItems.length;
+    renderLightbox();
+  };
+
+  document.querySelectorAll('[data-sunny-gallery]').forEach((gallery) => {
+    const links = [...gallery.querySelectorAll('[data-sunny-gallery-image]')];
+    const refreshGallery = () => {
+      const available = links.filter((link) => !link.dataset.sunnyImageFailed);
+      const visible = available.filter((link) => !link.hidden);
+      gallery.hidden = !visible.length;
+      gallery.dataset.count = String(visible.length);
+      gallery.querySelectorAll('.sunny-post-gallery-more').forEach((badge) => badge.remove());
+      available.forEach((link, index) => link.setAttribute('aria-label', `查看第 ${index + 1} 张图片，共 ${available.length} 张`));
+      if (available.length > visible.length && visible.length) {
+        const badge = document.createElement('span');
+        badge.className = 'sunny-post-gallery-more';
+        badge.setAttribute('aria-hidden', 'true');
+        badge.textContent = `+${available.length - visible.length}`;
+        visible[visible.length - 1].append(badge);
+      }
+    };
+    links.forEach((link) => {
+      const image = link.querySelector('img');
+      if (image) {
+        const failed = () => {
+          link.dataset.sunnyImageFailed = 'true';
+          link.hidden = true;
+          refreshGallery();
+        };
+        image.addEventListener('error', failed, { once: true });
+        if (image.complete && image.naturalWidth === 0) failed();
+      }
+      link.addEventListener('click', (event) => {
+        if (!canPreview || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        const items = links.filter((item) => !item.dataset.sunnyImageFailed).map((item) => ({
+          link: item,
+          url: safeUrl(item.href, false)?.href,
+          alt: item.querySelector('img')?.alt || '文章图片',
+        })).filter((item) => item.url);
+        const index = items.findIndex((item) => item.link === link);
+        if (index < 0) return;
+        event.preventDefault();
+        showImages(items, index, link);
+      });
+    });
+  });
+
   document.querySelectorAll('.sunny-content .post-content img').forEach((image) => {
-    if (image.closest('a, button')) return;
+    if (!canPreview || image.closest('a, button')) return;
     image.classList.add('sunny-zoomable');
     image.tabIndex = 0;
     image.setAttribute('role', 'button');
     image.setAttribute('aria-label', `查看大图${image.alt ? `：${image.alt}` : ''}`);
-    image.addEventListener('click', () => showImage(image));
+    const showImage = () => {
+      const url = safeUrl(image.currentSrc || image.src, false);
+      if (url) showImages([{ url: url.href, alt: image.alt }], 0, image);
+    };
+    image.addEventListener('click', showImage);
     image.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showImage(image); }
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showImage(); }
     });
   });
   document.querySelector('[data-sunny-lightbox-close]')?.addEventListener('click', () => lightbox?.close());
-  lightbox?.addEventListener('close', () => lightboxImage?.removeAttribute('src'));
+  lightboxPrevious?.addEventListener('click', () => moveImage(-1));
+  lightboxNext?.addEventListener('click', () => moveImage(1));
+  lightbox?.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      moveImage(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+  });
+  lightboxImage?.addEventListener('error', () => {
+    if (!lightbox?.open || !lightboxImage.hasAttribute('src')) return;
+    lightboxImage.hidden = true;
+    if (lightboxStatus) lightboxStatus.hidden = false;
+  });
+  let swipeStart = null;
+  lightboxImage?.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch') swipeStart = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  }, { passive: true });
+  lightboxImage?.addEventListener('pointerup', (event) => {
+    if (!swipeStart || swipeStart.id !== event.pointerId) return;
+    const dx = event.clientX - swipeStart.x;
+    const dy = event.clientY - swipeStart.y;
+    swipeStart = null;
+    if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.2) moveImage(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  lightboxImage?.addEventListener('pointercancel', () => { swipeStart = null; });
+  lightbox?.addEventListener('close', () => {
+    lightboxImage?.removeAttribute('src');
+    lightboxItems = [];
+    swipeStart = null;
+  });
 
   const tocPanel = document.querySelector('.sunny-toc-panel');
   const toc = document.querySelector('.sunny-toc');
