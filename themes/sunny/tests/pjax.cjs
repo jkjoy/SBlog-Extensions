@@ -505,6 +505,180 @@ test('a new runtime load failure restores working page controls and allows a suc
   } finally { t.close(); }
 });
 
+
+for (const kind of ['external', 'inline']) test(`unchanged initial head ${kind} script survives two navigations with changing nonces`, async () => {
+  const markup = (nonce) => kind === 'external'
+    ? `<script defer src="https://analytics.example.test/stats.js" data-website-id="imsunpw" nonce="${nonce}"></script>`
+    : `<script data-fixture-head="inline" nonce="${nonce}">window.fixtureHeadExecutions=(window.fixtureHeadExecutions||0)+1;</script>`;
+  let request = 0;
+  const t = setup({
+    html: { head: markup('initial-nonce') },
+    fetch: async (url) => response(new URL(url).pathname.startsWith('/post') ? 'post' : 'steam', { url, head: markup(`response-nonce-${++request}`) }),
+  });
+  try {
+    const selector = kind === 'external' ? 'script[src="https://analytics.example.test/stats.js"]' : 'script[data-fixture-head="inline"]';
+    const original = t.w.document.head.querySelector(selector);
+    assert.ok(original);
+    if (kind === 'inline') t.w.eval(original.textContent);
+    const mutations = [];
+    new t.w.MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+          if (node.nodeType === 1 && (node.matches(selector) || node.querySelector(selector))) mutations.push(node);
+        }
+      }
+    }).observe(t.w.document, { childList: true, subtree: true });
+    for (const [link, title] of [['#to-post', 'post'], ['#to-steam', 'steam']]) {
+      t.click(link);
+      await until(() => t.w.document.title === `${title} | Sunny`, `${kind} head script permits ${title}`);
+      await until(() => !t.w.document.body.hasAttribute('aria-busy'));
+      assert.equal(t.w.document.head.querySelector(selector), original, 'The script initialized on first load must keep its node');
+      assert.equal(t.w.document.querySelectorAll(selector).length, 1);
+      assert.equal(original.isConnected, true);
+    }
+    assert.deepEqual(mutations, [], 'Persistent scripts must never be removed, reinserted or copied');
+    if (kind === 'inline') assert.equal(t.w.fixtureHeadExecutions, 1);
+    assert.equal(t.errors.length, 0, 'Ordinary navigation must not request a full document load');
+    assert.equal(t.fetches.length, 2);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.equal(t.mediaCalls(), 0);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+for (const [name, initial, incoming] of [
+  ['src', '<script defer src="https://analytics.example.test/stats.js" data-website-id="imsunpw"></script>', '<script defer src="https://analytics.example.test/stats-v2.js" data-website-id="imsunpw"></script>'],
+  ['data attribute', '<script defer src="https://analytics.example.test/stats.js" data-website-id="imsunpw"></script>', '<script defer src="https://analytics.example.test/stats.js" data-website-id="another-site"></script>'],
+  ['inline text', '<script data-fixture-head="inline">window.fixtureSite="imsunpw";</script>', '<script data-fixture-head="inline">window.fixtureSite="another-site";</script>'],
+]) test(`an initial head script with changed ${name} requires full navigation`, async () => {
+  const t = setup({ html: { head: initial }, fetch: async (url) => response('post', { url, head: incoming }) });
+  try {
+    const original = [...t.w.document.head.querySelectorAll('script')];
+    t.click('#to-post');
+    await until(() => t.errors.some((error) => /navigation/i.test(error.message)), 'changed head script fallback');
+    assert.equal(t.w.document.title, 'home | Sunny');
+    assert.deepEqual([...t.w.document.head.querySelectorAll('script')], original);
+    assert.equal(t.events.length, 0);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+test('the core empty translation array permits navigation and preserves existing messages', async () => {
+  const emptyMessages = '<script>window.sblogI18n=Object.assign({},window.sblogI18n||{},[]);</script>';
+  const t = setup({ fetch: async (url) => response('post', { url, head: emptyMessages }) });
+  try {
+    t.w.sblogI18n = { existing_message: 'Keep this translation' };
+    t.click('#to-post');
+    await until(() => t.w.document.title === 'post | Sunny', 'empty core translation catalog');
+    await until(() => !t.w.document.body.hasAttribute('aria-busy'));
+    assert.equal(t.w.sblogI18n.existing_message, 'Keep this translation');
+    assert.equal(t.errors.length, 0);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+
+test('the visit tracker records each destination without delaying navigation or replacing its original head node', async () => {
+  const tracker = '<script defer src="https://0tz.top/tracker.min.js" data-website-id="imsunpw"></script>';
+  const t = setup({ html: { head: tracker }, fetch: async (url) => response(new URL(url).pathname.startsWith('/post') ? 'post' : new URL(url).pathname.slice(1), { url, head: tracker }) });
+  try {
+    const original = t.w.document.head.querySelector('script[src="https://0tz.top/tracker.min.js"]');
+    const requested = [];
+    const completed = [];
+    t.w.document.addEventListener('sunny:pjax-complete', (event) => completed.push(event.detail.url));
+    new t.w.MutationObserver((records) => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node.nodeType === 1 && node.matches('script[src="https://0tz.top/tracker.min.js"]')) requested.push(node);
+      }
+    }).observe(t.w.document.body, { childList: true });
+    t.click('#to-post');
+    await until(() => completed.length === 1, 'article completion while analytics remains pending');
+    assert.equal(requested.length, 1);
+    assert.equal(typeof requested[0].onload, 'function', 'The pending tracker is deliberately not completed');
+    assert.equal(t.w.document.body.hasAttribute('aria-busy'), false);
+    t.click('#to-steam');
+    await until(() => completed.length === 2, 'next page while previous analytics remains pending');
+    assert.equal(requested.length, 2);
+    assert.notEqual(requested[1], requested[0]);
+    requested[0].onerror();
+    requested[1].onerror();
+    await pause(25);
+    assert.equal(t.w.document.querySelector('#sunny-pjax-error'), null, 'An optional tracker failure must not become a page failure');
+    t.click('#to-archives');
+    await until(() => completed.length === 3, 'navigation after analytics failure');
+    assert.equal(requested.length, 3, 'Each successful destination must request the tracker exactly once');
+    requested[2].onload();
+    await pause(10);
+    assert.deepEqual(completed, ['https://sunny.test/post/fixture-post', 'https://sunny.test/steam', 'https://sunny.test/archives']);
+    assert.equal(t.w.document.head.querySelector('script[src="https://0tz.top/tracker.min.js"]'), original);
+    assert.equal(original.isConnected, true);
+    assert.equal(t.w.document.head.querySelectorAll('script[src="https://0tz.top/tracker.min.js"]').length, 1);
+    assert.equal(requested.every((script) => script.getAttribute('data-website-id') === 'imsunpw'), true);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.equal(t.audio.currentTime, 42.75);
+    assert.equal(t.mediaCalls(), 0);
+    assert.deepEqual(t.transitions, []);
+    assert.equal(t.errors.length, 0);
+  } finally { t.close(); }
+});
+
+test('a visit tracker first encountered on the destination uses PJAX and completes before analytics', async () => {
+  const tracker = '<script defer src="https://0tz.top/tracker.min.js" data-website-id="imsunpw"></script>';
+  const t = setup({ fetch: async (url) => response('post', { url, head: tracker }) });
+  try {
+    let completed = false;
+    t.w.document.addEventListener('sunny:pjax-complete', () => { completed = true; });
+    t.click('#to-post');
+    await until(() => completed, 'destination with newly encountered tracker');
+    const script = t.w.document.querySelector('body > script[src="https://0tz.top/tracker.min.js"]');
+    assert.ok(script && typeof script.onload === 'function');
+    assert.equal(t.w.document.title, 'post | Sunny');
+    assert.equal(t.w.location.pathname, '/post/fixture-post');
+    script.onerror();
+    await pause(20);
+    assert.equal(t.w.document.querySelector('#sunny-pjax-error'), null);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.deepEqual(t.transitions, []);
+    assert.equal(t.errors.length, 0);
+  } finally { t.close(); }
+});
+
+test('an external script explicitly marked for each page executes once on every destination', async () => {
+  const pageScript = '<script defer src="https://analytics.example.test/page-hook.js" data-sunny-pjax="page" data-fixture-hook="active"></script>';
+  const t = setup({ html: { head: pageScript }, fetch: async (url) => response(new URL(url).pathname.startsWith('/post') ? 'post' : 'steam', { url, head: pageScript }) });
+  try {
+    const original = t.w.document.head.querySelector('script[data-sunny-pjax="page"]');
+    const requested = [];
+    let completed = 0;
+    t.w.document.addEventListener('sunny:pjax-complete', () => completed++);
+    for (const [index, selector, title] of [[0, '#to-post', 'post'], [1, '#to-steam', 'steam']]) {
+      t.click(selector);
+      await until(() => {
+        const script = t.w.document.querySelector('body > script[data-sunny-pjax="page"]');
+        return script?.onload && !requested.includes(script);
+      }, 'per-page script request');
+      const script = t.w.document.querySelector('body > script[data-sunny-pjax="page"]');
+      assert.equal(completed, index, 'The destination must initialize its explicitly requested page script');
+      assert.equal(script.src, 'https://analytics.example.test/page-hook.js');
+      assert.equal(script.dataset.fixtureHook, 'active');
+      requested.push(script);
+      // jsdom does not fetch scripts in this harness; emulate their successful execution.
+      t.w.eval('window.fixturePageExecutions=(window.fixturePageExecutions||0)+1;');
+      script.onload();
+      await until(() => completed === index + 1, 'per-page script completion');
+      assert.equal(t.w.document.title, `${title} | Sunny`);
+      assert.equal(t.w.document.head.querySelector('script[data-sunny-pjax="page"]'), original);
+    }
+    assert.equal(t.w.fixturePageExecutions, 2);
+    assert.equal(new Set(requested).size, 2, 'A previously loaded page script must execute again on the next page');
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.deepEqual(t.transitions, []);
+    assert.equal(t.errors.length, 0);
+  } finally { t.close(); }
+});
+
 (async () => {
   const failures = [];
   let skipped = 0;

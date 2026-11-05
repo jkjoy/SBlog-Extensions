@@ -9,6 +9,7 @@
   const runtimes = new Map();
   const loaded = new Set();
   const inlineScripts = new Set();
+  const persistentHeadScripts = new Set();
   const iconBindings = new WeakSet();
   const handledClicks = new WeakSet();
   const actions = new Set(['home', 'post', 'page', 'archives', 'tags', 'tag', 'categories', 'category', 'links', 'steam', 'douban', 'gallery', 'gallery_album', 'search']);
@@ -20,6 +21,13 @@
 
   const dataScript = (script) => /^(?:application\/(?:ld\+)?json|text\/plain)$/i.test(script.type);
   const absolute = (value, base = location.href) => new URL(value, base).href;
+  const headScriptKey = (script, base) => JSON.stringify([
+    [...script.attributes]
+      .filter((attr) => attr.name !== 'nonce')
+      .map((attr) => [attr.name, attr.name === 'src' ? absolute(attr.value, base) : attr.value])
+      .sort(([a], [b]) => a.localeCompare(b)),
+    script.textContent.trim(),
+  ]);
   const stateObject = () => history.state && typeof history.state === 'object' ? history.state : {};
   const saveScroll = () => {
     if (navigation || committing) return;
@@ -47,12 +55,20 @@
       || /\/plugins\/gallery\/assets\/public\.js$/.test(path)) return 'page';
     return '';
   };
+  // This tracker reads location only when it executes; it has no SPA listener.
+  const visitTracker = (script, base) => Boolean(script.getAttribute('data-website-id')?.trim())
+    && script.hasAttribute('src') && absolute(script.getAttribute('src'), base) === 'https://0tz.top/tracker.min.js';
   const unsupported = () => Object.assign(new Error('A full document navigation is required.'), { fullNavigation: true });
 
   const inspectScripts = (next, base) => {
     const scripts = [];
     for (const script of next.querySelectorAll('script')) {
       if (dataScript(script)) continue;
+      // Shared Head code (for example analytics) already runs in this document.
+      // Keep its original node and listeners instead of falling back to a reload.
+      const analytics = visitTracker(script, base);
+      const eachPage = script.dataset.sunnyPjax === 'page';
+      if (!analytics && !eachPage && next.head.contains(script) && persistentHeadScripts.has(headScriptKey(script, base))) continue;
       if (script.src) {
         const url = absolute(script.getAttribute('src'), base);
         const runtime = script.dataset.sunnyRuntime;
@@ -61,7 +77,7 @@
             || (runtimes.has(runtime) && runtimes.get(runtime) !== url)) throw unsupported();
           scripts.push({ script, url, runtime, kind: 'once' });
         } else {
-          const kind = pluginKind(url);
+          const kind = analytics ? 'analytics' : (pluginKind(url) || (eachPage ? 'page' : ''));
           if (!kind) throw unsupported();
           scripts.push({ script, url, kind });
         }
@@ -71,14 +87,14 @@
         const messages = source.match(/^window\.sblogI18n=Object\.assign\(\{\},window\.sblogI18n\|\|\{\},([\s\S]*)\);$/);
         if (!messages) throw unsupported();
         const values = JSON.parse(messages[1]);
-        if (!values || typeof values !== 'object' || Array.isArray(values)) throw unsupported();
+        if (!values || typeof values !== 'object' || (Array.isArray(values) && values.length !== 0)) throw unsupported();
         scripts.push({ messages: values });
       }
     }
     return scripts;
   };
 
-  const loadScript = ({ script, url, runtime }) => new Promise((resolve, reject) => {
+  const loadScript = ({ script, url, runtime, transient = false }) => new Promise((resolve, reject) => {
     const element = document.createElement('script');
     for (const attr of script.attributes) {
       if (!['src', 'defer', 'async'].includes(attr.name)) element.setAttribute(attr.name, attr.value);
@@ -86,7 +102,7 @@
     element.src = url;
     element.async = false;
     const timeout = setTimeout(() => { element.remove(); reject(new Error('Script load timed out.')); }, 15000);
-    element.onload = () => { clearTimeout(timeout); loaded.add(url); if (runtime) runtimes.set(runtime, url); resolve(); };
+    element.onload = () => { clearTimeout(timeout); loaded.add(url); if (runtime) runtimes.set(runtime, url); if (transient) element.remove(); resolve(); };
     element.onerror = () => { clearTimeout(timeout); element.remove(); reject(new Error('Script could not be loaded.')); };
     body.append(element);
   });
@@ -257,7 +273,7 @@
       document.dispatchEvent(new CustomEvent('sunny:page-load', { detail: { url: destination.href } }));
       initialized = true;
       for (const asset of scripts) {
-        if (!asset.url || asset.runtime) continue;
+        if (!asset.url || asset.runtime || asset.kind === 'analytics') continue;
         if (asset.kind === 'page' || !loaded.has(asset.url)) await loadScript(asset);
       }
       enhanceCommentIcons();
@@ -268,6 +284,10 @@
       }
       status(`已打开：${document.title}`);
       document.dispatchEvent(new CustomEvent('sunny:pjax-complete', { detail: { url: destination.href, pop } }));
+      // Optional analytics must not delay a page or turn its failure into a page error.
+      if (!queued) for (const asset of scripts) {
+        if (asset.kind === 'analytics') void loadScript({ ...asset, transient: true }).catch(() => {});
+      }
     } catch (error) {
       if (navigation !== controller || (controller.signal.aborted && !timedOut)) return;
       if (error.fullNavigation) location.assign(requested.href);
@@ -322,6 +342,7 @@
     if (!pageURL(location.href) || document.querySelector('[data-paid-reading-status]')) return;
     document.querySelectorAll('script').forEach((script) => {
       if (dataScript(script)) return;
+      if (document.head.contains(script) && !script.dataset.sunnyRuntime) persistentHeadScripts.add(headScriptKey(script, location.href));
       if (script.src) {
         loaded.add(script.src);
         if (script.dataset.sunnyRuntime) runtimes.set(script.dataset.sunnyRuntime, script.src);
