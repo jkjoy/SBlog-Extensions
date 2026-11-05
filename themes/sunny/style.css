@@ -179,6 +179,9 @@ html[data-sunny-theme="dark"] .sunny-theme .sunny-sun { display: inline-flex; }
 .sunny-theme .sunny-card-comment-reply { color: var(--sunny-comment-faint); font-size: .9em; font-weight: 400; }
 .sunny-theme .sunny-card-comments-more { position: absolute; right: 0; bottom: 0; padding: 4px 8px; border-radius: 16px 0; background: var(--sunny-soft); color: var(--sunny-comment-faint); font-size: 12px; line-height: 18px; }
 .sunny-theme .sunny-sidebar { min-width: 0; align-self: stretch; }
+body.sunny-theme.sunny-pjax-loading::before { content: ""; position: fixed; z-index: 100; top: 0; left: 0; width: 35%; height: 2px; background: var(--sunny-accent); pointer-events: none; animation: sunny-pjax-progress 1s ease-in-out infinite alternate; }
+@keyframes sunny-pjax-progress { to { transform: translateX(185%); } }
+@media (prefers-reduced-motion: reduce) { body.sunny-theme.sunny-pjax-loading::before { width: 100%; animation: none; } }
 .sunny-theme.sunny-view-content .sunny-small-widgets, .sunny-theme.sunny-view-content .sunny-calendar-panel { display: none; }
 .sunny-theme .sunny-small-widgets { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
 .sunny-theme .sunny-small-widgets > * { aspect-ratio: 1; width: 100%; min-width: 0; border: 1px solid var(--sunny-line); border-radius: 16px; overflow: hidden; position: relative; }

@@ -9,6 +9,7 @@ $sunnyAnnouncement = is_array($sunnySavedSettings) && array_key_exists('announce
 $sunnyCategories = sunny_categories();
 $sunnyArchives = fetch_archive_posts();
 $sunnyAuthor = sunny_author_name();
+$sunnyVersion = (string)(theme_manifest('sunny')['version'] ?? '');
 $sunnySteamConfig = sunny_steam_config();
 $sunnyMusicConfig = sunny_music_config();
 $sunnyMusicData = $sunnyMusicConfig !== null ? sunny_music_snapshot($sunnyMusicConfig) : null;
@@ -58,17 +59,18 @@ $sunnyNav = [
   <title><?= h($fullTitle) ?></title>
   <link rel="icon" href="<?= h(theme_favicon_url()) ?>">
   <link rel="alternate" type="application/rss+xml" title="<?= h($siteName) ?>" href="<?= h(url_for('rss')) ?>">
-  <script>
+  <script data-sunny-appearance>
   (() => { try { const mode = localStorage.getItem('sunny-theme'); document.documentElement.dataset.sunnyTheme = mode === 'dark' || mode === 'light' ? mode : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (_) {} })();
   </script>
   <?php theme_action('head', $themeContext); ?>
   <?php if ($sunnySteamConfig !== null || $active === 'steam'): ?><link rel="stylesheet" href="<?= h(theme_asset_url('steam.css')) ?>?v=<?= h((string)filemtime(__DIR__ . '/steam.css')) ?>"><?php endif; ?>
-  <?php if ($sunnyMusicConfig !== null): ?><link rel="stylesheet" href="<?= h(theme_asset_url('music.css')) ?>?v=<?= h((string)filemtime(__DIR__ . '/music.css')) ?>"><?php endif; ?>
+  <?php if ($sunnyMusicConfig !== null): ?><link rel="stylesheet" href="<?= h(theme_asset_url('music.css')) ?>?v=<?= h((string)filemtime(__DIR__ . '/music.css')) ?>" data-sunny-player-style><?php endif; ?>
   <?php if ($customHeadCode !== ''): ?><?= $customHeadCode ?><?php endif; ?>
 </head>
-<body class="<?= h($bodyClass) ?><?= $sunnyHome ? ' sunny-home' : '' ?>">
+<body class="<?= h($bodyClass) ?><?= $sunnyHome ? ' sunny-home' : '' ?>" data-sunny-pjax="<?= h($sunnyVersion) ?>">
 <?php theme_action('body_open', $themeContext); ?>
 <a class="sunny-skip-link" href="#content">跳到正文</a>
+<p id="sunny-pjax-status" class="sunny-sr-only" role="status" aria-live="polite"></p>
 <div class="sunny-shell">
   <?php theme_action('header_before', $themeContext); ?>
   <header class="sunny-hero">
@@ -222,10 +224,11 @@ $sunnyNav = [
   <button class="sunny-icon-button" type="button" data-sunny-lightbox-next aria-label="下一张图片" title="下一张图片" hidden><?= sunny_icon('arrow-right', 24) ?></button>
 </dialog>
 <script type="application/json" id="sunny-search-data"><?= json_encode(sunny_search_items(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
-<script src="<?= h(asset_url('assets/index.js')) ?>?v=<?= h(APP_VERSION) ?>" defer></script>
-<script src="<?= h(theme_asset_url('script.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/script.js')) ?>" defer></script>
-<?php if ($sunnySteamConfig !== null): ?><script src="<?= h(theme_asset_url('steam.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/steam.js')) ?>" defer></script><?php endif; ?>
-<?php if ($sunnyMusicData !== null && $sunnyMusicData['tracks'] !== []): ?><?= sunny_render_music_player($sunnyMusicData, $sunnyMusicConfig) ?><script src="<?= h(theme_asset_url('music.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/music.js')) ?>" defer></script><?php endif; ?>
+<script src="<?= h(asset_url('assets/index.js')) ?>?v=<?= h(APP_VERSION) ?>" data-sunny-runtime="core" defer></script>
+<script src="<?= h(theme_asset_url('script.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/script.js')) ?>" data-sunny-runtime="page" defer></script>
+<?php if ($sunnySteamConfig !== null): ?><script src="<?= h(theme_asset_url('steam.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/steam.js')) ?>" data-sunny-runtime="steam" defer></script><?php endif; ?>
+<?php if ($sunnyMusicData !== null && $sunnyMusicData['tracks'] !== []): ?><div id="sunny-player-root"><?= sunny_render_music_player($sunnyMusicData, $sunnyMusicConfig) ?></div><script src="<?= h(theme_asset_url('music.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/music.js')) ?>" data-sunny-runtime="music" defer></script><?php endif; ?>
+<script src="<?= h(theme_asset_url('pjax.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/pjax.js')) ?>" data-sunny-runtime="navigation" defer></script>
 <?php theme_action('body_close', $themeContext); ?>
 </body>
 </html>

@@ -29,23 +29,14 @@
   audio.preload = 'none';
   audio.loop = false;
   const all = (selector) => Array.from(document.querySelectorAll(selector));
-  const names = all('[data-music-name]');
-  const artists = all('[data-music-artist]');
-  const covers = all('[data-music-cover]');
-  const toggles = all('[data-music-toggle]');
-  const progress = all('[data-music-progress]');
-  const currentTimes = all('[data-music-current-time]');
-  const durations = all('[data-music-duration]');
-  const volumes = all('[data-music-volume]');
-  const modeButtons = all('[data-music-mode]');
-  const notices = all('[data-music-notice]');
-  const trackButtons = all('[data-music-track]');
   const dock = document.querySelector('.sunny-music-dock');
   const modes = ['list', 'single', 'random'];
   const modeLabels = { list: '列表循环', single: '单曲循环', random: '随机播放' };
   const storageKey = 'sunny-music-state';
   const playlistId = String(config.id || '');
-  const initialNotice = notices.map((notice) => notice.textContent);
+  const initialNotices = new WeakMap();
+  const failedCovers = new WeakMap();
+  let noticeText = '';
   let mode = modes.includes(config.mode) ? config.mode : 'list';
   let index = 0;
   let restoreTime = 0;
@@ -74,7 +65,13 @@
   audio.volume = volume;
 
   const playing = () => !audio.paused && !audio.ended && loadedIndex >= 0;
-  const setNotice = (text = '') => notices.forEach((notice, position) => { notice.textContent = text || initialNotice[position]; });
+  const setNotice = (text = '') => {
+    noticeText = text;
+    all('[data-music-notice]').forEach((notice) => {
+      if (!initialNotices.has(notice)) initialNotices.set(notice, notice.textContent);
+      notice.textContent = text || initialNotices.get(notice);
+    });
+  };
   const timeText = (seconds) => {
     const total = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
@@ -88,9 +85,9 @@
   const syncTime = () => {
     const duration = loadedIndex === index && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
     const current = loadedIndex === index && Number.isFinite(audio.currentTime) ? audio.currentTime : restoreTime;
-    currentTimes.forEach((element) => { element.textContent = timeText(current); });
-    durations.forEach((element) => { element.textContent = timeText(duration || tracks[index].duration); });
-    progress.forEach((input) => {
+    all('[data-music-current-time]').forEach((element) => { element.textContent = timeText(current); });
+    all('[data-music-duration]').forEach((element) => { element.textContent = timeText(duration || tracks[index].duration); });
+    all('[data-music-progress]').forEach((input) => {
       input.disabled = duration === 0;
       input.value = duration > 0 ? String(clamp(current / duration * 100, 0, 100)) : '0';
       input.setAttribute('aria-valuetext', `${timeText(current)} / ${timeText(duration || tracks[index].duration)}`);
@@ -99,7 +96,7 @@
   const syncPlaying = () => {
     const active = playing();
     document.body.classList.toggle('sunny-music-playing', active);
-    toggles.forEach((button) => {
+    all('[data-music-toggle]').forEach((button) => {
       const icon = button.querySelector('[data-music-toggle-icon]');
       if (icon) icon.textContent = active ? 'Ⅱ' : '▶';
       button.setAttribute('aria-label', active ? '暂停播放' : '播放音乐');
@@ -108,26 +105,29 @@
     });
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = active ? 'playing' : 'paused'; } catch (_) {}
   };
-  const syncMode = () => modeButtons.forEach((button) => {
+  const syncMode = () => all('[data-music-mode]').forEach((button) => {
     button.textContent = modeLabels[mode];
     button.setAttribute('aria-label', `${modeLabels[mode]}，点击切换播放模式`);
     button.setAttribute('title', '切换播放模式');
   });
-  const syncTrack = () => {
+  const syncVolume = () => all('[data-music-volume]').forEach((input) => { input.value = String(Math.round(audio.volume * 100)); });
+  const syncTrack = (updateMetadata = true) => {
     const track = tracks[index];
-    names.forEach((element) => { element.textContent = track.name; element.title = track.name; });
-    artists.forEach((element) => { element.textContent = track.artist; element.title = track.artist; });
-    covers.forEach((image) => {
-      image.hidden = !track.cover;
-      if (track.cover) { image.src = track.cover; } else { image.removeAttribute('src'); }
+    all('[data-music-name]').forEach((element) => { element.textContent = track.name; element.title = track.name; });
+    all('[data-music-artist]').forEach((element) => { element.textContent = track.artist; element.title = track.artist; });
+    all('[data-music-cover]').forEach((image) => {
+      image.hidden = !track.cover || failedCovers.get(image) === track.cover;
+      if (track.cover) {
+        if (image.getAttribute('src') !== track.cover) image.src = track.cover;
+      } else { image.removeAttribute('src'); }
     });
-    trackButtons.forEach((button) => {
+    all('[data-music-track]').forEach((button) => {
       const current = Number(button.dataset.musicTrack) === track.sourceIndex;
       if (current) button.setAttribute('aria-current', 'true'); else button.removeAttribute('aria-current');
       button.disabled = !tracks.some((item) => item.sourceIndex === Number(button.dataset.musicTrack));
     });
     try {
-      if ('mediaSession' in navigator && typeof MediaMetadata === 'function') {
+      if (updateMetadata && 'mediaSession' in navigator && typeof MediaMetadata === 'function') {
         navigator.mediaSession.metadata = new MediaMetadata({ title: track.name, artist: track.artist, album: String(config.name || ''), artwork: track.cover ? [{ src: track.cover }] : [] });
       }
     } catch (_) {}
@@ -198,15 +198,9 @@
     persist(true);
   };
 
-  all('[data-music-open]').forEach((button) => button.addEventListener('click', () => {
-    if (dialog.open) return;
-    opener = document.activeElement;
-    if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
-  }));
   const closeDialog = () => {
     if (typeof dialog.close === 'function') dialog.close(); else { dialog.removeAttribute('open'); opener?.focus({ preventScroll: true }); }
   };
-  all('[data-music-close]').forEach((button) => button.addEventListener('click', closeDialog));
   dialog.addEventListener('click', (event) => {
     if (event.target !== dialog) return;
     const bounds = dialog.getBoundingClientRect();
@@ -215,34 +209,52 @@
   dialog.addEventListener('close', () => {
     if (opener?.isConnected) opener.focus({ preventScroll: true });
   });
-  toggles.forEach((button) => button.addEventListener('click', () => { if (playing()) pause(); else void play(); }));
-  all('[data-music-prev]').forEach((button) => button.addEventListener('click', () => advance(-1)));
-  all('[data-music-next]').forEach((button) => button.addEventListener('click', () => advance(1)));
-  all('[data-music-stop]').forEach((button) => button.addEventListener('click', stop));
-  modeButtons.forEach((button) => button.addEventListener('click', () => { mode = modes[(modes.indexOf(mode) + 1) % modes.length]; syncMode(); persist(true); }));
-  trackButtons.forEach((button) => button.addEventListener('click', () => {
-    const next = tracks.findIndex((track) => track.sourceIndex === Number(button.dataset.musicTrack));
-    if (next >= 0) selectTrack(next);
-  }));
-  progress.forEach((input) => input.addEventListener('input', () => {
-    if (loadedIndex !== index || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
-    audio.currentTime = audio.duration * clamp(Number(input.value) || 0, 0, 100) / 100;
-    restoreTime = 0;
-    syncTime();
-    persist(true);
-  }));
-  volumes.forEach((input) => {
-    input.value = String(Math.round(volume * 100));
-    input.addEventListener('input', () => {
-      audio.volume = clamp((Number(input.value) || 0) / 100, 0, 1);
-      volumes.forEach((other) => { other.value = input.value; });
-      persist(true);
+  // Page navigation replaces the sidebar and toolbar; delegate their controls once.
+  document.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-music-open], [data-music-close], [data-music-toggle], [data-music-prev], [data-music-next], [data-music-stop], [data-music-mode], [data-music-track]') : null;
+    if (!button || button.disabled) return;
+    if (button.hasAttribute('data-music-open')) {
+      if (dialog.open) return;
+      opener = button;
+      if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+    } else if (button.hasAttribute('data-music-close')) closeDialog();
+    else if (button.hasAttribute('data-music-toggle')) { if (playing()) pause(); else void play(); }
+    else if (button.hasAttribute('data-music-prev')) advance(-1);
+    else if (button.hasAttribute('data-music-next')) advance(1);
+    else if (button.hasAttribute('data-music-stop')) stop();
+    else if (button.hasAttribute('data-music-mode')) {
+      mode = modes[(modes.indexOf(mode) + 1) % modes.length]; syncMode(); persist(true);
+    } else {
+      const next = tracks.findIndex((track) => track.sourceIndex === Number(button.dataset.musicTrack));
+      if (next >= 0) selectTrack(next);
+    }
+  });
+  document.addEventListener('input', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    if (input.hasAttribute('data-music-progress')) {
+      if (loadedIndex !== index || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      audio.currentTime = audio.duration * clamp(Number(input.value) || 0, 0, 100) / 100;
+      restoreTime = 0; syncTime(); persist(true);
+    } else if (input.hasAttribute('data-music-volume')) {
+      audio.volume = clamp((Number(input.value) || 0) / 100, 0, 1); syncVolume(); persist(true);
+    }
+  });
+  document.addEventListener('error', (event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || (!image.hasAttribute('data-music-cover') && !dialog.contains(image))) return;
+    failedCovers.set(image, image.getAttribute('src'));
+    image.hidden = true;
+  }, true);
+  const syncPage = () => {
+    // The persistent audio is never reloaded or paused by a page refresh.
+    if (opener && !opener.isConnected) opener = null;
+    syncTrack(false); syncMode(); syncPlaying(); syncVolume(); setNotice(noticeText);
+    all('[data-music-cover], #sunny-music-dialog img').forEach((image) => {
+      if (image.complete && image.getAttribute('src') && image.naturalWidth === 0) image.hidden = true;
     });
-  });
-  [...new Set([...covers, ...dialog.querySelectorAll('img')])].forEach((image) => {
-    image.addEventListener('error', () => { image.hidden = true; });
-    if (image.complete && image.getAttribute('src') && image.naturalWidth === 0) image.hidden = true;
-  });
+  };
+  document.addEventListener('sunny:page-load', syncPage);
   audio.addEventListener('loadedmetadata', () => { applyRestoreTime(); syncTime(); });
   audio.addEventListener('durationchange', syncTime);
   audio.addEventListener('timeupdate', () => { syncTime(); persist(); });
@@ -271,4 +283,9 @@
   syncTrack();
   syncMode();
   syncPlaying();
+  syncVolume();
+  setNotice();
+  all('[data-music-cover], #sunny-music-dialog img').forEach((image) => {
+    if (image.complete && image.getAttribute('src') && image.naturalWidth === 0) image.hidden = true;
+  });
 })();
