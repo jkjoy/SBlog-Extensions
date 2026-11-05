@@ -14,7 +14,6 @@ function gallery_register_translations(): void
     sblog_i18n_register('en', [
         '图库' => 'Gallery',
         '图库管理' => 'Gallery',
-        '图片、分类与公开页面' => 'Images, categories, and public page',
         '图片' => 'Images',
         '全部图片' => 'All images',
         '管理图片' => 'Manage images',
@@ -205,31 +204,6 @@ function gallery_route_action(mixed $action, array $context = []): mixed
     return 'gallery';
 }
 
-function gallery_sidebar_link(mixed $links, array $context = []): mixed
-{
-    if (!is_array($links)) {
-        return $links;
-    }
-    $active = (string)($context['active'] ?? '');
-    $entry = [
-        'label' => sblog_t('图库管理'),
-        'icon' => 'media',
-        'note' => sblog_t('图片、分类与公开页面'),
-        'href' => gallery_admin_url(),
-        'active' => $active === 'gallery',
-    ];
-
-    $position = count($links);
-    foreach ($links as $index => $link) {
-        if ((string)($link['label'] ?? '') === '媒体库') {
-            $position = $index + 1;
-            break;
-        }
-    }
-    array_splice($links, $position, 0, [$entry]);
-    return $links;
-}
-
 function gallery_inject_assets(mixed $html, array $context = []): mixed
 {
     if (!is_string($html) || $html === '') {
@@ -268,5 +242,4 @@ gallery_register_translations();
 add_plugin_action('plugins_loaded', 'gallery_install', 20);
 add_plugin_action('request', 'gallery_handle_request', 2000);
 add_plugin_filter('route_action', 'gallery_route_action', 20);
-add_plugin_filter('admin_sidebar_links', 'gallery_sidebar_link', 20);
 add_plugin_filter('output_html', 'gallery_inject_assets', 20);
