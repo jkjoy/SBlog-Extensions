@@ -202,15 +202,6 @@ html[data-sunny-theme="dark"] .sunny-theme .sunny-sun { display: inline-flex; }
 .sunny-theme .sunny-cloud--two { top: 48px; left: auto; right: 18px; width: 26px; opacity: .8; transform: scale(.8); }
 .sunny-theme .sunny-water-message { position: absolute; inset: auto 0 18%; z-index: 3; color: #357747; font-size: 11px; font-weight: 700; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .3s; }
 .sunny-theme .sunny-plant.is-watered .sunny-water-message { opacity: 1; transform: translateY(-20px); }
-.sunny-theme .sunny-profile { min-height: 132px; display: flex; align-items: center; gap: 18px; padding: 20px; position: relative; overflow: hidden; background: linear-gradient(120deg, var(--sunny-paper) 30%, var(--sunny-accent-soft)); }
-.sunny-theme .sunny-profile-avatar { display: block; flex: none; height: 90px; width: 90px; padding: 4px; border: 4px solid #91ceef; border-right-color: #40a6e4; border-radius: 50%; background: var(--sunny-paper); box-shadow: 0 5px 14px rgb(50 140 190 / 15%); z-index: 1; }
-.sunny-theme .sunny-profile-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.sunny-theme .sunny-profile-info { position: relative; z-index: 1; min-width: 0; }
-.sunny-theme .sunny-profile-info > strong { display: block; font-size: 24px; font-weight: 700; line-height: 1.4; }
-.sunny-theme .sunny-profile-detail { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 11px; }
-.sunny-theme .sunny-profile-badge { padding: 3px 10px; border-radius: 30px; background: var(--sunny-accent-soft); }
-.sunny-theme .sunny-profile-badge::before { content: ""; display: inline-block; height: 5px; width: 5px; background: #42b6dd; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-.sunny-theme .sunny-profile-flower { position: absolute; right: -7px; bottom: -20px; font-size: 80px; line-height: 1.2; opacity: .17; transform: rotate(-20deg); }
 .sunny-theme .sunny-calendar { border-collapse: collapse; width: 100%; text-align: center; font-size: 14px; table-layout: fixed; }
 .sunny-theme .sunny-calendar th { padding: 9px 0; color: var(--sunny-accent); font-weight: 600; }
 .sunny-theme .sunny-calendar td { height: 51px; padding: 2px; }

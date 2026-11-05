@@ -10,6 +10,9 @@ $sunnyCategories = sunny_categories();
 $sunnyRecent = fetch_published_posts(5, 0);
 $sunnyArchives = fetch_archive_posts();
 $sunnyAuthor = sunny_author_name();
+$sunnySteamConfig = sunny_steam_config();
+$sunnyMusicConfig = sunny_music_config();
+$sunnyMusicData = $sunnyMusicConfig !== null ? sunny_music_snapshot($sunnyMusicConfig) : null;
 $sunnyTagline = trim(setting('site_tagline')) ?: setting('site_description');
 $sunnySocialDefinitions = social_profile_definitions();
 $sunnySocialProfile = one('SELECT ' . implode(', ', array_column($sunnySocialDefinitions, 'column')) . ' FROM users ORDER BY id ASC LIMIT 1') ?? [];
@@ -62,6 +65,8 @@ $sunnyNav = [
   (() => { try { const mode = localStorage.getItem('sunny-theme'); document.documentElement.dataset.sunnyTheme = mode === 'dark' || mode === 'light' ? mode : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch (_) {} })();
   </script>
   <?php theme_action('head', $themeContext); ?>
+  <?php if ($sunnySteamConfig !== null || $active === 'steam'): ?><link rel="stylesheet" href="<?= h(theme_asset_url('steam.css')) ?>?v=<?= h((string)filemtime(__DIR__ . '/steam.css')) ?>"><?php endif; ?>
+  <?php if ($sunnyMusicConfig !== null): ?><link rel="stylesheet" href="<?= h(theme_asset_url('music.css')) ?>?v=<?= h((string)filemtime(__DIR__ . '/music.css')) ?>"><?php endif; ?>
   <?php if ($customHeadCode !== ''): ?><?= $customHeadCode ?><?php endif; ?>
 </head>
 <body class="<?= h($bodyClass) ?><?= $sunnyHome ? ' sunny-home' : '' ?>">
@@ -101,6 +106,7 @@ $sunnyNav = [
           <a href="<?= h(sunny_url('categories')) ?>">🗂️ 全部分类</a>
           <a href="<?= h(sunny_url('archives')) ?>">🗃️ 文章归档</a>
           <a href="<?= h(sunny_url('tags')) ?>">🏷️ 标签小集</a>
+          <?php if ($sunnySteamConfig !== null && !empty($sunnySteamConfig['show_nav'])): ?><a href="<?= h(sunny_preview_url(sblog_steam_url())) ?>"<?= $active === 'steam' ? ' aria-current="page"' : '' ?>>🎮 <?= h((string)$sunnySteamConfig['page_title']) ?></a><?php endif; ?>
         </div>
       </details>
       <?php foreach ($navPages as $sunnyPage): ?>
@@ -108,6 +114,7 @@ $sunnyNav = [
       <?php endforeach; ?>
     </nav>
     <div class="sunny-tools">
+      <?php if ($sunnyMusicData !== null && $sunnyMusicData['tracks'] !== []): ?><button class="sunny-icon-button" type="button" data-music-open aria-controls="sunny-music-dialog" aria-label="打开音乐播放列表" title="音乐播放列表"><?= sunny_icon('music') ?></button><?php endif; ?>
       <button class="sunny-icon-button sunny-theme-toggle" type="button" data-sunny-theme-toggle aria-label="切换夜间模式" title="切换夜间模式" aria-pressed="false"><span class="sunny-moon"><?= sunny_icon('moon') ?></span><span class="sunny-sun"><?= sunny_icon('sun') ?></span></button>
       <button class="sunny-icon-button" type="button" data-sunny-search-open title="搜索文章" aria-label="搜索文章"><?= sunny_icon('search') ?></button>
       <a class="sunny-icon-button" href="<?= h(url_for($admin ? 'admin' : 'login')) ?>" title="<?= $admin ? '管理博客' : '登录' ?>" aria-label="<?= $admin ? '管理博客' : '登录' ?>"><?= sunny_icon('user') ?></a>
@@ -145,11 +152,8 @@ $sunnyNav = [
         </button>
       </div>
 
-      <section class="sunny-panel sunny-profile" aria-label="博主信息">
-        <a class="sunny-profile-avatar" href="<?= h(sunny_url('home')) ?>"><img src="<?= h(theme_logo_url()) ?>" width="88" height="88" alt="<?= h($sunnyAuthor) ?>"></a>
-        <div class="sunny-profile-info"><strong><?= h($sunnyAuthor) ?></strong><span class="sunny-profile-detail"><span class="sunny-profile-badge">记录生活</span><span>文章 <?= count($sunnyArchives) ?></span></span></div>
-        <span class="sunny-profile-flower" aria-hidden="true">🌻</span>
-      </section>
+      <?= sunny_render_steam_sidebar() ?>
+      <?php if ($sunnyMusicData !== null): ?><?= sunny_render_music_sidebar($sunnyMusicData, $sunnyMusicConfig) ?><?php endif; ?>
 
       <section class="sunny-panel sunny-calendar-panel">
         <h2 class="sunny-label"><?= h($sunnyMonths[(int)date('n')]) ?>月历</h2>
@@ -229,6 +233,8 @@ $sunnyNav = [
 <script type="application/json" id="sunny-search-data"><?= json_encode(sunny_search_items(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
 <script src="<?= h(asset_url('assets/index.js')) ?>?v=<?= h(APP_VERSION) ?>" defer></script>
 <script src="<?= h(theme_asset_url('script.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/script.js')) ?>" defer></script>
+<?php if ($sunnySteamConfig !== null): ?><script src="<?= h(theme_asset_url('steam.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/steam.js')) ?>" defer></script><?php endif; ?>
+<?php if ($sunnyMusicData !== null && $sunnyMusicData['tracks'] !== []): ?><?= sunny_render_music_player($sunnyMusicData, $sunnyMusicConfig) ?><script src="<?= h(theme_asset_url('music.js')) ?>?v=<?= h((string)filemtime(__DIR__ . '/music.js')) ?>" defer></script><?php endif; ?>
 <?php theme_action('body_close', $themeContext); ?>
 </body>
 </html>

@@ -1,0 +1,249 @@
+/* Sunny presentation for the Steam plugin's existing markup and controls. */
+body.sunny-theme .steam-showcase,
+html:root[data-sunny-theme] body.sunny-theme .steam-showcase {
+  --steam-ink: var(--sunny-text);
+  --steam-muted: var(--sunny-muted);
+  --steam-accent: #1a9fff;
+  --steam-surface: var(--sunny-soft);
+  --steam-line: var(--sunny-line);
+  --steam-online: #0b7ed0;
+  --steam-playing: #1f9d3a;
+  --steam-image-outline: var(--sunny-line);
+  --sunny-steam-blue: #1a9fff;
+  --sunny-steam-blue-deep: #0b7ed0;
+  --sunny-steam-blue-soft: rgb(26 159 255 / 12%);
+  --sunny-steam-shadow: 0 2px 4px rgb(16 24 40 / 5%), 0 24px 48px -16px rgb(16 24 40 / 18%);
+  width: 100%;
+  min-width: 0;
+  color: var(--sunny-text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: .01em;
+}
+
+html:root[data-sunny-theme="dark"] body.sunny-theme .steam-showcase {
+  --steam-online: #78c6eb;
+  --steam-playing: #86d993;
+}
+
+body.sunny-theme .steam-showcase :is(p, h1, h2, dl, dd, ul) { margin: 0; }
+body.sunny-theme .steam-showcase a { text-decoration: none; }
+body.sunny-theme .steam-showcase :is(h1, h2)::before { content: none; }
+body.sunny-theme .steam-showcase :is(button, input, select) { font-family: inherit; letter-spacing: inherit; }
+body.sunny-theme .steam-showcase :is(a, button, input, select):focus-visible { outline-color: var(--steam-accent); }
+body.sunny-theme .steam-showcase__title-row { gap: 16px; margin-bottom: 20px; }
+body.sunny-theme .steam-showcase .steam-showcase__eyebrow { gap: 7px; margin-bottom: 6px; font-size: 10px; }
+body.sunny-theme .steam-showcase .steam-showcase__title { padding: 0; border: 0; background: none; font-family: inherit; font-size: 24px; font-weight: 800; line-height: 1.4; letter-spacing: .01em; }
+
+/* Keep the profile and its statistics inside one softly lit player card. */
+body.sunny-theme .steam-showcase .sunny-steam-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border: 1px solid var(--steam-line);
+  border-radius: 24px;
+  background: var(--sunny-paper);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 4%), 0 8px 24px -8px rgb(16 24 40 / 10%);
+}
+body.sunny-theme .steam-showcase .sunny-steam-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(58rem 22rem at 88% -18%, rgb(26 159 255 / 21%), transparent 70%), radial-gradient(30rem 16rem at 4% 108%, rgb(26 159 255 / 12%), transparent 70%);
+}
+body.sunny-theme .steam-showcase .steam-showcase__profile { flex-wrap: wrap; gap: 24px; padding: 24px; border: 0; }
+body.sunny-theme .steam-showcase .steam-showcase__avatar {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  flex: 0 0 92px;
+  width: 92px;
+  height: 92px;
+  overflow: visible;
+  border: 0;
+  border-radius: 50%;
+  background: var(--sunny-paper);
+  outline: 0;
+  box-shadow: 0 4px 14px rgb(16 24 40 / 16%);
+}
+body.sunny-theme .steam-showcase .steam-showcase__avatar::before,
+body.sunny-theme .sunny-steam-card .sunny-steam-avatar::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border-radius: 50%;
+  background: conic-gradient(from 140deg, #1a9fff, rgb(26 159 255 / 30%) 35%, #1a9fff 60%, rgb(26 159 255 / 30%) 85%, #1a9fff);
+  opacity: .9;
+  animation: sunny-steam-spin 14s linear infinite;
+}
+body.sunny-theme .steam-showcase .steam-showcase__avatar > span { display: grid; place-items: center; width: 100%; height: 100%; border: 3px solid var(--sunny-paper); border-radius: 50%; background: var(--sunny-paper); color: var(--steam-accent); }
+body.sunny-theme .steam-showcase .steam-showcase__avatar svg { width: 38px; height: 38px; }
+body.sunny-theme .steam-showcase .steam-showcase__avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border: 3px solid var(--sunny-paper); border-radius: 50%; object-fit: cover; }
+body.sunny-theme .steam-showcase .steam-showcase__identity { flex: 1 1 160px; min-width: 0; }
+body.sunny-theme .steam-showcase .steam-showcase__name { color: var(--steam-ink); font-size: 24px; font-weight: 800; line-height: 1.25; letter-spacing: .01em; }
+body.sunny-theme .steam-showcase .steam-showcase__presence { gap: 8px; margin-top: 12px; font-size: 12px; }
+body.sunny-theme .steam-showcase .steam-showcase__status { gap: 5px; padding: 4px 10px; border: 1px solid var(--steam-line); border-radius: 999px; background: var(--sunny-soft); font-size: 12px; font-weight: 600; }
+body.sunny-theme .steam-showcase .steam-showcase__status--online { border-color: rgb(26 159 255 / 22%); background: var(--sunny-steam-blue-soft); color: var(--steam-online); }
+body.sunny-theme .steam-showcase .steam-showcase__status--playing { border-color: rgb(93 203 102 / 42%); background: rgb(93 203 102 / 14%); color: var(--steam-playing); }
+body.sunny-theme .steam-showcase .steam-showcase__current-game { color: var(--steam-playing); }
+body.sunny-theme .steam-showcase .steam-showcase__name,
+body.sunny-theme .steam-showcase .steam-showcase__current-game { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 100%; }
+body.sunny-theme .steam-showcase .steam-showcase__last-online { font-size: 11px; }
+body.sunny-theme .steam-showcase a.steam-showcase__profile-link,
+body.sunny-theme .steam-showcase a.steam-showcase__text-link { gap: 4px; min-height: 30px; padding: 4px 10px; border: 1px solid rgb(26 159 255 / 22%); border-radius: 999px; background: var(--sunny-steam-blue-soft); color: var(--steam-online); font-size: 12px; font-weight: 600; white-space: nowrap; }
+body.sunny-theme .steam-showcase a.steam-showcase__profile-link:hover,
+body.sunny-theme .steam-showcase a.steam-showcase__text-link:hover { border-color: var(--steam-accent); text-decoration: none; }
+body.sunny-theme .steam-showcase .steam-showcase__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; border-top: 1px solid var(--steam-line); border-bottom: 0; background: color-mix(in srgb, var(--sunny-paper) 55%, transparent); }
+body.sunny-theme .steam-showcase .steam-showcase__stats > div { display: flex; flex-direction: column-reverse; justify-content: center; gap: 4px; min-width: 0; padding: 16px 8px; border-left: 1px solid var(--steam-line); text-align: center; }
+body.sunny-theme .steam-showcase .steam-showcase__stats > div:first-child { padding: 16px 8px; border-left: 0; }
+body.sunny-theme .steam-showcase .steam-showcase__stats dt { margin: 0; color: var(--steam-muted); font-size: 11px; letter-spacing: .06em; }
+body.sunny-theme .steam-showcase .steam-showcase__stats dd { color: var(--steam-ink); font-size: 23px; font-weight: 800; line-height: 1.2; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+body.sunny-theme .steam-showcase .steam-showcase__stats dd > span { display: inline; margin: 0 0 0 4px; color: var(--steam-muted); font-size: 11px; font-weight: 500; white-space: nowrap; }
+
+/* Library, including the plugin's existing search and sorting controls. */
+body.sunny-theme .steam-showcase .steam-showcase__section { margin-top: 26px; }
+body.sunny-theme .steam-showcase .steam-showcase__section-heading { gap: 12px; margin-bottom: 16px; }
+body.sunny-theme .steam-showcase .steam-showcase__section-heading h2 { margin: 0; padding: 0; border: 0; background: none; color: var(--steam-ink); font-family: inherit; font-size: 17px; font-weight: 700; line-height: 1.5; letter-spacing: .01em; }
+body.sunny-theme .steam-showcase .steam-showcase__section-heading > span { color: var(--steam-muted); font-size: 12px; }
+body.sunny-theme .steam-showcase .steam-showcase__controls { flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; scroll-margin-top: 112px; }
+body.sunny-theme .steam-showcase .steam-showcase__search { flex: 1 1 180px; min-width: 180px; max-width: 320px; }
+body.sunny-theme .steam-showcase .steam-showcase__search > svg { left: 11px; width: 16px; height: 16px; }
+body.sunny-theme .steam-showcase .steam-showcase__search input { height: 38px; padding: 8px 13px 8px 34px; border-color: var(--steam-line); border-radius: 999px; background: var(--sunny-paper); color: var(--steam-ink); font-size: 13px; outline-offset: 2px; transition: border-color .2s, box-shadow .2s; }
+body.sunny-theme .steam-showcase .steam-showcase__search input:focus { border-color: var(--steam-accent); box-shadow: 0 0 0 3px var(--sunny-steam-blue-soft); }
+body.sunny-theme .steam-showcase .steam-showcase__search input::-webkit-search-cancel-button { appearance: none; }
+body.sunny-theme .steam-showcase .steam-showcase__sort select { width: auto; min-width: 120px; height: 38px; padding: 0 12px; border-color: var(--steam-line); border-radius: 999px; background: var(--sunny-paper); color: var(--steam-ink); font-size: 12px; }
+body.sunny-theme .steam-showcase .sunny-steam-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+body.sunny-theme .steam-showcase .sunny-steam-sort button { min-height: 34px; padding: 6px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--steam-muted); font-size: 12px; font-weight: 600; line-height: 1.5; transition: color .18s, background-color .18s; }
+body.sunny-theme .steam-showcase .sunny-steam-sort button:hover { background: var(--sunny-soft); color: var(--steam-ink); }
+body.sunny-theme .steam-showcase .sunny-steam-sort button[aria-pressed="true"] { background: var(--sunny-steam-blue-soft); color: var(--steam-online); }
+body.sunny-theme .steam-showcase .steam-showcase__games { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+body.sunny-theme .steam-showcase .steam-showcase__game { min-width: 0; margin: 0; padding: 0; list-style: none; }
+body.sunny-theme .steam-showcase .steam-showcase__game::before { content: none; }
+body.sunny-theme .steam-showcase .steam-showcase__game-link { display: block; height: 100%; overflow: hidden; border: 1px solid var(--steam-line); border-radius: 16px; background: var(--sunny-paper); transition: transform .18s, box-shadow .18s, border-color .18s; }
+body.sunny-theme .steam-showcase .steam-showcase__game-link:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--steam-accent) 35%, var(--steam-line)); box-shadow: var(--sunny-steam-shadow); }
+body.sunny-theme .steam-showcase .steam-showcase__cover { aspect-ratio: 460 / 215; border-radius: 0; background: var(--sunny-soft); outline: none; }
+body.sunny-theme .steam-showcase .steam-showcase__cover img { width: 100%; height: 100%; margin: 0; border-radius: 0; object-fit: cover; transition: transform .3s; }
+body.sunny-theme .steam-showcase .steam-showcase__game-link:hover .steam-showcase__cover img { transform: scale(1.05); opacity: 1; }
+body.sunny-theme .steam-showcase .steam-showcase__game-body { display: block; padding: 10px 12px 12px; }
+body.sunny-theme .steam-showcase .steam-showcase__game-name { color: var(--steam-ink); font-size: 14px; font-weight: 600; line-height: 1.3; }
+body.sunny-theme .steam-showcase .steam-showcase__game-time { gap: 6px; margin-top: 4px; color: var(--steam-muted); font-size: 12px; line-height: 1.5; }
+body.sunny-theme .steam-showcase .steam-showcase__game-time strong { color: inherit; font-weight: 500; }
+body.sunny-theme .steam-showcase .steam-showcase__game--recent .steam-showcase__game-time { flex-direction: row; flex-wrap: wrap; gap: 2px 8px; }
+body.sunny-theme .steam-showcase .steam-showcase__library-footer { flex-direction: column; justify-content: center; gap: 12px; margin-top: 24px; text-align: center; }
+body.sunny-theme .steam-showcase .steam-showcase__library-footer > p { color: var(--steam-muted); font-size: 12px; }
+body.sunny-theme .steam-showcase .sunny-steam-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+body.sunny-theme .steam-showcase .sunny-steam-pages > :is(button, a, span) { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: 0 12px; border: 1px solid var(--steam-line); border-radius: 8px; background: var(--sunny-paper); color: var(--steam-muted); font-size: 13px; font-weight: 600; line-height: 1; }
+body.sunny-theme .steam-showcase .sunny-steam-pages > :is(button, a):hover { border-color: var(--steam-accent); background: var(--sunny-steam-blue-soft); color: var(--steam-online); }
+body.sunny-theme .steam-showcase .sunny-steam-pages > [aria-current="page"],
+body.sunny-theme .steam-showcase .sunny-steam-pages > [aria-current="page"]:hover { border-color: var(--steam-accent); background: var(--steam-accent); color: #fff; }
+body.sunny-theme .steam-showcase .sunny-steam-pages :disabled,
+body.sunny-theme .steam-showcase .sunny-steam-pages [aria-disabled="true"] { opacity: .5; pointer-events: none; }
+body.sunny-theme .steam-showcase .sunny-steam-pages > span:not([aria-current]) { min-width: 20px; padding: 0; border-color: transparent; background: none; }
+body.sunny-theme .steam-showcase .steam-showcase__more { min-height: 36px; border-radius: 8px; color: var(--steam-ink); }
+body.sunny-theme .steam-showcase .steam-showcase__notice,
+body.sunny-theme .steam-showcase .steam-showcase__empty { border-radius: 12px; background: var(--sunny-soft); color: var(--steam-muted); }
+body.sunny-theme .steam-showcase .steam-showcase__footnote { gap: 6px 12px; margin-top: 24px; padding-top: 16px; border-color: var(--steam-line); color: var(--steam-muted); font-size: 11px; }
+
+/* Compact embeds use the same card, without the plugin's square avatar layout. */
+body.sunny-theme .steam-showcase.steam-showcase--compact { margin: 32px 0; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__title-row { margin-bottom: 16px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__title { font-size: 21px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__profile { gap: 20px; padding: 24px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__avatar { flex-basis: 92px; width: 92px; height: 92px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__name { font-size: 24px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__stats { margin: 0; padding: 0; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__stats dd { font-size: 23px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__games { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 14px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__game-name { font-size: 14px; }
+body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__game-time { font-size: 12px; }
+
+/* The sidebar card uses only the public profile supplied by the Steam plugin. */
+body.sunny-theme .sunny-panel.sunny-steam-card { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 14px 20px; padding: 24px; background: radial-gradient(24rem 14rem at 110% -20%, rgb(26 159 255 / 14%), transparent 72%), var(--sunny-paper); }
+body.sunny-theme .sunny-steam-card .sunny-steam-avatar { position: relative; isolation: isolate; display: grid; place-items: center; width: 90px; height: 90px; border-radius: 50%; background: var(--sunny-paper); color: #0b7ed0; box-shadow: 0 4px 14px rgb(16 24 40 / 12%); }
+body.sunny-theme .sunny-steam-card .sunny-steam-avatar > span { display: grid; place-items: center; width: 100%; height: 100%; border: 3px solid var(--sunny-paper); border-radius: 50%; background: var(--sunny-paper); }
+body.sunny-theme .sunny-steam-card .sunny-steam-avatar svg { width: 38px; height: 38px; }
+body.sunny-theme .sunny-steam-card .sunny-steam-avatar img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 3px solid var(--sunny-paper); border-radius: 50%; object-fit: cover; }
+body.sunny-theme .sunny-steam-card .sunny-steam-info { min-width: 0; }
+body.sunny-theme .sunny-steam-card .sunny-steam-name { display: block; width: fit-content; max-width: 100%; color: var(--sunny-text); font-size: 19px; font-weight: 800; line-height: 1.4; overflow-wrap: anywhere; }
+body.sunny-theme .sunny-steam-card .sunny-steam-name:hover { color: #0b7ed0; }
+body.sunny-theme .sunny-steam-card .sunny-steam-name,
+body.sunny-theme .sunny-steam-card .sunny-steam-current { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+body.sunny-theme .sunny-steam-card .sunny-steam-details { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 9px; font-size: 11px; line-height: 1.5; }
+body.sunny-theme .sunny-steam-card [class*="sunny-steam-status--"] { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--sunny-line); border-radius: 999px; background: var(--sunny-soft); color: var(--sunny-muted); font-size: 11px; font-weight: 600; }
+body.sunny-theme .sunny-steam-card [class*="sunny-steam-status--"]::before { content: ""; flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+body.sunny-theme .sunny-steam-card .sunny-steam-status--online { border-color: rgb(26 159 255 / 22%); background: rgb(26 159 255 / 12%); color: #0b7ed0; }
+body.sunny-theme .sunny-steam-card .sunny-steam-status--playing { border-color: rgb(93 203 102 / 42%); background: rgb(93 203 102 / 14%); color: #1f9d3a; }
+body.sunny-theme .sunny-steam-card .sunny-steam-status--busy { border-color: rgb(229 72 77 / 42%); background: rgb(229 72 77 / 14%); color: #e0484d; }
+body.sunny-theme .sunny-steam-card .sunny-steam-count { color: var(--sunny-muted); font-size: 11px; }
+body.sunny-theme .sunny-steam-card .sunny-steam-current { margin: 7px 0 0; color: #1f9d3a; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+body.sunny-theme .sunny-steam-card .sunny-steam-synced { grid-column: 1 / -1; display: block; margin-top: 7px; color: var(--sunny-muted); font-size: 10px; line-height: 1.5; }
+html[data-sunny-theme="dark"] body.sunny-theme .sunny-steam-card .sunny-steam-status--online,
+html[data-sunny-theme="dark"] body.sunny-theme .sunny-steam-card .sunny-steam-name:hover { color: #78c6eb; }
+html[data-sunny-theme="dark"] body.sunny-theme .sunny-steam-card .sunny-steam-status--playing,
+html[data-sunny-theme="dark"] body.sunny-theme .sunny-steam-card .sunny-steam-current { color: #86d993; }
+html[data-sunny-theme="dark"] body.sunny-theme .sunny-steam-card .sunny-steam-status--busy { color: #ff888b; }
+
+@keyframes sunny-steam-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 680px) {
+  body.sunny-theme .steam-showcase .sunny-steam-hero { border-radius: 18px; }
+  body.sunny-theme .steam-showcase .steam-showcase__title-row { align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  body.sunny-theme .steam-showcase .steam-showcase__title { font-size: 22px; }
+  body.sunny-theme .steam-showcase .steam-showcase__profile,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__profile { gap: 16px; padding: 19px 18px; }
+  body.sunny-theme .steam-showcase .steam-showcase__avatar,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__avatar { flex-basis: 72px; width: 72px; height: 72px; }
+  body.sunny-theme .steam-showcase .steam-showcase__identity,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__identity { flex-basis: calc(100% - 88px); }
+  body.sunny-theme .steam-showcase .steam-showcase__name,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__name { font-size: 20px; }
+  body.sunny-theme .steam-showcase .steam-showcase__presence { gap: 6px; margin-top: 8px; }
+  body.sunny-theme .steam-showcase a.steam-showcase__profile-link,
+  body.sunny-theme .steam-showcase.steam-showcase--compact a.steam-showcase__profile-link { min-height: 30px; margin: -4px 0 0 88px; }
+  body.sunny-theme .steam-showcase .steam-showcase__stats > div,
+  body.sunny-theme .steam-showcase .steam-showcase__stats > div:first-child { padding: 13px 5px; }
+  body.sunny-theme .steam-showcase .steam-showcase__stats dd,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__stats dd { font-size: 19px; }
+  body.sunny-theme .steam-showcase .steam-showcase__stats dd > span { display: inline; margin: 0 0 0 3px; font-size: 10px; }
+  body.sunny-theme .steam-showcase .steam-showcase__stats dt { font-size: 10px; }
+  body.sunny-theme .steam-showcase .steam-showcase__section { margin-top: 22px; }
+  body.sunny-theme .steam-showcase .steam-showcase__section-heading { align-items: center; gap: 8px; }
+  body.sunny-theme .steam-showcase .steam-showcase__section-heading > span { font-size: 11px; }
+  body.sunny-theme .steam-showcase .steam-showcase__controls { flex-direction: column; align-items: stretch; gap: 10px; scroll-margin-top: 72px; }
+  body.sunny-theme .steam-showcase .steam-showcase__search { flex: 0 1 auto; min-width: 0; max-width: none; width: 100%; }
+  body.sunny-theme .steam-showcase .steam-showcase__sort { align-self: center; }
+  body.sunny-theme .steam-showcase .sunny-steam-sort { justify-content: center; }
+  body.sunny-theme .steam-showcase .steam-showcase__games,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  body.sunny-theme .steam-showcase .steam-showcase__game-link { border-radius: 12px; }
+  body.sunny-theme .steam-showcase .steam-showcase__game-body { padding: 9px 10px 10px; }
+  body.sunny-theme .steam-showcase .steam-showcase__game-name,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__game-name { font-size: 13px; }
+  body.sunny-theme .steam-showcase .steam-showcase__game-time,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__game-time { font-size: 11px; }
+  body.sunny-theme .steam-showcase .sunny-steam-pages { gap: 6px; }
+  body.sunny-theme .steam-showcase .sunny-steam-pages > :is(button, a, span) { min-width: 32px; min-height: 34px; padding: 0 9px; font-size: 12px; }
+  body.sunny-theme .steam-showcase .steam-showcase__footnote { flex-direction: column; }
+}
+
+@media (max-width: 350px) {
+  body.sunny-theme .steam-showcase .steam-showcase__stats dd,
+  body.sunny-theme .steam-showcase.steam-showcase--compact .steam-showcase__stats dd { font-size: 17px; }
+  body.sunny-theme .steam-showcase .steam-showcase__stats dd > span { display: block; margin: 3px 0 0; }
+  body.sunny-theme .steam-showcase .steam-showcase__title-row { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.sunny-theme .steam-showcase .steam-showcase__avatar::before,
+  body.sunny-theme .sunny-steam-card .sunny-steam-avatar::before { animation: none; }
+  body.sunny-theme .steam-showcase .steam-showcase__game-link,
+  body.sunny-theme .steam-showcase .steam-showcase__cover img { transition: none; }
+  body.sunny-theme .steam-showcase .steam-showcase__game-link:hover,
+  body.sunny-theme .steam-showcase .steam-showcase__game-link:hover .steam-showcase__cover img { transform: none; }
+}

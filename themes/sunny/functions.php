@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/steam.php';
+require_once __DIR__ . '/music.php';
+require_once __DIR__ . '/music-view.php';
+
 function sunny_icon(string $name, int $size = 20): string
 {
     $icons = [
@@ -39,6 +43,12 @@ function sunny_icon(string $name, int $size = 20): string
         'pin' => '<path d="m16 3 5 5-4 1-4 4v4l-3-3-6 6 6-6-3-3h4l4-4Z"/>',
         'eye' => '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
         'grid' => '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+        'music' => '<path d="M9 18V5l12-2v13M9 9l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+        'play' => '<path d="m8 5 12 7-12 7Z"/>',
+        'pause' => '<path d="M8 5v14M16 5v14"/>',
+        'skip-back' => '<path d="M5 5v14m14-14L8 12l11 7Z"/>',
+        'skip-forward' => '<path d="M19 5v14M5 5l11 7-11 7Z"/>',
+        'stop' => '<rect x="5" y="5" width="14" height="14" rx="2"/>',
     ];
     $size = max(12, min(64, $size));
     return '<svg class="sunny-icon" xmlns="http://www.w3.org/2000/svg" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . ($icons[$name] ?? $icons['book-open']) . '</svg>';
@@ -399,6 +409,9 @@ add_theme_filter('body_class', static function (string $classes, array $context)
 add_theme_filter('content', static function (string $content, array $context): string {
     $active = (string)($context['active'] ?? '');
     $action = (string)($_GET['a'] ?? 'home');
+    if ($active === 'steam') {
+        return sunny_steam_page_content($content);
+    }
     if ($action === 'post' && sunny_likes_available() && str_contains($content, '<article class="post-detail">')) {
         $post = fetch_post_by_identifier(trim((string)($_GET['slug'] ?? $_GET['id'] ?? '')));
         if ($post && is_live_post($post) && (!content_requires_password($post) || content_password_is_unlocked($post))) {

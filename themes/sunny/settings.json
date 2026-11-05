@@ -14,6 +14,18 @@
           "description": "支持换行，以纯文本显示。首次保存前沿用原公告；留空保存后显示“暂时没有新的内容”。"
         }
       ]
+    },
+    {
+      "title": "音乐播放列表",
+      "description": "使用网易云公开歌单，显示侧栏封面卡片和右侧播放列表。",
+      "fields": [
+        {"key": "music_enabled", "label": "启用音乐播放器", "type": "checkbox", "default": "0"},
+        {"key": "music_playlist", "label": "网易云歌单", "type": "text", "default": "", "maxlength": 500, "placeholder": "网易云歌单链接或歌单 ID", "description": "例如 https://music.163.com/#/playlist?id=19723756 或 19723756。请使用公开歌单；留空不显示播放器。"},
+        {"key": "music_title", "label": "歌单标题", "type": "text", "default": "音乐单", "maxlength": 40},
+        {"key": "music_limit", "label": "显示歌曲数量", "type": "select", "default": "50", "options": {"20": "20 首", "50": "50 首", "100": "100 首", "200": "200 首"}, "description": "读取网易云公开返回的歌曲，最多显示所选数量；歌单资料每小时刷新。"},
+        {"key": "music_mode", "label": "默认播放模式", "type": "select", "default": "list", "options": {"list": "列表循环", "single": "单曲循环", "random": "随机播放"}},
+        {"key": "music_volume", "label": "默认音量", "type": "select", "default": "60", "options": {"20": "20%", "40": "40%", "60": "60%", "80": "80%", "100": "100%"}, "description": "访客手动播放后可调整音量。不会自动播放；部分歌曲可能受版权、会员或地区限制。"}
+      ]
     }
   ]
 }
