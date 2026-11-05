@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const SBLOG_GALLERY_VERSION = '1.1.0';
+const SBLOG_GALLERY_VERSION = '1.1.1';
 const SBLOG_GALLERY_SLUG = 'gallery';
 
 require_once __DIR__ . '/includes/data.php';
