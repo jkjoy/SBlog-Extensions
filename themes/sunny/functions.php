@@ -403,7 +403,7 @@ add_theme_filter('body_class', static function (string $classes, array $context)
     $active = (string)($context['active'] ?? '');
     $action = (string)($_GET['a'] ?? 'home');
     $listing = ($active === 'home' && in_array($action, ['home', 'category'], true)) || ($active === 'tags' && $action === 'tag');
-    return trim($classes . ' sunny-theme ' . ($listing ? 'sunny-view-list' : 'sunny-view-content'));
+    return trim($classes . ' sunny-theme ' . ($listing ? 'sunny-view-list' : 'sunny-view-content') . ($active === 'steam' ? ' sunny-view-steam' : ''));
 });
 
 add_theme_filter('content', static function (string $content, array $context): string {

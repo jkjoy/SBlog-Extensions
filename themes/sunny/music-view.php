@@ -7,13 +7,13 @@ function sunny_render_music_sidebar(array $snapshot, array $config): string
     $cover = (string)($track['cover'] ?? '');
     ob_start();
     ?>
-    <section class="sunny-panel sunny-music-card" data-sunny-music-card aria-label="<?= h($config['title']) ?>">
+    <section class="sunny-panel sunny-music-card<?= !$track ? ' sunny-music-card--empty' : '' ?>" data-sunny-music-card aria-label="<?= h($config['title']) ?>">
       <?php if ($track): ?>
       <button class="sunny-music-card-cover" type="button" data-music-toggle aria-label="播放音乐" title="播放音乐">
-        <span aria-hidden="true"><?= sunny_icon('music', 48) ?></span><img data-music-cover<?= $cover !== '' ? ' src="' . h($cover) . '"' : ' hidden' ?> width="384" height="220" alt="歌曲封面" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+        <span aria-hidden="true"><?= sunny_icon('music', 48) ?></span><img data-music-cover<?= $cover !== '' ? ' src="' . h($cover) . '"' : ' hidden' ?> width="180" height="180" alt="歌曲封面" loading="lazy" decoding="async" referrerpolicy="no-referrer">
         <span class="sunny-music-card-overlay" data-music-toggle-icon aria-hidden="true"><?= sunny_icon('play', 32) ?></span>
       </button>
-      <div class="sunny-music-card-info"><strong data-music-name><?= h($track['name']) ?></strong><span data-music-artist><?= h($track['artist']) ?></span><button class="sunny-music-card-open" type="button" data-music-open aria-controls="sunny-music-dialog"><?= sunny_icon('music', 18) ?> <?= h($config['title']) ?></button></div>
+      <div class="sunny-music-card-info"><strong data-music-name><?= h($track['name']) ?></strong><span data-music-artist><?= h($track['artist']) ?></span><button class="sunny-music-card-open" type="button" data-music-open aria-controls="sunny-music-dialog" aria-label="<?= h('打开' . $config['title'] . '播放列表') ?>" title="<?= h($config['title']) ?>"><?= sunny_icon('music', 16) ?></button></div>
       <?php else: ?>
       <h2 class="sunny-label"><?= sunny_icon('music', 18) ?> <?= h($config['title']) ?></h2><p class="sunny-music-notice">歌单暂时无法读取</p><a href="<?= h($snapshot['url']) ?>" target="_blank" rel="noopener noreferrer">在网易云查看歌单 ↗</a>
       <?php endif; ?>

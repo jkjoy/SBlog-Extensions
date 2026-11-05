@@ -81,11 +81,55 @@ function sunny_render_steam_sidebar(): string
     return (string)ob_get_clean();
 }
 
-/** Keep the plugin's rendering, privacy notices and controls, grouping its public profile visually. */
+/** Adapt the plugin's public markup without fetching another snapshot or losing its notices. */
 function sunny_steam_page_content(string $content): string
 {
     if (!str_contains($content, 'data-steam-showcase') || str_contains($content, 'sunny-steam-hero')) {
         return $content;
     }
-    return preg_replace('~(<div class="steam-showcase__profile">.*?</dl>)~s', '<div class="sunny-steam-hero">$1</div>', $content, 1) ?? $content;
+    $content = preg_replace('~(<div class="steam-showcase__profile">.*?</dl>)~s', '<div class="sunny-steam-hero">$1</div>', $content, 1) ?? $content;
+    $content = preg_replace(
+        '~(<p class="steam-showcase__presence">.*?)(</p></div>)\s*(<a class="steam-showcase__profile-link".*?</a>)~s',
+        '$1$3$2', $content, 1
+    ) ?? $content;
+    $content = preg_replace(
+        '~(data-steam-library[^>]*><div class="steam-showcase__section-heading"><h2>)游戏收藏(</h2>)~',
+        '$1游戏库$2', $content, 1
+    ) ?? $content;
+
+    // Locate the section without backtracking across libraries containing thousands of cards.
+    $libraryStart = strpos($content, '<section class="steam-showcase__section" data-steam-library');
+    $libraryEnd = $libraryStart !== false ? strpos($content, '</section>', $libraryStart) : false;
+    if ($libraryStart === false || $libraryEnd === false) {
+        return $content;
+    }
+    $library = substr($content, $libraryStart, $libraryEnd - $libraryStart);
+    $recentPublic = preg_match('~<section class="steam-showcase__section" aria-label="最近在玩">.*?</section>~s', $content, $recentSection)
+        && str_contains($recentSection[0], 'steam-showcase__games--recent');
+    preg_match_all('~data-appid="(\d+)"~', $library, $ownedIds);
+    // A recent-only game (for example, a free weekend) must remain accessible.
+    $content = preg_replace_callback(
+        '~<section class="steam-showcase__section" aria-label="最近在玩">.*?</section>~s',
+        static function (array $match) use ($ownedIds): string {
+            preg_match_all('~href="https://store\.steampowered\.com/app/(\d+)/"~', $match[0], $recentIds);
+            if (($recentIds[1] !== [] && array_diff($recentIds[1], $ownedIds[1]) === [])
+                || str_contains($match[0], '最近两周没有公开的游玩记录。')) {
+                return '';
+            }
+            return $match[0];
+        }, $content, 1
+    ) ?? $content;
+    if (!$recentPublic) {
+        return $content;
+    }
+    return preg_replace_callback(
+        '~<li class="steam-showcase__game" data-steam-game\b[^>]*>.*?</li>~s',
+        static function (array $match): string {
+            if (!preg_match('~data-recent="([1-9]\d*)"~', $match[0], $minutes)) {
+                return $match[0];
+            }
+            $label = '近两周游玩 ' . sblog_steam_hours((int)$minutes[1]) . ' 小时';
+            return str_replace('<span class="steam-showcase__cover">', '<span class="steam-showcase__cover"><span class="sunny-steam-recent-badge" title="' . h($label) . '">近期在玩</span>', $match[0]);
+        }, $content
+    ) ?? $content;
 }

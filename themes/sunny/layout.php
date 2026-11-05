@@ -7,7 +7,6 @@ $sunnyAnnouncement = is_array($sunnySavedSettings) && array_key_exists('announce
     ? trim(theme_setting('announcement_content', '', 'sunny'))
     : trim(setting('home_intro'));
 $sunnyCategories = sunny_categories();
-$sunnyRecent = fetch_published_posts(5, 0);
 $sunnyArchives = fetch_archive_posts();
 $sunnyAuthor = sunny_author_name();
 $sunnySteamConfig = sunny_steam_config();
@@ -40,8 +39,6 @@ foreach ($sunnyArchives as $sunnyEntry) {
 $sunnyDays = (int)date('t');
 $sunnyFirstDay = (int)date('w', strtotime(date('Y-m-01')));
 $sunnyMonths = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
-$sunnyFeatured = $sunnyRecent[0] ?? null;
-$sunnyFeaturedCover = $sunnyFeatured ? sunny_post_cover($sunnyFeatured) : '';
 $sunnyNav = [
     ['home', '🏡', '首页'],
     ['archives', '🗃️', '时光机'],
@@ -139,12 +136,7 @@ $sunnyNav = [
 
     <aside class="sunny-sidebar" aria-label="博客侧栏">
       <div class="sunny-small-widgets">
-        <a class="sunny-discover" href="<?= h($sunnyFeatured ? sunny_url('post', ['slug' => (string)$sunnyFeatured['slug']]) : sunny_url('archives')) ?>">
-          <?php if ($sunnyFeaturedCover !== ''): ?><img src="<?= h($sunnyFeaturedCover) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?>
-          <span class="sunny-discover-icon"><?= sunny_icon('book-open', 18) ?></span>
-          <span class="sunny-discover-text"><small>拾一篇文字</small><strong><?= h($sunnyFeatured['title'] ?? '时光里的小美好') ?></strong></span>
-          <span class="sunny-discover-arrow"><?= sunny_icon('arrow-right', 16) ?></span>
-        </a>
+        <?php if ($sunnyMusicData !== null): ?><?= sunny_render_music_sidebar($sunnyMusicData, $sunnyMusicConfig) ?><?php endif; ?>
         <button class="sunny-plant" data-sunny-water type="button" aria-label="给小苗浇水" title="给小苗浇水">
           <span class="sunny-plant-sun"></span><span class="sunny-cloud sunny-cloud--one"></span><span class="sunny-cloud sunny-cloud--two"></span>
           <img src="<?= h(theme_asset_url('assets/plant.webp')) ?>" width="180" height="180" alt="一株正在长大的小苗">
@@ -153,7 +145,6 @@ $sunnyNav = [
       </div>
 
       <?= sunny_render_steam_sidebar() ?>
-      <?php if ($sunnyMusicData !== null): ?><?= sunny_render_music_sidebar($sunnyMusicData, $sunnyMusicConfig) ?><?php endif; ?>
 
       <section class="sunny-panel sunny-calendar-panel">
         <h2 class="sunny-label"><?= h($sunnyMonths[(int)date('n')]) ?>月历</h2>
