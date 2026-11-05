@@ -88,7 +88,7 @@ const setup = (options = {}) => {
   new w.MutationObserver((records) => {
     for (const record of records) for (const node of record.addedNodes) {
       const links = node.nodeType === 1 ? [node, ...node.querySelectorAll('link')] : [];
-      links.filter((link) => link.matches('link[rel="stylesheet"]')).forEach((link) => queueMicrotask(() => link.dispatchEvent(new w.Event('load'))));
+      if (!options.manualStyles) links.filter((link) => link.matches('link[rel="stylesheet"]')).forEach((link) => queueMicrotask(() => link.dispatchEvent(new w.Event('load'))));
     }
   }).observe(w.document.head, { childList: true, subtree: true });
   if (options.core) w.eval(coreRuntime);
@@ -676,6 +676,172 @@ test('an external script explicitly marked for each page executes once on every 
     assert.equal(t.w.document.querySelector('audio'), t.audio);
     assert.deepEqual(t.transitions, []);
     assert.equal(t.errors.length, 0);
+  } finally { t.close(); }
+});
+
+
+const cssNodes = (document) => [...document.head.querySelectorAll('link[rel="stylesheet"], style')];
+const cssOrder = (document) => cssNodes(document).map((node) => node.tagName === 'LINK' ? new URL(node.href).pathname : `style#${node.id}:${node.textContent}`);
+const observeCss = (t) => {
+  const mutations = [];
+  const observer = new t.w.MutationObserver((records) => {
+    for (const record of records) for (const action of ['addedNodes', 'removedNodes']) {
+      for (const node of record[action]) if (node.nodeType === 1 && node.matches('link[rel="stylesheet"], style')) mutations.push({ node, action });
+    }
+  });
+  observer.observe(t.w.document.head, { childList: true });
+  return mutations;
+};
+
+test('shared stylesheets and inline fonts remain continuously connected in the same cascade order', async () => {
+  const head = '<link rel="stylesheet" href="/shared-widget.css"><style id="fixture-font-face">@font-face{font-family:FixtureFont;src:url(/fixture-font.woff2)}body{font-family:FixtureFont}</style><link rel="stylesheet" href="/shared-colors.css">';
+  const t = setup({ html: { head }, fetch: async (url) => response(new URL(url).pathname.startsWith('/post') ? 'post' : 'steam', { url, head }) });
+  try {
+    const originals = cssNodes(t.w.document);
+    const order = cssOrder(t.w.document);
+    const mutations = observeCss(t);
+    for (const [link, title] of [['#to-post', 'post'], ['#to-steam', 'steam']]) {
+      t.click(link);
+      await until(() => t.w.document.title === `${title} | Sunny` && !t.w.document.body.hasAttribute('aria-busy'), 'navigation with unchanged CSS');
+      assert.deepEqual(cssNodes(t.w.document), originals, 'The same styles must retain their original nodes and order');
+      assert.deepEqual(cssOrder(t.w.document), order);
+      assert.equal(originals.every((node) => node.isConnected), true);
+    }
+    assert.deepEqual(mutations, [], 'Shared CSS must not be removed, reinserted or cloned during navigation');
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+test('a destination waits for its new stylesheet before replacing the visible page', async () => {
+  const t = setup({ manualStyles: true, fetch: async (url) => response('post', { url, head: '<link rel="stylesheet" href="/post-only.css">' }) });
+  try {
+    const main = t.w.document.querySelector('main');
+    const shared = t.w.document.querySelector('link[rel="stylesheet"]');
+    const mutations = observeCss(t);
+    t.click('#to-post');
+    await until(() => t.w.document.querySelector('link[href="https://sunny.test/post-only.css"]'), 'new stylesheet request');
+    const pending = t.w.document.querySelector('link[href="https://sunny.test/post-only.css"]');
+    assert.equal(t.w.document.querySelector('main'), main);
+    assert.equal(t.w.document.title, 'home | Sunny');
+    assert.equal(t.w.location.pathname, '/');
+    assert.equal(t.events.length, 0, 'Page lifecycle must wait until its CSS loads');
+    assert.equal(shared.isConnected, true);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    pending.dispatchEvent(new t.w.Event('load'));
+    await until(() => t.w.document.title === 'post | Sunny' && !t.w.document.body.hasAttribute('aria-busy'), 'styled article commit');
+    assert.notEqual(t.w.document.querySelector('main'), main);
+    assert.equal(t.w.document.querySelector('link[href="/themes/sunny/style.css?v=test"]'), shared);
+    assert.equal(mutations.some(({ node }) => node === shared), false, 'Loading an added stylesheet must not move an unchanged one');
+    assert.equal(t.mediaCalls(), 0);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+test('a stylesheet failure rolls back added CSS and preserves the old page, fonts and audio', async () => {
+  const head = '<link rel="stylesheet" href="/current-page.css"><style id="fixture-font-face">@font-face{font-family:FixtureFont;src:url(/fixture-font.woff2)}</style>';
+  const t = setup({ manualStyles: true, html: { head }, fetch: async (url) => response('post', { url, head: '<link rel="stylesheet" href="/loaded-but-uncommitted.css"><link rel="stylesheet" href="/broken-page.css">' }) });
+  try {
+    const main = t.w.document.querySelector('main');
+    const originalStyles = cssNodes(t.w.document);
+    const mutations = observeCss(t);
+    t.click('#to-post');
+    await until(() => t.w.document.querySelector('link[href="https://sunny.test/broken-page.css"]'), 'both destination stylesheet requests');
+    t.w.document.querySelector('link[href="https://sunny.test/loaded-but-uncommitted.css"]').dispatchEvent(new t.w.Event('load'));
+    assert.equal(t.w.document.querySelector('main'), main);
+    t.w.document.querySelector('link[href="https://sunny.test/broken-page.css"]').dispatchEvent(new t.w.Event('error'));
+    await until(() => t.w.document.querySelector('#sunny-pjax-error'), 'stylesheet failure notice');
+    assert.equal(t.w.document.querySelector('main'), main);
+    assert.equal(t.w.document.title, 'home | Sunny');
+    assert.equal(t.w.location.pathname, '/');
+    assert.deepEqual(cssNodes(t.w.document), originalStyles);
+    assert.equal(mutations.some(({ node }) => originalStyles.includes(node)), false);
+    assert.equal(t.events.length, 0);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.equal(t.audio.currentTime, 42.75);
+    assert.equal(t.audio.paused, false);
+    assert.equal(t.mediaCalls(), 0);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+test('a newly loaded stylesheet takes its destination cascade position without moving shared CSS', async () => {
+  const head = '<link rel="stylesheet" href="/shared-before.css"><style id="fixture-font-face">@font-face{font-family:FixtureFont;src:url(/fixture-font.woff2)}</style><link rel="stylesheet" href="/shared-after.css">';
+  const nextHead = head.replace('<style', '<link rel="stylesheet" href="/inserted-page.css"><style');
+  const t = setup({ manualStyles: true, html: { head }, fetch: async (url) => response('post', { url, head: nextHead }) });
+  try {
+    const originals = cssNodes(t.w.document);
+    const mutations = observeCss(t);
+    t.click('#to-post');
+    await until(() => t.w.document.querySelector('link[href="https://sunny.test/inserted-page.css"]'), 'inserted stylesheet request');
+    t.w.document.querySelector('link[href="https://sunny.test/inserted-page.css"]').dispatchEvent(new t.w.Event('load'));
+    await until(() => t.w.document.title === 'post | Sunny' && !t.w.document.body.hasAttribute('aria-busy'), 'article cascade commit');
+    assert.deepEqual(cssOrder(t.w.document), ['/themes/sunny/style.css', '/shared-before.css', '/inserted-page.css', 'style#fixture-font-face:@font-face{font-family:FixtureFont;src:url(/fixture-font.woff2)}', '/shared-after.css']);
+    assert.equal(originals.every((node) => node.isConnected), true);
+    assert.equal(mutations.some(({ node }) => originals.includes(node)), false, 'An insertion can satisfy the new cascade without touching shared CSS');
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+  } finally { t.close(); }
+});
+
+test('a changed cascade preloads replacements while the current stylesheet nodes stay active', async () => {
+  const initial = '<link rel="stylesheet" href="/cascade-a.css"><link rel="stylesheet" href="/cascade-b.css">';
+  const next = '<link rel="stylesheet" href="/cascade-b.css"><link rel="stylesheet" href="/cascade-a.css">';
+  const t = setup({ manualStyles: true, html: { head: initial }, fetch: async (url) => response('post', { url, head: next }) });
+  try {
+    const main = t.w.document.querySelector('main');
+    const originals = cssNodes(t.w.document);
+    const stablePrefix = originals[0];
+    const mutations = observeCss(t);
+    t.click('#to-post');
+    await until(() => cssNodes(t.w.document).some((node) => !originals.includes(node)), 'cascade replacement preload');
+    assert.equal(t.w.document.querySelector('main'), main, 'The old page must remain until reordered styles are ready');
+    assert.equal(originals.every((node) => node.isConnected), true);
+    assert.equal(mutations.some(({ node }) => originals.includes(node)), false, 'Do not detach a stylesheet while it still styles the visible page');
+    for (const node of cssNodes(t.w.document).filter((node) => !originals.includes(node) && node.tagName === 'LINK')) node.dispatchEvent(new t.w.Event('load'));
+    await until(() => t.w.document.title === 'post | Sunny' && !t.w.document.body.hasAttribute('aria-busy'), 'reordered cascade commit');
+    assert.deepEqual(cssOrder(t.w.document), ['/themes/sunny/style.css', '/cascade-b.css', '/cascade-a.css']);
+    assert.equal(cssNodes(t.w.document)[0], stablePrefix, 'A stable prefix does not need to be replaced or moved');
+    assert.equal(mutations.some(({ node }) => node === stablePrefix), false);
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.deepEqual(t.transitions, []);
+  } finally { t.close(); }
+});
+
+
+test('updated or reordered player CSS replaces old rules without duplicating the persistent player style', async () => {
+  const before = '<link rel="stylesheet" href="/shared-before.css">';
+  const after = '<link rel="stylesheet" href="/shared-after.css">';
+  const player = (version) => `<link rel="stylesheet" href="/themes/sunny/music.css?v=${version}" data-sunny-player-style>`;
+  const t = setup({
+    manualStyles: true, html: { head: before + player('old') + after },
+    fetch: async (url) => response(new URL(url).pathname.startsWith('/post') ? 'post' : 'steam', { url, head: new URL(url).pathname.startsWith('/post') ? before + player('new') + after : player('new') + before + after }),
+  });
+  try {
+    const originalPlayerStyle = t.w.document.querySelector('[data-sunny-player-style]');
+    t.click('#to-post');
+    await until(() => t.w.document.querySelector('link[href="https://sunny.test/themes/sunny/music.css?v=new"]'), 'updated player stylesheet request');
+    const updated = t.w.document.querySelector('link[href="https://sunny.test/themes/sunny/music.css?v=new"]');
+    assert.equal(originalPlayerStyle.isConnected, true, 'Playing audio keeps its old stylesheet until the replacement loads');
+    updated.dispatchEvent(new t.w.Event('load'));
+    await until(() => t.w.document.title === 'post | Sunny' && !t.w.document.body.hasAttribute('aria-busy'), 'updated player stylesheet commit');
+    assert.equal(originalPlayerStyle.isConnected, false);
+    assert.equal(t.w.document.querySelectorAll('[data-sunny-player-style]').length, 1);
+    assert.equal(t.w.document.querySelector('[data-sunny-player-style]'), updated);
+    t.click('#to-steam');
+    await until(() => [...t.w.document.querySelectorAll('[data-sunny-player-style]')].some((node) => node !== updated), 'reordered player stylesheet preload');
+    const reordered = [...t.w.document.querySelectorAll('[data-sunny-player-style]')].find((node) => node !== updated);
+    assert.equal(updated.isConnected, true);
+    reordered.dispatchEvent(new t.w.Event('load'));
+    await until(() => t.w.document.title === 'steam | Sunny' && !t.w.document.body.hasAttribute('aria-busy'), 'reordered player stylesheet commit');
+    assert.equal(updated.isConnected, false, 'The displaced copy must not leave old player rules in the cascade');
+    assert.equal(t.w.document.querySelectorAll('[data-sunny-player-style]').length, 1);
+    assert.equal(t.w.document.querySelector('[data-sunny-player-style]'), reordered);
+    assert.deepEqual(cssOrder(t.w.document), ['/themes/sunny/style.css', '/themes/sunny/music.css', '/shared-before.css', '/shared-after.css']);
+    assert.equal(reordered.href, 'https://sunny.test/themes/sunny/music.css?v=new');
+    assert.equal(t.w.document.querySelector('audio'), t.audio);
+    assert.equal(t.audio.currentTime, 42.75);
+    assert.equal(t.mediaCalls(), 0);
+    assert.deepEqual(t.transitions, []);
   } finally { t.close(); }
 });
 

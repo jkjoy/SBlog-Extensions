@@ -34,6 +34,8 @@ Steam 游戏页参照原版使用全宽单列布局，隐藏侧栏，玩家名�
 
 Head 自定义代码中各页相同的脚本保留首次初始化的实例，避免公共统计脚本导致整页刷新；仅 CSP nonce 改变也可继续局部导航。需要每页重新执行的外链脚本可添加 `data-sunny-pjax="page"`，并自行保证初始化可重复执行。`https://0tz.top/tracker.min.js` 的 `data-website-id` 统计脚本会在成功切页后异步执行，继续记录各页访问，统计服务失败不影响页面和音乐。
 
+公共 CSS 和相同的字体样式保持原节点及层叠顺序，切页时不重复插入或加载。新增或需要调整顺序的页面样式先在旧页面仍显示时完成加载，再随新正文一起生效；加载失败保留旧页面与播放器，并提供重试。
+
 开发时可安装临时 `jsdom` 依赖运行导航回归：`NODE_PATH=/path/to/node_modules node themes/sunny/tests/pjax.cjs`。附加 `--core=/path/to/blog/assets/index.js` 可验证真实核心评论回复。测试使用模拟页面和媒体状态，无须配置 Steam 或音乐服务。
 
 界面线条图标参考 Lucide / Feather，许可及版权声明见 `assets/icons-LICENSE.txt`。主题需要 SBlog 1.14.18 或更新版本。

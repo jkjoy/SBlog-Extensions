@@ -108,55 +108,88 @@
   });
 
   const prepareStyles = async (next, base, signal) => {
+    const selector = 'link[rel="stylesheet"], style';
+    const key = (node, url) => JSON.stringify([
+      node.tagName,
+      [...node.attributes]
+        .filter((attr) => attr.name !== 'nonce')
+        .map((attr) => [attr.name, attr.name === 'href' ? absolute(attr.value, url) : attr.value])
+        .sort(([a], [b]) => a.localeCompare(b)),
+      node.textContent,
+    ]);
+    const incoming = [...next.head.querySelectorAll(selector)];
+    const existing = [...document.head.querySelectorAll(selector)];
+    const identities = existing.map((node) => key(node, location.href));
+    const retained = new Set();
     const added = [];
-    const incoming = new Set([...next.head.querySelectorAll('link[rel="stylesheet"]')].map((link) => absolute(link.getAttribute('href'), base)));
-    const existing = new Set([...document.head.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href));
+    const pending = [];
+    const cleanup = [];
+    let before = existing.length;
+    let anchor = null;
     try {
-      await Promise.all([...next.head.querySelectorAll('link[rel="stylesheet"]')].map((source) => {
-        const url = absolute(source.getAttribute('href'), base);
-        if (existing.has(url)) return Promise.resolve();
-        existing.add(url);
-        return new Promise((resolve, reject) => {
-          const link = document.importNode(source, true);
-          link.href = url;
-          const finish = (error) => {
-            clearTimeout(timeout);
-            signal.removeEventListener('abort', cancel);
-            link.onload = link.onerror = null;
-            error ? reject(error) : resolve();
-          };
-          const cancel = () => finish(new DOMException('Aborted', 'AbortError'));
-          const timeout = setTimeout(() => finish(new Error('Stylesheet load timed out.')), 15000);
-          signal.addEventListener('abort', cancel, { once: true });
-          link.onload = () => finish();
-          link.onerror = () => finish(new Error('Stylesheet could not be loaded.'));
-          added.push(link);
-          document.head.append(link);
-        });
-      }));
+      // Keep shared CSS nodes connected: moving an already loaded <link> makes
+      // browsers discard and reload its stylesheet, even within the same head.
+      // Prepare additions in their final cascade order while the old page stays styled.
+      for (const source of [...incoming].reverse()) {
+        const identity = key(source, base);
+        const index = identities.lastIndexOf(identity, before - 1);
+        if (before > 0 && index !== -1) {
+          anchor = existing[index];
+          retained.add(anchor);
+          before = index;
+          continue;
+        }
+        const node = document.importNode(source, true);
+        const media = source.getAttribute('media');
+        node.media = 'not all';
+        if (node.tagName === 'LINK') {
+          node.href = absolute(source.getAttribute('href'), base);
+          pending.push(new Promise((resolve, reject) => {
+            const release = () => {
+              clearTimeout(timeout);
+              signal.removeEventListener('abort', cancel);
+              node.onload = node.onerror = null;
+            };
+            const finish = (error) => { release(); error ? reject(error) : resolve(); };
+            const cancel = () => finish(new DOMException('Aborted', 'AbortError'));
+            const timeout = setTimeout(() => finish(new Error('Stylesheet load timed out.')), 15000);
+            signal.addEventListener('abort', cancel, { once: true });
+            node.onload = () => finish();
+            node.onerror = () => finish(new Error('Stylesheet could not be loaded.'));
+            cleanup.push(release);
+            if (signal.aborted) cancel();
+          }));
+        }
+        added.push({ node, media });
+        document.head.insertBefore(node, anchor);
+        anchor = node;
+      }
+      await Promise.all(pending);
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
       return {
         commit() {
-          document.head.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
-            if (!incoming.has(link.href) && !link.hasAttribute('data-sunny-player-style')) link.remove();
-          });
-          // Match the next page's stylesheet order as well as its stylesheet set.
-          for (const url of incoming) {
-            const link = [...document.head.querySelectorAll('link[rel="stylesheet"]')].find((item) => item.href === url);
-            if (link) document.head.append(link);
+          for (const { node, media } of added) {
+            if (media === null) node.removeAttribute('media');
+            else node.setAttribute('media', media);
+          }
+          for (const node of existing) {
+            const keepPlayerStyle = node.hasAttribute('data-sunny-player-style')
+              && !incoming.some((item) => item.hasAttribute('data-sunny-player-style'));
+            if (!retained.has(node) && !keepPlayerStyle) node.remove();
           }
         },
-        rollback() { added.forEach((link) => link.remove()); },
+        rollback() { added.forEach(({ node }) => node.remove()); },
       };
     } catch (error) {
-      added.forEach((link) => link.remove());
+      cleanup.forEach((release) => release());
+      added.forEach(({ node }) => node.remove());
       throw error;
     }
   };
 
   const syncHead = (next, base) => {
     document.title = next.title;
-    const selector = 'meta[name]:not([name="viewport"]):not([name="theme-color"]):not([name="sunny-pjax-version"]), meta[property], link[rel="canonical"], link[rel="alternate"], style, script[type="application/ld+json"]';
+    const selector = 'meta[name]:not([name="viewport"]):not([name="theme-color"]):not([name="sunny-pjax-version"]), meta[property], link[rel="canonical"], link[rel="alternate"], script[type="application/ld+json"]';
     document.head.querySelectorAll(selector).forEach((node) => node.remove());
     next.head.querySelectorAll(selector).forEach((node) => {
       const copy = document.importNode(node, true);
