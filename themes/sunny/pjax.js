@@ -6,6 +6,8 @@
 
   const body = document.body;
   const version = body.dataset.sunnyPjax;
+  const navigationScript = document.querySelector('script[data-sunny-runtime="navigation"][src]');
+  const basePath = navigationScript ? new URL('../../', navigationScript.src).pathname : '/';
   const runtimes = new Map();
   const loaded = new Set();
   const inlineScripts = new Set();
@@ -41,7 +43,8 @@
     let url;
     try { url = new URL(value, location.href); } catch (_) { return null; }
     if (!/^https?:$/.test(url.protocol) || url.origin !== location.origin || url.username || url.password) return null;
-    if (/(?:^|\/)(?:admin(?:_[^/]*)?|login|logout|write|edit|install(?:er)?\.php|update\.php|forgot-password|reset-password|api|rest-api|uploads|assets|themes|plugins|rss(?:\.xml)?|feed|sitemap(?:\.xml)?)(?:\/|$)/i.test(url.pathname)) return null;
+    if (!url.pathname.startsWith(basePath)) return null;
+    if (/^(?:admin(?:_[^/]*)?|login|logout|write|edit|install(?:er)?\.php|update\.php|forgot-password|reset-password|api|rest-api|uploads|assets|themes|plugins|rss(?:\.xml)?|feed|sitemap(?:\.xml)?)(?:\/|$)/i.test(url.pathname.slice(basePath.length))) return null;
     if (/\.(?:xml|json|zip|pdf|png|jpe?g|gif|webp|avif|svg|mp[34]|ogg|wav|flac|woff2?|css|js|txt)$/i.test(url.pathname)) return null;
     const action = url.searchParams.get('a');
     return action && !actions.has(action) ? null : url;

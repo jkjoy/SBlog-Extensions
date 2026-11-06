@@ -30,7 +30,8 @@ const html = (name, options = {}) => {
   const extra = options.extra || '';
   let scripts = '<script src="/assets/index.js?v=test" data-sunny-runtime="core" defer></script><script src="/themes/sunny/script.js?v=test" data-sunny-runtime="page" defer></script><script src="/themes/sunny/steam.js?v=test" data-sunny-runtime="steam" defer></script><script src="/themes/sunny/music.js?v=test" data-sunny-runtime="music" defer></script><script src="/themes/sunny/pjax.js?v=test" data-sunny-runtime="navigation" defer></script>';
   if (options.omitRuntime) scripts = scripts.replace(new RegExp(`<script[^>]+data-sunny-runtime="${options.omitRuntime}"[^>]*><\\/script>`), '');
-  return `<!doctype html><html lang="zh-CN" data-sunny-theme="light"><head><meta charset="utf-8"><title>${name} | Sunny</title><meta name="description" content="${name} description"><meta name="keywords" content="${name}"><meta name="theme-color" content="#f7f7f7" id="sunny-theme-color"><link rel="canonical" href="https://sunny.test/${name}"><link rel="alternate" type="application/rss+xml" href="/${name}.rss"><link rel="icon" href="/${name}.svg"><link rel="stylesheet" href="/themes/sunny/style.css?v=test">${options.head || ''}</head><body${theme}><div class="sunny-shell"><main class="sunny-main" id="content" tabindex="-1"><h1>${name}</h1><a id="to-post" href="/post/fixture-post">Article</a><a id="to-home" href="/">Home</a><a id="to-steam" href="/steam">Steam</a><a id="to-archives" href="/archives">Archives</a><a id="to-anchor" href="/post/fixture-post#section-two">Post anchor</a><a id="same-anchor" href="#section-two">Same anchor</a><h2 id="section-two">Second</h2>${extra}</main></div>${player}<div id="sunny-pjax-status" role="status" aria-live="polite"></div><script type="application/json" id="sunny-search-data">[{"title":"${name}"}]</script>${scripts}${options.body || ''}</body></html>`;
+  return `<!doctype html><html lang="zh-CN" data-sunny-theme="light"><head><meta charset="utf-8"><title>${name} | Sunny</title><meta name="description" content="${name} description"><meta name="keywords" content="${name}"><meta name="theme-color" content="#f7f7f7" id="sunny-theme-color"><link rel="canonical" href="https://sunny.test/${name}"><link rel="alternate" type="application/rss+xml" href="/${name}.rss"><link rel="icon" href="/${name}.svg"><link rel="stylesheet" href="/themes/sunny/style.css?v=test">${options.head || ''}</head><body${theme}><div class="sunny-shell"><main class="sunny-main" id="content" tabindex="-1"><h1>${name}</h1><a id="to-post" href="/post/fixture-post">Article</a><a id="to-home" href="/">Home</a><a id="to-steam" href="/steam">Steam</a><a id="to-archives" href="/archives">Archives</a><a id="to-anchor" href="/post/fixture-post#section-two">Post anchor</a><a id="same-anchor" href="#section-two">Same anchor</a><h2 id="section-two">Second</h2>${extra}</main></div>${player}<div id="sunny-pjax-status" role="status" aria-live="polite"></div><script type="application/json" id="sunny-search-data">[{"title":"${name}"}]</script>${scripts}${options.body || ''}</body></html>`
+    .replaceAll('href="/', `href="${options.base || ''}/`).replaceAll('src="/', `src="${options.base || ''}/`);
 };
 const response = (name, options = {}) => ({
   ok: options.ok !== false,
@@ -161,6 +162,58 @@ test('a fetched page without music never disconnects the active player', async (
   try { t.click('#to-post'); await until(() => t.w.document.title === 'post | Sunny'); assert.equal(t.w.document.querySelector('audio'), t.audio); assert.deepEqual(t.transitions, []); }
   finally { t.close(); }
 });
+
+for (const base of ['', '/sblog', '/themes/blog']) {
+  test(`content slugs matching application directories keep audio connected under ${base || '/'}`, async () => {
+    const t = setup({ url: `https://sunny.test${base}/`, html: { base }, fetch: async (url) => response('content', { url, base }) });
+    try {
+      const destinations = ['category/themes', 'category/plugins', 'tag/assets', 'archive/admin', 'page/api', 'post/login', 'category/admin_settings', 'category/rss', 'index.php?a=category&slug=themes'];
+      for (const destination of destinations) {
+        const target = `${base}/${destination}`;
+        assert.equal(t.click(t.link(target)).defaultPrevented, true, `${target} must use PJAX`);
+        await until(() => t.w.location.pathname + t.w.location.search === target && !t.w.document.body.hasAttribute('aria-busy'), `${target} rendering`);
+        assert.equal(t.w.document.querySelector('audio'), t.audio);
+        assert.equal(t.audio.currentTime, 42.75);
+        assert.equal(t.audio.paused, false);
+      }
+      assert.equal(t.fetches.length, destinations.length);
+      assert.equal(t.events.filter((event) => event.name === 'sunny:page-load').length, destinations.length);
+      assert.equal(t.mediaCalls(), 0);
+      assert.deepEqual(t.transitions, []);
+      assert.deepEqual(t.errors, []);
+    } finally { t.close(); }
+  });
+
+  test(`direct loading of a reserved content slug still initializes PJAX under ${base || '/'}`, async () => {
+    const t = setup({ url: `https://sunny.test${base}/category/themes`, html: { base }, fetch: async (url) => response('post', { url, base }) });
+    try {
+      assert.equal(t.click('#to-post').defaultPrevented, true);
+      await until(() => t.w.document.title === 'post | Sunny', 'article after direct category entry');
+      assert.equal(t.w.location.pathname, `${base}/post/fixture-post`);
+      assert.equal(t.w.document.querySelector('audio'), t.audio);
+      assert.equal(t.mediaCalls(), 0);
+      assert.deepEqual(t.transitions, []);
+    } finally { t.close(); }
+  });
+
+  test(`real application directories and protected query actions keep browser navigation under ${base || '/'}`, async () => {
+    const t = setup({ url: `https://sunny.test${base}/`, html: { base } });
+    try {
+      for (const destination of ['themes/sunny', 'plugins/example', 'admin', 'admin_settings', 'login', 'logout', 'uploads', 'assets', 'api', 'rest-api', 'rss', 'feed', 'sitemap.xml', 'install.php', 'index.php?a=admin', 'index.php?a=login', 'index.php?a=admin_settings']) {
+        assert.equal(t.click(t.link(`${base}/${destination}`)).defaultPrevented, false, destination);
+      }
+      if (base) {
+        const outside = t.click(t.link('/outside-this-app/post'));
+        if (outside.defaultPrevented) await until(() => !t.w.document.body.hasAttribute('aria-busy'), 'unexpected outside-app navigation cleanup');
+        assert.equal(outside.defaultPrevented, false);
+      }
+      await pause(25);
+      assert.equal(t.fetches.length, 0);
+      assert.equal(t.mediaCalls(), 0);
+      assert.deepEqual(t.transitions, []);
+    } finally { t.close(); }
+  });
+}
 
 for (const [name, href, attrs, modifiers] of [
   ['external origin', 'https://outside.test/post', {}, {}],
