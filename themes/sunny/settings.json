@@ -21,6 +21,7 @@
       "fields": [
         {"key": "music_enabled", "label": "启用音乐播放器", "type": "checkbox", "default": "0"},
         {"key": "music_playlist", "label": "网易云歌单", "type": "text", "default": "", "maxlength": 500, "placeholder": "网易云歌单链接或歌单 ID", "description": "例如 https://music.163.com/#/playlist?id=19723756 或 19723756。请使用公开歌单；留空不显示播放器。"},
+        {"key": "music_cookie", "label": "网易云登录 Cookie", "type": "secret", "default": "", "maxlength": 8192, "description": "可选。填写包含 MUSIC_U 的网易云网页版 Cookie，按该账号实际权限获取完整歌曲；试听和不可用歌曲自动跳过。Cookie 仅在服务器使用，保存后不回显；留空保留，勾选清除可恢复公开外链播放。Cookie 失效后需重新填写，不能解除购买、版权或地区限制。"},
         {"key": "music_title", "label": "歌单标题", "type": "text", "default": "音乐单", "maxlength": 40},
         {"key": "music_limit", "label": "显示歌曲数量", "type": "select", "default": "50", "options": {"20": "20 首", "50": "50 首", "100": "100 首", "200": "200 首"}, "description": "读取网易云公开返回的歌曲，最多显示所选数量；歌单资料每小时刷新。"},
         {"key": "music_mode", "label": "默认播放模式", "type": "select", "default": "list", "options": {"list": "列表循环", "single": "单曲循环", "random": "随机播放"}},

@@ -4,6 +4,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/steam.php';
 require_once __DIR__ . '/music.php';
 require_once __DIR__ . '/music-view.php';
+require_once __DIR__ . '/music-auth.php';
+
+if (function_exists('theme_setting') && ($_GET['sunny_music_action'] ?? '') === 'resolve') {
+    sunny_music_handle_resolve();
+}
 
 function sunny_icon(string $name, int $size = 20): string
 {

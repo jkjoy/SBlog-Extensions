@@ -24,6 +24,15 @@
     return { sourceIndex, id: track.url.match(/\?id=(\d+)\.mp3$/)[1], name: String(track.name || '未命名歌曲'), artist: String(track.artist || '未知歌手'), url: track.url, cover: coverUrl(track.cover), duration: Math.max(0, Number(track.duration) || 0) };
   }).filter(Boolean);
   if (tracks.length === 0) return;
+  const authenticated = Object.prototype.hasOwnProperty.call(config, 'resolver');
+  let resolver = null;
+  if (authenticated && config.resolver && typeof config.resolver.url === 'string' && config.resolver.url.trim() !== ''
+    && typeof config.resolver.token === 'string' && config.resolver.token.length > 0 && config.resolver.token.length < 4096) {
+    try {
+      const url = new URL(config.resolver.url, location.href);
+      if (url.origin === location.origin && /^https?:$/.test(url.protocol) && !url.username && !url.password) resolver = { url: url.href, token: config.resolver.token };
+    } catch (_) {}
+  }
 
   audio.dataset.sunnyMusicReady = 'true';
   audio.preload = 'none';
@@ -44,6 +53,12 @@
   let request = 0;
   let lastSaved = 0;
   let opener = null;
+  let pending = null;
+  let loadedExpires = 0;
+  let progressStart = 0;
+  const sources = new Map();
+  const failedTracks = new Set();
+  const refreshedTracks = new Set();
   const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
   let volume = Number.isFinite(Number(config.volume)) ? clamp(Number(config.volume), 0, 1) : .6;
 
@@ -65,6 +80,8 @@
   audio.volume = volume;
 
   const playing = () => !audio.paused && !audio.ended && loadedIndex >= 0;
+  const cancelPending = () => { pending?.abort(); pending = null; };
+  const resetFailures = () => { failedTracks.clear(); refreshedTracks.clear(); };
   const setNotice = (text = '') => {
     noticeText = text;
     all('[data-music-notice]').forEach((notice) => {
@@ -99,9 +116,10 @@
     all('[data-music-toggle]').forEach((button) => {
       const icon = button.querySelector('[data-music-toggle-icon]');
       if (icon) icon.textContent = active ? 'Ⅱ' : '▶';
-      button.setAttribute('aria-label', active ? '暂停播放' : '播放音乐');
-      button.setAttribute('title', active ? '暂停播放' : '播放音乐');
+      button.setAttribute('aria-label', pending ? '取消加载' : active ? '暂停播放' : '播放音乐');
+      button.setAttribute('title', pending ? '取消加载' : active ? '暂停播放' : '播放音乐');
       button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-busy', String(Boolean(pending)));
     });
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = active ? 'playing' : 'paused'; } catch (_) {}
   };
@@ -138,56 +156,147 @@
     if (loadedIndex !== index || restoreTime <= 0 || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
     try { audio.currentTime = clamp(restoreTime, 0, Math.max(0, audio.duration - .1)); restoreTime = 0; } catch (_) {}
   };
-  const play = async () => {
-    const token = ++request;
-    if (loadedIndex !== index) {
-      audio.src = tracks[index].url;
-      loadedIndex = index;
-      audio.load();
-    }
-    applyRestoreTime();
-    if (dock) dock.hidden = false;
-    setNotice();
+  const playbackError = (code, message, skip = true) => Object.assign(new Error(message), { code, skip });
+  const sourceFor = async (track, refresh, controller) => {
+    if (!authenticated) return { url: track.url, expires: Infinity };
+    if (!resolver) throw playbackError('stale_token', '播放授权无效，请刷新页面后重试。', false);
+    const cached = sources.get(track.id);
+    if (!refresh && cached && cached.expires > Date.now() + 30000) return cached;
+    const body = new URLSearchParams({ id: track.id, token: resolver.token });
+    if (refresh) body.set('refresh', '1');
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
+      const response = await fetch(resolver.url, { method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: { Accept: 'application/json' }, body, signal: controller.signal });
+      if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Invalid playback response');
+      const text = await response.text();
+      if (text.length > 16384) throw new Error('Oversized playback response');
+      const result = JSON.parse(text);
+      if (!result || result.ok !== true) {
+        const messages = {
+          login_expired: '网易云登录已失效，请站长更新 Cookie。',
+          invalid_cookie: '网易云 Cookie 无效，请站长重新填写。',
+          not_configured: '尚未配置网易云 Cookie，请站长在主题设置中填写。',
+          stale_token: '播放授权已过期，请刷新页面后重试。',
+          trial_only: '此歌曲仅提供试听，正在切换下一首。',
+          unavailable: '此歌曲暂时无法播放，正在切换下一首。',
+          rate_limited: '播放请求过于频繁，请稍后再试。',
+          temporary: '暂时无法获取播放地址。',
+        };
+        const code = typeof result?.code === 'string' ? result.code : 'temporary';
+        throw playbackError(code, messages[code] || messages.temporary, !['login_expired', 'invalid_cookie', 'not_configured', 'stale_token', 'rate_limited'].includes(code) && result?.skip !== false);
+      }
+      const url = coverUrl(result.url);
+      const expires = Number(result.expires_at) * 1000;
+      if (!response.ok || !url || !Number.isFinite(expires) || expires <= Date.now() + 1000 || expires > Date.now() + 86400000) throw new Error('Invalid playback address');
+      const source = { url, expires };
+      sources.set(track.id, source);
+      return source;
+    } finally { clearTimeout(timeout); }
+  };
+  const play = async ({ automatic = false, refresh = false } = {}) => {
+    if (!automatic) resetFailures();
+    const token = ++request;
+    cancelPending();
+    if (dock) dock.hidden = false;
+    if (!automatic) setNotice();
+    try {
+      if (loadedIndex !== index || refresh || (authenticated && loadedExpires <= Date.now() + 30000)) {
+        if (loadedIndex === index && Number.isFinite(audio.currentTime)) restoreTime = audio.currentTime;
+        loadedIndex = -1;
+        const controller = new AbortController();
+        pending = controller;
+        syncPlaying();
+        const source = await sourceFor(tracks[index], refresh, controller);
+        if (token !== request || controller.signal.aborted) return;
+        pending = null;
+        audio.src = source.url;
+        loadedExpires = source.expires;
+        loadedIndex = index;
+        audio.load();
+      }
+      applyRestoreTime();
       await audio.play();
       if (token !== request) return;
+      pending = null;
+      progressStart = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
       syncPlaying();
     } catch (error) {
       if (token !== request) return;
-      if (error?.name === 'AbortError') return;
-      audio.pause();
-      setNotice(error?.name === 'NotAllowedError' ? '请点击播放按钮开始播放。' : '此歌曲暂时无法播放，可切换下一首或在网易云查看');
-      syncPlaying();
+      pending = null;
+      if (error?.name === 'NotAllowedError') {
+        audio.pause();
+        setNotice('请点击播放按钮开始播放。');
+        syncPlaying();
+        return;
+      }
+      if (error?.name === 'AbortError' && !authenticated) return;
+      failTrack(error);
     }
+  };
+  const failTrack = (error) => {
+    const code = typeof error?.code === 'string' ? error.code : '';
+    const message = error?.message && code ? error.message : '此歌曲暂时无法播放，正在切换下一首。';
+    if (error?.skip === false) {
+      request++;
+      cancelPending();
+      audio.pause();
+      setNotice(message);
+      syncPlaying();
+      return;
+    }
+    if (authenticated && (!code || code === 'temporary') && !refreshedTracks.has(index)) {
+      refreshedTracks.add(index);
+      sources.delete(tracks[index].id);
+      void play({ automatic: true, refresh: true });
+      return;
+    }
+    failedTracks.add(index);
+    sources.delete(tracks[index].id);
+    const candidates = tracks.map((_, item) => (index + item + 1) % tracks.length).filter((item) => !failedTracks.has(item));
+    if (!candidates.length) {
+      stop();
+      setNotice('当前歌单的歌曲均暂时无法播放，请稍后重试或在网易云查看。');
+      return;
+    }
+    setNotice(message);
+    selectTrack(mode === 'random' ? candidates[Math.floor(Math.random() * candidates.length)] : candidates[0], true, true);
   };
   const pause = () => {
     request++;
+    cancelPending();
     audio.pause();
     syncPlaying();
     persist(true);
   };
-  const selectTrack = (next, autoplay = true) => {
+  const selectTrack = (next, autoplay = true, automatic = false) => {
     request++;
+    cancelPending();
+    if (!automatic) resetFailures();
     audio.pause();
     index = clamp(next, 0, tracks.length - 1);
     loadedIndex = -1;
+    loadedExpires = 0;
     restoreTime = 0;
     audio.removeAttribute('src');
     audio.load();
     syncTrack();
     syncPlaying();
     persist(true);
-    if (autoplay) void play();
+    if (autoplay) void play({ automatic: true });
   };
   const randomIndex = () => tracks.length < 2 ? index : (index + 1 + Math.floor(Math.random() * (tracks.length - 1))) % tracks.length;
   const advance = (direction = 1, automatic = false) => {
+    resetFailures();
     const next = automatic && mode === 'single' ? index : mode === 'random' ? randomIndex() : (index + direction + tracks.length) % tracks.length;
     selectTrack(next);
   };
   const stop = () => {
     request++;
+    cancelPending();
+    resetFailures();
     audio.pause();
     loadedIndex = -1;
+    loadedExpires = 0;
     restoreTime = 0;
     audio.removeAttribute('src');
     audio.load();
@@ -218,7 +327,7 @@
       opener = button;
       if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
     } else if (button.hasAttribute('data-music-close')) closeDialog();
-    else if (button.hasAttribute('data-music-toggle')) { if (playing()) pause(); else void play(); }
+    else if (button.hasAttribute('data-music-toggle')) { if (playing() || pending) pause(); else void play(); }
     else if (button.hasAttribute('data-music-prev')) advance(-1);
     else if (button.hasAttribute('data-music-next')) advance(1);
     else if (button.hasAttribute('data-music-stop')) stop();
@@ -257,17 +366,18 @@
   document.addEventListener('sunny:page-load', syncPage);
   audio.addEventListener('loadedmetadata', () => { applyRestoreTime(); syncTime(); });
   audio.addEventListener('durationchange', syncTime);
-  audio.addEventListener('timeupdate', () => { syncTime(); persist(); });
+  audio.addEventListener('timeupdate', () => {
+    if (loadedIndex === index && audio.currentTime > progressStart + 1) failedTracks.clear();
+    syncTime(); persist();
+  });
   audio.addEventListener('play', syncPlaying);
   audio.addEventListener('playing', syncPlaying);
   audio.addEventListener('pause', () => { syncPlaying(); persist(true); });
   audio.addEventListener('ended', () => { syncPlaying(); advance(1, true); });
   audio.addEventListener('error', () => {
     if (loadedIndex < 0) return;
-    request++;
     audio.pause();
-    setNotice('此歌曲暂时无法播放，可切换下一首或在网易云查看');
-    syncPlaying();
+    failTrack(playbackError('temporary', '播放地址已失效，正在重新获取。'));
   });
   window.addEventListener('pagehide', () => persist(true));
   try {

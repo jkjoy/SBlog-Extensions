@@ -34,8 +34,19 @@ php themes/sunny/tests/gallery.php --core=/path/to/SBlog/index.php
 php themes/sunny/tests/steam.php
 php themes/sunny/tests/steam.php --without-plugin
 php themes/sunny/tests/music.php
+php themes/sunny/tests/music-auth.php
 ```
 
 Steam 检查使用插件真实渲染器及虚构 snapshot，验证可选插件缺失、未配置、无玩家资料、隐私数量、在线状态、缓存提示、转义和游戏页开关。音乐检查使用注入的网易云响应及独立临时缓存，验证歌单链接、固定官方请求地址、元数据归一化、缓存更新／失效／隐私清除、歌曲上限与安全 HTML。均不访问实际账号或网络。
+
+`music-auth.php` 使用虚构 Cookie 和注入响应，检查凭证白名单、请求签名、账号与歌曲缓存隔离、过期重取、试听识别、CDN 地址限制、Cookie 失效与异常信息保护，不读取真实 Cookie。
+
+安装临时 Playwright 依赖后运行浏览器行为检查：
+
+```sh
+NODE_PATH=/path/to/node_modules node themes/sunny/tests/music-auth.cjs
+```
+
+可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` 指定本地 Chromium。测试拦截全部网络并模拟音频，验证鉴权请求、地址刷新、失败切歌、暂停取消请求、失效提示、循环边界和 PJAX 保留音频；不验证实际会员歌曲能否播放。
 
 浏览器中另外检查 Steam 搜索、排序、48 款分页及焦点；音乐歌单抽屉、播放／暂停／停止、上一首／下一首、循环与随机、拖动进度、音量、无法播放的歌曲、刷新后手动恢复播放。播放器初始不请求音频，手机控制条避开底部导航。所有界面需检查浅色／暗色、宽屏／手机、键盘及减少动画设置。

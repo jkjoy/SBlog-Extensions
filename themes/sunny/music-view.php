@@ -30,6 +30,10 @@ function sunny_render_music_player(array $snapshot, array $config): string
     }
     $first = $snapshot['tracks'][0];
     $payload = ['id' => $config['id'], 'name' => $snapshot['name'], 'url' => $snapshot['url'], 'tracks' => $snapshot['tracks'], 'mode' => $config['mode'], 'volume' => $config['volume']];
+    if (function_exists('sunny_music_resolver_payload')) {
+        $resolver = sunny_music_resolver_payload($config);
+        if ($resolver !== null) { $payload['resolver'] = $resolver; }
+    }
     ob_start();
     ?>
     <audio id="sunny-music-audio" preload="none"></audio>
