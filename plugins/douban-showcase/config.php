@@ -17,6 +17,7 @@ function sblog_douban_defaults(): array
         'cache_minutes' => 360,
         'show_nav' => true,
         'home_widget' => false,
+        'parse_links' => true,
     ];
 }
 
@@ -75,7 +76,7 @@ function sblog_douban_validate_config(array $input, array $existing): array
             $config[$field] = (int)$value;
         }
     }
-    foreach (['show_nav', 'home_widget'] as $field) {
+    foreach (['show_nav', 'home_widget', 'parse_links'] as $field) {
         $config[$field] = sblog_douban_input($input, $field) === '1';
     }
     return ['config' => $config, 'errors' => $errors];

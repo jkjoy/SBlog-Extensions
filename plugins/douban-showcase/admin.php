@@ -42,16 +42,17 @@ function sblog_douban_admin(array $config, array $errors = []): void
               <div class="field">
                 <label for="douban_cache_minutes">缓存时间（分钟）</label>
                 <input id="douban_cache_minutes" name="cache_minutes" type="number" min="5" max="1440" value="<?= h($config['cache_minutes']) ?>" required>
-                <p class="field-hint">默认 360 分钟。首次浏览及缓存过期后自动同步，失败时显示上次可用记录与同步时间。</p>
+                <p class="field-hint">默认 360 分钟，适用于公开列表和正文条目卡片。缓存过期后自动更新，获取失败时保留上次可用数据。</p>
               </div>
               <fieldset class="field settings-field">
                 <legend>展示选项</legend>
                 <div class="settings-option-list">
-                  <?php foreach (['show_nav' => '在默认主题导航中显示展示页入口', 'home_widget' => '在首页文章列表下方显示最近看过的电影'] as $field => $label): ?>
+                  <?php foreach (['parse_links' => '将正文中独占一段的豆瓣电影、图书和音乐链接解析为卡片', 'show_nav' => '在默认主题导航中显示展示页入口', 'home_widget' => '在首页文章列表下方显示最近看过的电影'] as $field => $label): ?>
                     <label class="setting-option"><input name="<?= h($field) ?>" type="checkbox" value="1"<?= $config[$field] ? ' checked' : '' ?>><span><?= h($label) ?></span></label>
                   <?php endforeach; ?>
                 </div>
               </fieldset>
+              <p class="field-hint">条目卡片无需填写用户 ID。写文章时单独一行粘贴豆瓣条目链接，并在上下各留一个空行，例如 https://movie.douban.com/subject/1292052/；也支持独占一段的 Markdown 链接。封面、评分和作品信息在浏览时自动加载。</p>
               <p class="field-hint">展示页地址：<a href="<?= h(sblog_douban_url()) ?>"><?= h(sblog_douban_url()) ?></a>。自定义主题可手动添加此链接，并保留 head、body_close 与 content_after 主题钩子。</p>
               <div class="form-actions"><button class="button" type="submit">保存设置</button><a class="button button--secondary" href="<?= h(url_for('admin_plugins')) ?>">返回插件管理</a></div>
             </form>

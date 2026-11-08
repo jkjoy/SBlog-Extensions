@@ -1,9 +1,9 @@
 {
   "name": "豆瓣记录展示",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "requires": "1.14.8",
-  "tested": "1.14.8",
+  "tested": "1.14.30",
   "author": "Simple PHP Blog",
-  "description": "输入豆瓣用户 ID，展示公开的电影、图书和音乐记录，支持状态筛选、封面、个人评分和缓存。",
+  "description": "豆瓣电影、图书和音乐链接自动解析为封面评分卡片；也可输入用户 ID 展示公开记录，支持筛选、个人评分和缓存。",
   "settings_action": "admin_douban"
 }

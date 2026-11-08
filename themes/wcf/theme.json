@@ -1,0 +1,9 @@
+{
+  "name": "wcf",
+  "version": "1.0.0",
+  "requires": "1.14.30",
+  "tested": "1.14.30",
+  "author": "jkjoy",
+  "url": "https://github.com/jkjoy",
+  "description": "参考 Icefox 的微信朋友圈主题：窄栏动态、封面头像、九宫格图片、评论预览与日夜模式。支持 SBlog 原生主题设置；文章点赞可选接入 article-likes 插件。"
+}

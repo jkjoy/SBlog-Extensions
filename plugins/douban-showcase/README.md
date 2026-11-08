@@ -2,6 +2,26 @@
 
 输入豆瓣用户 ID，在 SBlog 中展示该用户公开的电影、图书和音乐列表。支持看过 / 想看 / 在看、读过 / 想读 / 在读、听过 / 想听 / 在听，展示封面、个人评分、标记日期、短评和标签。
 
+## 正文链接卡片
+
+启用插件后，在文章或独立页面的正文里**单独一段**粘贴豆瓣条目链接（上下留空行），发布后自动显示封面、标题、评分、评价人数、作品信息和简介。电影、图书、音乐均支持，也支持独占一段的 Markdown 链接，例如：
+
+```markdown
+最近看的一部电影：
+
+https://movie.douban.com/subject/1292052/
+
+[我的书单](https://book.douban.com/subject/1084336/)
+```
+
+支持官方 `movie/book/music.douban.com/subject/数字ID/` 和移动版条目地址。普通段落中的文字链接、代码块保持原样。后台设置中的「将正文中独占一段的豆瓣电影、图书和音乐链接解析为卡片」默认开启，**无需填写豆瓣用户 ID**，可以单独使用。
+
+卡片只在接近视窗时异步请求，重复条目复用请求，封面通过本站缓存地址显示。样式适配手机、深色模式及 wcf 朋友圈主题，wcf 加载更多后新增的卡片也会自动解析。禁用 JavaScript 或豆瓣暂时不可访问时，卡片保留可点击的条目入口，不影响正文阅读。
+
+条目缓存沿用后台的缓存分钟数；失败冷却 5 分钟，临时故障可保留最多 7 天内的旧数据。每个条目解析最多使用 6 秒网络预算，仅请求固定豆瓣官方接口与详情页，不需要第三方解析服务。
+
+当前核心的 `media_embed_html` 接口让卡片在豆瓣网络请求前生成。较早核心已有豆瓣卡片时，插件会兼容替换其卡片样式，但旧核心本身的同步请求仍可能增加首次页面等待；建议配合包含该接口的最新核心使用。
+
 ## 安装与使用
 
 1. 将整个 `douban-showcase` 目录放入博客的 `plugins/`。
@@ -48,6 +68,8 @@
 php plugins/douban-showcase/tests/run.php
 php plugins/douban-showcase/tests/integration.php
 php plugins/douban-showcase/tests/covers.php
+php plugins/douban-showcase/tests/subjects.php
+php plugins/douban-showcase/tests/cards.php
 ```
 
 测试覆盖公开 HTML 解析、分页、反爬与隐私状态、缓存与失败恢复，以及配置校验、管理员/CSRF、转义、子目录链接、主题钩子和封面缓存。

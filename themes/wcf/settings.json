@@ -1,0 +1,56 @@
+{
+  "sections": [
+    {
+      "title": "封面与个人资料",
+      "description": "延续 Icefox 的朋友圈头部。图片、视频和链接可填写完整 HTTP(S) 地址或以 / 开头的站内路径。",
+      "fields": [
+        {"key": "top_video", "label": "站点顶部背景视频", "type": "url", "default": "", "description": "填写视频地址，优先于背景图片播放；建议使用 MP4。视频静音、循环播放。"},
+        {"key": "top_image", "label": "站点顶部背景图片", "type": "url", "default": "", "description": "填写朋友圈封面图片地址；留空使用原版的浅灰色封面。"},
+        {"key": "logo_url", "label": "站点 Logo / 头像", "type": "url", "default": "", "description": "显示在封面右下角和动态头像位置；留空使用博客 Logo。"},
+        {"key": "avatar_link", "label": "头像点击跳转链接", "type": "url", "default": "", "description": "留空时头像不跳转；可填写独立页面或个人主页地址。"},
+        {"key": "profile_name", "label": "朋友圈名称", "type": "text", "default": "", "maxlength": 100, "description": "留空使用站点名称。"},
+        {"key": "profile_description", "label": "朋友圈签名", "type": "textarea", "default": "", "maxlength": 500, "description": "显示在头像下方，留空使用站点描述或副标题。"}
+      ]
+    },
+    {
+      "title": "动态展示",
+      "description": "默认使用 Icefox 的朋友圈动态布局。文章数量沿用后台的每页文章数。",
+      "fields": [
+        {"key": "auto_collapse", "label": "自动收起文章内容", "type": "checkbox", "default": "1", "description": "开启后长内容折叠，点击“全文”展开；关闭后直接显示完整的公开内容。"},
+        {"key": "show_post_title", "label": "显示文章标题", "type": "checkbox", "default": "0", "description": "朋友圈动态默认不单独显示标题；普通博文可开启。"},
+        {"key": "show_comments", "label": "显示动态评论预览", "type": "checkbox", "default": "1", "description": "在动态下方显示已通过审核的评论；详情页评论保持正常可用。"},
+        {"key": "comment_preview_count", "label": "每条动态预览评论数", "type": "select", "default": "5", "options": {"0": "不显示", "3": "3 条", "5": "5 条", "10": "10 条"}},
+        {"key": "pagination_mode", "label": "动态翻页方式", "type": "select", "default": "load_more", "options": {"pagination": "页码翻页", "load_more": "加载更多"}, "description": "选择“页码翻页”时点击页码跳转页面；选择“加载更多”时点击按钮追加下一页动态。前台只显示所选的一种方式。"},
+        {"key": "show_tags", "label": "在动态中显示标签", "type": "checkbox", "default": "0"},
+        {"key": "show_category", "label": "在动态中显示分类", "type": "checkbox", "default": "0"}
+      ]
+    },
+    {
+      "title": "发布定位与广告标记",
+      "description": "将 Icefox 的文章扩展字段保存在主题设置中，兼容 SBlog 的文章编辑器。",
+      "fields": [
+        {"key": "default_location", "label": "默认发布定位", "type": "text", "default": "", "maxlength": 120, "description": "如“成都市 · 天府广场”；留空不显示定位。"},
+        {"key": "default_location_url", "label": "默认定位跳转地址", "type": "url", "default": "", "description": "可填写地图链接，留空只显示定位文字。"},
+        {"key": "post_overrides", "label": "单篇动态定位与广告配置", "type": "textarea", "default": "", "maxlength": 20000, "placeholder": "{\"文章 ID 或 slug\": {\"position\": \"成都\", \"position_url\": \"https://example.com/\", \"advertise\": false}}", "description": "填写 JSON 对象，以文章 ID 或 slug 为键。每篇可设置 position（定位文字）、position_url（定位链接）、advertise（是否广告，true/false）。无效 JSON 不会应用。"}
+      ]
+    },
+    {
+      "title": "外观与站点信息",
+      "fields": [
+        {"key": "appearance", "label": "默认主题模式", "type": "select", "default": "light", "options": {"light": "日间模式", "dark": "夜间模式", "auto": "跟随系统"}, "description": "访客可在前台设置中切换，浏览器会记住自己的选择。"},
+        {"key": "gravatar_url", "label": "Gravatar 头像加速地址", "type": "url", "default": "https://www.weavatar.com", "description": "填写头像服务根地址，例如 https://www.weavatar.com 或 https://gravatar.loli.net；留空使用博客默认头像服务。"},
+        {"key": "beian_info", "label": "网站备案信息", "type": "text", "default": "", "maxlength": 150, "description": "显示在设置弹窗中并链接工信部备案网站；留空沿用博客备案信息。"},
+        {"key": "edit_page_url", "label": "文章发布页地址", "type": "url", "default": "", "description": "仅管理员登录后显示发布入口；留空进入 SBlog 后台原生文章编辑器。"}
+      ]
+    },
+    {
+      "title": "自定义代码",
+      "description": "与 Icefox 一致提供自定义样式、脚本和统计代码入口。内容由站点管理员维护。",
+      "fields": [
+        {"key": "custom_css", "label": "自定义 CSS", "type": "textarea", "default": "", "maxlength": 20000, "description": "直接填写 CSS，无需 style 标签。建议以 .wcf-theme 开头限制样式范围。"},
+        {"key": "custom_js", "label": "自定义 JavaScript", "type": "textarea", "default": "", "maxlength": 20000, "description": "直接填写 JavaScript，无需 script 标签。"},
+        {"key": "analytics", "label": "统计代码", "type": "textarea", "default": "", "maxlength": 20000, "description": "填写统计服务提供的完整 HTML 代码，将输出在前台页面底部。"}
+      ]
+    }
+  ]
+}

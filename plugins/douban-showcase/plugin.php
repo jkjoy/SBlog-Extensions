@@ -11,6 +11,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/api.php';
 require_once __DIR__ . '/covers.php';
 require_once __DIR__ . '/views.php';
+require_once __DIR__ . '/subjects.php';
 add_plugin_filter('page_reserved_slugs', static fn(array $slugs): array => array_merge($slugs, ['douban']));
 
 add_plugin_filter('route_action', static function (string $action, array $context): string {
@@ -29,6 +30,9 @@ add_plugin_action('request', static function (array $context): void {
     $action = (string)($context['action'] ?? '');
     if ($action === 'douban_showcase_cover') {
         sblog_douban_render_cover();
+    }
+    if ($action === 'douban_showcase_subject') {
+        sblog_douban_render_subject();
     }
     if ($action === 'admin_douban') {
         require_once __DIR__ . '/admin.php';
@@ -92,3 +96,5 @@ add_plugin_filter('output_html', static function (string $html, array $context):
         return $match[1] . $match[2] . $link . $match[3];
     }, $html, 1) ?? $html;
 }, 25);
+
+require_once __DIR__ . '/cards.php';
