@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-11-06T02:04:09+00:00",
+    "updated_at": "2026-11-08T03:51:53+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -104,15 +104,15 @@
             "type": "plugin",
             "slug": "douban-showcase",
             "name": "豆瓣记录展示",
-            "version": "1.0.3",
+            "version": "1.1.0",
             "author": "Simple PHP Blog",
-            "description": "输入豆瓣用户 ID，展示公开的电影、图书和音乐记录，支持状态筛选、封面、个人评分和缓存。",
+            "description": "豆瓣电影、图书和音乐链接自动解析为封面评分卡片；也可输入用户 ID 展示公开记录，支持筛选、个人评分和缓存。",
             "homepage": "",
             "requires": "1.14.8",
-            "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-douban-showcase-v1.0.3/plugin-douban-showcase-1.0.3.zip",
-            "sha256": "cb2eef7521a233eb21525c32c5ca821297f15ee4ead7ac42c6ed463d25fc7286",
-            "source_sha256": "8bea7f2b26bff32dbfc543cebf38d657340023d9cba63286ec6233a6b1650b17"
+            "tested": "1.14.30",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-douban-showcase-v1.1.0/plugin-douban-showcase-1.1.0.zip",
+            "sha256": "233c94fbd7c0d1e2f6c13faa75e4710062d65c62eee20bf88f448dc0c7223298",
+            "source_sha256": "6f39992bc12208ef110d69da61e1804ace2cff89d681c7b4610543a7dc8a3af1"
         },
         {
             "type": "plugin",
@@ -659,6 +659,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-void-v1.0.3/theme-void-1.0.3.zip",
             "sha256": "f026321681ec816e755271ba3e6d7aad895e45b214f546cd27dda9b45e48918f",
             "source_sha256": "482a4d6ad8831bbef5a6969a51de7303331b5c497452f1685c0866b0f7cfe850"
+        },
+        {
+            "type": "theme",
+            "slug": "wcf",
+            "name": "wcf",
+            "version": "1.0.0",
+            "author": "jkjoy",
+            "description": "参考 Icefox 的微信朋友圈主题：窄栏动态、封面头像、九宫格图片、评论预览与日夜模式。支持 SBlog 原生主题设置；文章点赞可选接入 article-likes 插件。",
+            "homepage": "https://github.com/jkjoy",
+            "requires": "1.14.30",
+            "tested": "1.14.30",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-wcf-v1.0.0/theme-wcf-1.0.0.zip",
+            "sha256": "8145f8831d8cb114291215f44350b660e5e50db1951b29c829bc5279e475e510",
+            "source_sha256": "85458aa9ed6839ca9e5d564710f0661a3ddbfb22c2f78adbbd4ee0ed19e2f501"
         },
         {
             "type": "theme",
