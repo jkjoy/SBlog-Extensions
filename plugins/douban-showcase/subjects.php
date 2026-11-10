@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 if (!defined('CACHE_DIR')) { http_response_code(404); exit; }
+require_once __DIR__ . '/covers.php';
 
 /** Normalize only official work links. Query strings never reach the upstream request. */
 function sblog_douban_subject_identity(string $value): ?array
@@ -72,13 +73,28 @@ function sblog_douban_subject_normalize(array $subject, string $type, string $id
         if ($names !== []) { $meta[] = $label . '：' . implode(' / ', $names); }
     }
     if (is_string($subject['info'] ?? null) && trim($subject['info']) !== '') { $meta[] = $text($subject['info'], 500); }
-    $cover = $subject['cover_url'] ?? $subject['image'] ?? ($subject['pic']['large'] ?? $subject['pic']['normal'] ?? '');
-    if (is_array($cover)) { $cover = $cover['url'] ?? $cover[0] ?? ''; }
+    $coverCandidates = [];
+    foreach ([$subject['cover_url'] ?? '', $subject['image'] ?? '', $subject['pic'] ?? ''] as $value) {
+        if (!is_array($value)) { $coverCandidates[] = $value; continue; }
+        foreach (['url', 'contentUrl', 'large', 'normal', 0] as $key) {
+            $candidate = $value[$key] ?? '';
+            if (is_array($candidate)) { $candidate = $candidate['url'] ?? $candidate['contentUrl'] ?? ''; }
+            $coverCandidates[] = $candidate;
+        }
+    }
+    $cover = '';
+    foreach ($coverCandidates as $candidate) {
+        if (is_string($candidate) && ($cover = sblog_douban_cover_source_url($candidate)) !== '') { break; }
+    }
+    $summary = '';
+    foreach (['intro', 'summary', 'description'] as $key) {
+        $summary = $text($subject[$key] ?? '', 3000);
+        if ($summary !== '') { break; }
+    }
     return $identity + [
         'title' => $title, 'original_title' => $original, 'year' => $year,
         'rating' => $rating, 'rating_count' => $count, 'meta' => array_slice(array_values(array_unique($meta)), 0, 8),
-        'summary' => $text($subject['intro'] ?? $subject['summary'] ?? $subject['description'] ?? '', 3000),
-        'cover_url' => sblog_douban_image_url($cover),
+        'summary' => $summary, 'cover_url' => $cover,
     ];
 }
 
@@ -123,14 +139,19 @@ function sblog_douban_subject_parse(string $body, string $type, string $id): arr
     $title = $og('title') ?: sblog_douban_xpath_text($xpath, '//h1/*[@property="v:itemreviewed"]', null, 240);
     if ($subject === [] && $title === '') { return []; }
     if ($title !== '') { $subject['title'] = $title; }
-    $cover = $og('image') ?: sblog_douban_xpath_attr($xpath, '//*[@id="mainpic"]//img', 'src');
-    if ($cover !== '') { $subject['cover_url'] = $cover; }
+    foreach ([$og('image'), sblog_douban_xpath_attr($xpath, '//*[@id="mainpic"]//img', 'src')] as $candidate) {
+        $cover = sblog_douban_cover_source_url($candidate);
+        if ($cover !== '') { $subject['cover_url'] = $cover; break; }
+    }
     $year = sblog_douban_xpath_text($xpath, '//h1/*[contains(concat(" ",normalize-space(@class)," ")," year ")]', null, 30);
     if ($year !== '') { $subject['year'] = $year; }
     $rating = sblog_douban_xpath_text($xpath, '//*[@property="v:average"]', null, 20);
     $ratingCount = sblog_douban_xpath_text($xpath, '//*[@property="v:votes"]', null, 30);
     if ($rating !== '') { $subject['rating'] = ['value' => $rating, 'count' => $ratingCount]; }
-    $summary = sblog_douban_xpath_text($xpath, '//*[@property="v:summary"] | //*[@id="link-report"]//span[contains(@class,"all")]', null, 3000) ?: $og('description');
+    $summary = sblog_douban_xpath_text($xpath, '//*[@id="link-report"]//span[contains(concat(" ",normalize-space(@class)," ")," all ")]', null, 3000)
+        ?: sblog_douban_xpath_text($xpath, '//*[@property="v:summary"]', null, 3000)
+        ?: sblog_douban_xpath_text($xpath, '//*[@id="link-report"]//*[contains(concat(" ",normalize-space(@class)," ")," intro ")]', null, 3000)
+        ?: $og('description');
     if ($summary !== '') { $subject['summary'] = $summary; }
     $info = sblog_douban_xpath_text($xpath, '//*[@id="info"]', null, 500);
     if ($info !== '') { $subject['info'] = $info; }
@@ -192,7 +213,7 @@ function sblog_douban_subject_read_cache(string $path, string $type, string $id)
     if ($data['title'] === '' || ($data['year'] !== '' && !preg_match('/^(18|19|20|21)[0-9]{2}$/D', $data['year']))
         || ($data['rating'] !== '' && (!is_numeric($data['rating']) || (float)$data['rating'] <= 0 || (float)$data['rating'] > 10))
         || !is_int($data['rating_count'] ?? null) || $data['rating_count'] < 0 || $data['rating_count'] > 2147483647
-        || ($data['cover_url'] !== '' && sblog_douban_image_url($data['cover_url']) !== $data['cover_url'])
+        || ($data['cover_url'] !== '' && sblog_douban_cover_source_url($data['cover_url']) !== $data['cover_url'])
         || !is_array($data['meta'] ?? null) || array_values($data['meta']) !== $data['meta'] || count($data['meta']) > 8) { return null; }
     foreach ($data['meta'] as $item) { if (!is_string($item) || strlen($item) > 2000) { return null; } }
     return $record;
@@ -209,13 +230,21 @@ function sblog_douban_subject_data(string $type, string $id, ?callable $transpor
     if (function_exists('sblog_douban_config')) { $ttl = max(5, min(1440, (int)(sblog_douban_config()['cache_minutes'] ?? 360))) * 60; }
     $cached = sblog_douban_subject_read_cache($path, $type, $id);
     $stale = static fn(?array $record): array => $record !== null && $record['updated_at'] >= $now - 7 * 86400 ? $record['data'] : [];
-    if ($cached !== null && ($cached['next_retry_at'] > $now || ($cached['data'] !== [] && $cached['updated_at'] > $now - $ttl))) { return $stale($cached); }
+    $complete = static fn(array $data): bool => ($data['cover_url'] ?? '') !== '' && ($data['summary'] ?? '') !== '';
+    $fillMissing = static function (array $preferred, array $fallback): array {
+        if ($preferred === []) { return $fallback; }
+        foreach ($fallback as $key => $value) {
+            if (($preferred[$key] ?? '') === '' || ($preferred[$key] ?? []) === [] || ($preferred[$key] ?? null) === 0) { $preferred[$key] = $value; }
+        }
+        return $preferred;
+    };
+    if ($cached !== null && ($cached['next_retry_at'] > $now || ($cached['next_retry_at'] === 0 && $complete($cached['data']) && $cached['updated_at'] > $now - $ttl))) { return $stale($cached); }
     $lock = @fopen($path . '.lock', 'c');
     if ($lock === false) { return $stale($cached); }
     if (!@flock($lock, LOCK_EX | LOCK_NB)) { fclose($lock); return $stale($cached); }
     try {
         $cached = sblog_douban_subject_read_cache($path, $type, $id);
-        if ($cached !== null && ($cached['next_retry_at'] > $now || ($cached['data'] !== [] && $cached['updated_at'] > $now - $ttl))) { return $stale($cached); }
+        if ($cached !== null && ($cached['next_retry_at'] > $now || ($cached['next_retry_at'] === 0 && $complete($cached['data']) && $cached['updated_at'] > $now - $ttl))) { return $stale($cached); }
         $fetch = $transport ?? 'sblog_douban_subject_request';
         $deadline = microtime(true) + 6;
         $urls = ['https://m.douban.com/rexxar/api/v2/' . $type . '/' . $id . '?ck=&for_mobile=1', $identity['url']];
@@ -226,12 +255,14 @@ function sblog_douban_subject_data(string $type, string $id, ?callable $transpor
             try { $response = $fetch($url, min($index === 0 ? 3.0 : 6.0, $remaining)); }
             catch (Throwable) { $response = []; }
             if (!is_array($response) || empty($response['ok']) || !is_string($response['body'] ?? null)) { continue; }
-            $data = sblog_douban_subject_parse($response['body'], $type, $id);
-            if ($data !== []) { break; }
+            $data = $fillMissing($data, sblog_douban_subject_parse($response['body'], $type, $id));
+            if ($complete($data)) { break; }
         }
-        $record = ['version' => 1, 'checked_at' => $now, 'next_retry_at' => $data !== [] ? 0 : $now + 300,
-            'updated_at' => $data !== [] ? $now : ($stale($cached) !== [] ? $cached['updated_at'] : 0),
-            'data' => $data !== [] ? $data : $stale($cached)];
+        $fetched = $data !== [];
+        $enriched = $complete($data);
+        $data = $fillMissing($data, $stale($cached));
+        $record = ['version' => 1, 'checked_at' => $now, 'next_retry_at' => $fetched && $enriched ? 0 : $now + 300,
+            'updated_at' => $fetched ? $now : ($data !== [] ? $cached['updated_at'] : 0), 'data' => $data];
         sblog_douban_write_cache($path, $record);
         return $record['data'];
     } finally { @flock($lock, LOCK_UN); fclose($lock); }

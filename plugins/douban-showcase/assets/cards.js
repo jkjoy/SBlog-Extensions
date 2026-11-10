@@ -6,9 +6,11 @@
   const selector = 'a.sblog-douban-card[data-douban-subject]';
   const labels = { movie: '电影', book: '图书', music: '音乐' };
   const discovered = new WeakSet();
+  const watchedImages = new WeakSet();
   const requests = new Map();
   const queue = [];
   let active = 0;
+  let eagerCards = 0;
 
   function textValue(value, limit = 2000) {
     if (Array.isArray(value)) return value.map((item) => textValue(item, limit)).filter(Boolean).join(' / ').slice(0, limit);
@@ -41,15 +43,40 @@
   }
 
   function fallback(card) {
-    card.dataset.subjectState = 'error';
+    const cached = card.dataset.subjectCached === '1';
+    card.dataset.subjectState = cached ? 'ready' : 'error';
+    card.dataset.subjectRefresh = 'error';
     card.setAttribute('aria-busy', 'false');
-    const body = slot(card, 'body');
-    setText(card, 'footer', '前往豆瓣查看', body);
+    if (!cached) {
+      const body = slot(card, 'body');
+      setText(card, 'footer', '前往豆瓣查看', body);
+    }
     card.querySelectorAll('[data-douban-loading]').forEach((element) => { element.hidden = true; });
     document.dispatchEvent(new CustomEvent('sblog:douban-card-updated', { detail: { card } }));
   }
 
+  function watchCover(card, image, previous = null) {
+    if (watchedImages.has(image)) return;
+    watchedImages.add(image);
+    const loaded = () => {
+      if (previous?.isConnected) previous.remove();
+      image.hidden = false;
+      card.dataset.subjectCover = 'ready';
+    };
+    const failed = () => {
+      image.hidden = true;
+      card.dataset.subjectCover = previous?.isConnected && previous.naturalWidth > 0 ? 'ready' : 'error';
+    };
+    image.addEventListener('load', loaded, { once: true });
+    image.addEventListener('error', failed, { once: true });
+    if (image.complete && image.getAttribute('src')) {
+      if (image.naturalWidth > 0) loaded();
+      else failed();
+    }
+  }
+
   function render(card, subject, type) {
+    const cached = card.dataset.subjectCached === '1';
     const label = labels[type];
     const title = textValue(subject.title);
     const body = slot(card, 'body');
@@ -85,33 +112,34 @@
     }
     ratingElement.hidden = false;
     setText(card, 'meta', textValue(subject.meta), body);
-    setText(card, 'summary', textValue(subject.summary, 4000), body);
+    const summary = textValue(subject.summary, 4000)
+      || (cached ? textValue(card.querySelector('.sblog-douban-card__summary')?.textContent, 4000) : '');
+    setText(card, 'summary', summary, body);
     setText(card, 'footer', '前往豆瓣查看', body);
 
     const cover = slot(card, 'cover');
     const coverUrl = localUrl(subject.cover_url);
     const existingImage = cover.querySelector('img');
-    existingImage?.remove();
-    card.dataset.subjectCover = 'missing';
-    if (coverUrl) {
+    if (coverUrl && existingImage?.src === coverUrl.href) {
+      watchCover(card, existingImage);
+    } else if (coverUrl) {
       const image = document.createElement('img');
       image.alt = '';
-      image.loading = 'lazy';
+      image.loading = existingImage ? 'eager' : 'lazy';
       image.decoding = 'async';
       image.referrerPolicy = 'no-referrer';
-      image.addEventListener('load', () => {
-        card.dataset.subjectCover = 'ready';
-      }, { once: true });
-      image.addEventListener('error', () => {
-        image.hidden = true;
-        card.dataset.subjectCover = 'error';
-      }, { once: true });
+      image.hidden = Boolean(existingImage);
+      watchCover(card, image, existingImage);
       image.src = coverUrl.href;
       cover.append(image);
+    } else if (!existingImage) {
+      card.dataset.subjectCover = 'missing';
     }
     card.setAttribute('aria-label', `在豆瓣查看《${title}》`);
     card.setAttribute('aria-busy', 'false');
     card.dataset.subjectState = 'ready';
+    card.dataset.subjectCached = '1';
+    card.dataset.subjectRefresh = 'ready';
     card.querySelectorAll('[data-douban-loading]').forEach((element) => { element.hidden = true; });
     document.dispatchEvent(new CustomEvent('sblog:douban-card-updated', { detail: { card } }));
   }
@@ -132,29 +160,37 @@
     if (requests.has(key)) return requests.get(key);
     const promise = new Promise((resolve, reject) => {
       queue.push(async () => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
-        try {
-          const url = new URL(endpoint.href);
-          url.hash = '';
-          url.searchParams.set('type', type);
-          url.searchParams.set('id', id);
-          const response = await fetch(url.href, {
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json' },
-            signal: controller.signal,
-          });
-          if (!response.ok) throw new Error('Subject request failed');
-          const result = await response.json();
-          const subject = result?.subject;
-          if (!result?.ok || !subject || subject.type !== type || String(subject.id) !== id || !textValue(subject.title)) {
-            throw new Error('Invalid subject data');
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 25000);
+          try {
+            const url = new URL(endpoint.href);
+            url.hash = '';
+            url.searchParams.set('type', type);
+            url.searchParams.set('id', id);
+            const response = await fetch(url.href, {
+              credentials: 'same-origin',
+              headers: { Accept: 'application/json' },
+              signal: controller.signal,
+            });
+            if (!response.ok) throw new Error('Subject request failed');
+            const result = await response.json();
+            const subject = result?.subject;
+            if (!result?.ok || !subject || subject.type !== type || String(subject.id) !== id || !textValue(subject.title)) {
+              throw new Error('Invalid subject data');
+            }
+            resolve(subject);
+            return;
+          } catch (error) {
+            if (attempt === 1) {
+              requests.delete(key);
+              reject(error);
+              return;
+            }
+          } finally {
+            clearTimeout(timeout);
           }
-          resolve(subject);
-        } catch (error) {
-          reject(error);
-        } finally {
-          clearTimeout(timeout);
+          await new Promise((resume) => setTimeout(resume, 800));
         }
       });
       pump();
@@ -172,7 +208,8 @@
       fallback(card);
       return;
     }
-    card.dataset.subjectState = 'loading';
+    card.dataset.subjectState = card.dataset.subjectCached === '1' ? 'ready' : 'loading';
+    card.dataset.subjectRefresh = 'loading';
     card.setAttribute('aria-busy', 'true');
     try {
       const subject = await requestSubject(endpoint, type, id);
@@ -193,8 +230,13 @@
   function register(card) {
     if (discovered.has(card)) return;
     discovered.add(card);
-    card.dataset.subjectState = 'pending';
-    if (observer) observer.observe(card);
+    const cached = card.dataset.subjectCached === '1';
+    card.dataset.subjectState = cached ? 'ready' : 'pending';
+    card.querySelectorAll('.sblog-douban-card__cover img').forEach((image) => watchCover(card, image));
+    if (eagerCards < 3) {
+      eagerCards++;
+      hydrate(card);
+    } else if (observer) observer.observe(card);
     else hydrate(card);
   }
 

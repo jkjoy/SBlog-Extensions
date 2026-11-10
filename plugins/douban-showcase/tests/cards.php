@@ -38,7 +38,8 @@ try {
     foreach (['movie', 'book', 'music'] as $type) {
         $card = $embed(null, ['url' => 'https://' . $type . '.douban.com/subject/1292052/?from=search']);
         expect(is_string($card) && str_contains($card, 'data-subject-type="' . $type . '"'), 'All subject types render cards.');
-        expect(!str_contains($card, '<img'), 'Cover insertion must happen after theme image extraction.');
+        expect(!str_contains($card, '<img'), 'Uncached links render without upstream requests or invented covers.');
+        expect(str_starts_with($card, '<figure class="media-embed media-embed--douban">'), 'The complete card stays in the media wrapper for gallery themes.');
         expect(str_contains($card, 'href="https://' . $type . '.douban.com/subject/1292052/"'), 'The fallback link is canonical.');
         expect(str_contains($card, '/blog/index.php?a=douban_showcase_subject'), 'Metadata endpoint preserves the deployment prefix.');
     }
@@ -57,6 +58,11 @@ try {
     sblog_douban_write_cache(sblog_douban_subject_cache_path('movie', '1292052'), [
         'version' => 1, 'updated_at' => time(), 'checked_at' => time(), 'next_retry_at' => 0, 'data' => $subject,
     ]);
+    $cachedCard = $embed(null, ['url' => $identity['url']]);
+    expect(str_contains($cachedCard, 'data-subject-cached="1"') && str_contains($cachedCard, 'data-subject-state="ready"'), 'Cached cards are usable immediately, including without JavaScript.');
+    expect(str_contains($cachedCard, '<img src="/blog/index.php?') && !str_contains($cachedCard, 'https://img3.doubanio.com/'), 'Cached covers use the registered same-site proxy.');
+    expect(str_contains($cachedCard, '>作品 &lt;安全&gt;</span>') && str_contains($cachedCard, 'class="sblog-douban-card__summary">简介</span>'), 'Cached title and summary are escaped and visible in the initial HTML.');
+    expect(str_contains($cachedCard, 'class="sblog-douban-card__score">9.7</span>'), 'Cached ratings are visible before hydration.');
     [$status, $payload] = sblog_douban_subject_response(['type' => 'movie', 'id' => '1292052']);
     expect($status === 200 && $payload['ok'] && $payload['subject']['title'] === '作品 <安全>', 'Public API returns cached subject information without a configured user ID.');
     expect(str_starts_with($payload['subject']['cover_url'], '/blog/index.php?') && str_contains($payload['subject']['cover_url'], 'a=douban_showcase_cover'), 'API exposes only a registered same-site cover address.');

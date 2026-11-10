@@ -7,21 +7,43 @@ if (!defined('PLUGINS_DIR')) {
     exit;
 }
 
-/** No cover image here: themes may extract article images into a gallery. */
+/** Render cached details immediately; the media wrapper keeps covers out of theme galleries. */
 function sblog_douban_subject_card(array $identity): string
 {
     $type = $identity['type'];
     $label = sblog_douban_types()[$type];
+    $cached = sblog_douban_subject_read_cache(sblog_douban_subject_cache_path($type, $identity['id']), $type, $identity['id']);
+    $subject = $cached !== null && $cached['updated_at'] >= time() - 7 * 86400 ? $cached['data'] : [];
+    $cover = $subject !== [] ? sblog_douban_cover_url($subject['cover_url']) : '';
+    $title = $subject['title'] ?? $label . '条目 · ' . $identity['id'];
+    $original = $subject['original_title'] ?? '';
+    $year = $subject['year'] ?? '';
+    $meta = implode(' / ', $subject['meta'] ?? []);
+    $summary = $subject['summary'] ?? '';
+    $rating = '';
+    if (($subject['rating'] ?? '') !== '') {
+        $rating = '<span class="sblog-douban-card__star" aria-hidden="true">★</span><span class="sblog-douban-card__score">'
+            . h($subject['rating']) . '</span>';
+        if ($subject['rating_count'] > 0) {
+            $rating .= '<span class="sblog-douban-card__count">' . h(number_format($subject['rating_count'])) . ' 人评价</span>';
+        }
+    } elseif ($subject !== []) {
+        $rating = '暂无评分';
+    }
     return '<figure class="media-embed media-embed--douban"><a class="sblog-douban-card" data-douban-subject data-subject-type="' . h($type)
-        . '" data-subject-id="' . h($identity['id']) . '" data-subject-state="pending" data-subject-endpoint="'
+        . '" data-subject-id="' . h($identity['id']) . '" data-subject-state="' . ($subject !== [] ? 'ready' : 'pending') . '"'
+        . ($subject !== [] ? ' data-subject-cached="1"' : '') . ' data-subject-endpoint="'
         . h(sblog_douban_url('douban_showcase_subject')) . '" href="' . h($identity['url'])
         . '" target="_blank" rel="noopener noreferrer">'
         . '<span class="sblog-douban-card__cover" aria-hidden="true"><span class="sblog-douban-card__fallback">'
-        . sblog_douban_icon($type) . '<span>' . h($label) . '</span></span></span>'
-        . '<span class="sblog-douban-card__body"><span class="sblog-douban-card__eyebrow">豆瓣' . h($label) . '</span>'
-        . '<span class="sblog-douban-card__title">' . h($label) . '条目 · ' . h($identity['id']) . '</span>'
-        . '<span class="sblog-douban-card__original" hidden></span><span class="sblog-douban-card__rating" hidden></span>'
-        . '<span class="sblog-douban-card__meta" hidden></span><span class="sblog-douban-card__summary" hidden></span>'
+        . sblog_douban_icon($type) . '<span>' . h($label) . '</span></span>'
+        . ($cover !== '' ? '<img src="' . h($cover) . '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">' : '') . '</span>'
+        . '<span class="sblog-douban-card__body"><span class="sblog-douban-card__eyebrow">豆瓣' . h($label . ($year !== '' ? ' · ' . $year : '')) . '</span>'
+        . '<span class="sblog-douban-card__title">' . h($title) . '</span>'
+        . '<span class="sblog-douban-card__original"' . ($original === '' ? ' hidden' : '') . '>' . h($original) . '</span>'
+        . '<span class="sblog-douban-card__rating"' . ($rating === '' ? ' hidden' : '') . '>' . $rating . '</span>'
+        . '<span class="sblog-douban-card__meta"' . ($meta === '' ? ' hidden' : '') . '>' . h($meta) . '</span>'
+        . '<span class="sblog-douban-card__summary"' . ($summary === '' ? ' hidden' : '') . '>' . h($summary) . '</span>'
         . '<span class="sblog-douban-card__footer">查看豆瓣条目 →</span></span></a></figure>';
 }
 
@@ -83,13 +105,13 @@ add_plugin_filter('media_embed_html', static function (mixed $html, array $conte
 
 add_theme_action('head', static function (array $context): string {
     return sblog_douban_card_assets_visible($context)
-        ? '<link rel="stylesheet" href="' . h(plugin_asset_url('douban-showcase', 'assets/cards.css') . '?v=1.1.0') . '">'
+        ? '<link rel="stylesheet" href="' . h(plugin_asset_url('douban-showcase', 'assets/cards.css') . '?v=1.1.1') . '">'
         : '';
 }, 30);
 
 add_theme_action('body_close', static function (array $context): string {
     return sblog_douban_card_assets_visible($context)
-        ? '<script defer src="' . h(plugin_asset_url('douban-showcase', 'assets/cards.js') . '?v=1.1.0') . '"></script>'
+        ? '<script defer src="' . h(plugin_asset_url('douban-showcase', 'assets/cards.js') . '?v=1.1.1') . '"></script>'
         : '';
 }, 30);
 

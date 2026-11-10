@@ -70,6 +70,21 @@ try {
         'rating' => ['value' => 99, 'count' => -1]])), 'movie', '1292052');
     expect($untrusted['title'] === '安全标题' && $untrusted['summary'] === '简介' && $untrusted['cover_url'] === '', 'remote text is plain and external covers are rejected');
     expect($untrusted['rating'] === '' && $untrusted['rating_count'] === 0, 'invalid ratings excluded');
+    $summaryFallback = sblog_douban_subject_normalize(array_replace($movie, ['intro' => ' <br> ', 'summary' => ' <b>备用简介</b> ', 'description' => '其他简介']), 'movie', '1292052');
+    expect($summaryFallback['summary'] === '备用简介', 'empty cleaned intro does not hide a usable summary');
+    expect(sblog_douban_subject_normalize(array_replace($movie, ['intro' => [], 'summary' => '', 'description' => '备用描述']), 'movie', '1292052')['summary'] === '备用描述', 'malformed or empty earlier descriptions do not hide later text');
+    $officialCover = $movie['pic']['large'];
+    foreach ([['cover_url' => '', 'image' => '', 'pic' => ['large' => '', 'normal' => $officialCover]],
+        ['cover_url' => 'https://evil.example/cover.jpg', 'image' => $officialCover],
+        ['cover_url' => 'https://img3.doubanio.com/icon/user.jpg', 'image' => $officialCover],
+        ['cover_url' => $officialCover . '?redirect=1', 'image' => $officialCover],
+        ['image' => ['url' => 'javascript:alert(1)'], 'pic' => ['url' => $officialCover]],
+        ['image' => [['url' => $officialCover]], 'pic' => []],
+        ['image' => ['contentUrl' => $officialCover], 'pic' => []]] as $images) {
+        expect(sblog_douban_subject_normalize(array_replace($movie, $images), 'movie', '1292052')['cover_url'] === $officialCover,
+            'first usable official cover wins after empty, invalid, or object candidates');
+    }
+    expect(sblog_douban_subject_normalize(array_replace($movie, ['pic' => ['large' => $officialCover . '?x=1']]), 'movie', '1292052')['cover_url'] === '', 'unproxyable CDN image queries are not cached as usable covers');
 
     $ld = ['@context' => 'https://schema.org', '@type' => 'Movie', 'name' => '页面电影', 'alternateName' => 'Page Movie',
         'url' => $identity['url'], 'datePublished' => '2025-10-01', 'genre' => ['剧情'],
@@ -95,6 +110,14 @@ HTML;
     $fallback = sblog_douban_subject_parse($fallbackHtml, 'book', '1000001');
     expect($fallback['title'] === '页面图书' && $fallback['year'] === '2022' && $fallback['rating'] === '8.9' && $fallback['rating_count'] === 123, 'OG/visible HTML fallback parsed');
     expect($fallback['summary'] === '正文简介 & 测试' && in_array('作者: 测试作者 / 出版社: 测试出版社', $fallback['meta'], true), 'visible metadata and HTML entities retained as text');
+    $mainpicFallback = str_replace(['https://img1.doubanio.com/view/subject/s/public/s123.jpg', '</body>'],
+        ['https://evil.example/cover.jpg', '<div id="mainpic"><img src="' . $officialCover . '"></div></body>'], $fallbackHtml);
+    expect(sblog_douban_subject_parse($mainpicFallback, 'book', '1000001')['cover_url'] === $officialCover, 'invalid OG image does not hide a valid mainpic cover');
+    $expandedSummary = str_replace('</body>', '<div id="link-report"><span class="all hidden">完整的展开简介</span></div></body>', $fallbackHtml);
+    expect(sblog_douban_subject_parse($expandedSummary, 'book', '1000001')['summary'] === '完整的展开简介', 'expanded synopsis takes priority over its collapsed preview');
+    $bookSummary = str_replace(['正文简介 &amp; 测试', 'content="OG 简介"', '</body>'],
+        ['', 'content=""', '<div id="link-report"><div class="intro"><p>图书内容简介</p></div></div></body>'], $fallbackHtml);
+    expect(sblog_douban_subject_parse($bookSummary, 'book', '1000001')['summary'] === '图书内容简介', 'book intro supplies the synopsis without movie RDF attributes');
     expect(sblog_douban_subject_parse(str_replace('https://book.douban.com/subject/1000001/', 'https://evil.example/subject/1000001/', $fallbackHtml), 'book', '1000001') === [], 'mismatched OG identity rejected');
     expect(sblog_douban_subject_parse(str_replace($identity['url'], 'https://movie.douban.com/subject/999/', $html), 'movie', '1292052') === [], 'mismatched JSON-LD identity rejected');
     expect(sblog_douban_subject_parse($html, 'book', '1000001') === [], 'JSON-LD type and identity cannot cross work types');
@@ -118,6 +141,72 @@ HTML;
         return str_contains($url, '/rexxar/') ? ['ok' => false, 'body' => '', 'http_code' => 403] : response($fallbackHtml);
     }) === $fallback && count($fallbackCalls) === 2, 'HTML fallback succeeds after API denial');
     expect($fallbackCalls[1][0] === 'https://book.douban.com/subject/1000001/' && $fallbackCalls[1][1] > 0 && $fallbackCalls[1][1] <= 6, 'fallback uses official work URL within total budget');
+    foreach (['both' => ['intro' => '', 'pic' => []], 'summary' => ['intro' => ''], 'cover' => ['pic' => []]] as $missing => $fields) {
+        $id = ['both' => '9100001', 'summary' => '9100002', 'cover' => '9100003'][$missing];
+        $partial = array_replace($movie, ['id' => $id], $fields);
+        $richHtml = str_replace('1292052', $id, $html);
+        $enrichmentCalls = [];
+        $enriched = sblog_douban_subject_data('movie', $id, static function (string $url, float $timeout) use (&$enrichmentCalls, $partial, $richHtml): array {
+            $enrichmentCalls[] = [$url, $timeout];
+            return response(str_contains($url, '/rexxar/') ? encoded($partial) : $richHtml);
+        });
+        expect(count($enrichmentCalls) === 2 && $enriched['cover_url'] !== '' && $enriched['summary'] !== '', 'partial API missing ' . $missing . ' is enriched from HTML');
+        expect($enriched['title'] === $movie['title'] && $enriched['rating'] === '9.7' && $enriched['meta'] === $parsed['meta'], 'HTML enrichment keeps existing API titles, scores, and metadata');
+        expect($enriched['summary'] === ($missing === 'cover' ? $parsed['summary'] : 'JSON-LD 简介')
+            && $enriched['cover_url'] === ($missing === 'summary' ? $officialCover : $ld['image']), 'HTML enrichment fills only missing visual fields');
+        expect($enrichmentCalls[1][0] === 'https://movie.douban.com/subject/' . $id . '/' && $enrichmentCalls[1][1] > 0 && $enrichmentCalls[1][1] <= 6, 'partial enrichment stays within the fixed URL and timeout budget');
+        expect(sblog_douban_subject_data('movie', $id, static function (): array { throw new RuntimeException('fresh complete data should not request'); }) === $enriched, 'completed enrichment observes the normal success TTL');
+    }
+    $oldPartialId = '9100004';
+    $oldPartial = sblog_douban_subject_normalize(['id' => $oldPartialId, 'title' => '旧的残缺卡片'], 'movie', $oldPartialId);
+    sblog_douban_write_cache(sblog_douban_subject_cache_path('movie', $oldPartialId), record($oldPartial, time()));
+    $repairCalls = 0;
+    $repaired = sblog_douban_subject_data('movie', $oldPartialId, static function () use (&$repairCalls, $movie, $oldPartialId): array {
+        $repairCalls++; return response(encoded(array_replace($movie, ['id' => $oldPartialId])));
+    });
+    expect($repairCalls === 1 && $repaired['cover_url'] === $officialCover && $repaired['summary'] === $parsed['summary'], 'existing fresh partial cache immediately gets one repair attempt');
+    $partialId = '9100005';
+    $partialCalls = 0;
+    $partialTransport = static function (string $url) use (&$partialCalls, $partialId): array {
+        $partialCalls++;
+        return str_contains($url, '/rexxar/') ? response(encoded(['id' => $partialId, 'title' => '暂缺资料的电影'])) : ['ok' => false];
+    };
+    $partialData = sblog_douban_subject_data('movie', $partialId, $partialTransport);
+    $partialPath = sblog_douban_subject_cache_path('movie', $partialId);
+    $partialRecord = sblog_douban_subject_read_cache($partialPath, 'movie', $partialId);
+    expect($partialCalls === 2 && $partialData['title'] === '暂缺资料的电影' && $partialData['summary'] === '' && $partialData['cover_url'] === '', 'failed enrichment keeps usable partial API data');
+    expect($partialRecord['next_retry_at'] >= time() + 295 && $partialRecord['next_retry_at'] <= time() + 300, 'partial success gets a five-minute enrichment cooldown');
+    expect(sblog_douban_subject_data('movie', $partialId, $partialTransport) === $partialData && $partialCalls === 2, 'partial cooldown prevents repeated network requests');
+    $partialRecord['next_retry_at'] = time() - 1;
+    sblog_douban_write_cache($partialPath, $partialRecord);
+    $repairedPartial = sblog_douban_subject_data('movie', $partialId, static function () use (&$partialCalls, $movie, $partialId): array {
+        $partialCalls++; return response(encoded(array_replace($movie, ['id' => $partialId])));
+    });
+    expect($partialCalls === 3 && $repairedPartial['summary'] === $parsed['summary'], 'partial data is repaired when cooldown expires inside the normal success TTL');
+    $richId = '9100006';
+    $richPath = sblog_douban_subject_cache_path('movie', $richId);
+    $oldRich = sblog_douban_subject_normalize(array_replace($movie, ['id' => $richId]), 'movie', $richId);
+    sblog_douban_write_cache($richPath, record($oldRich, time() - 8 * 3600));
+    $downgradeCalls = 0;
+    $preserved = sblog_douban_subject_data('movie', $richId, static function (string $url) use (&$downgradeCalls, $richId): array {
+        $downgradeCalls++;
+        return str_contains($url, '/rexxar/') ? response(encoded(['id' => $richId, 'title' => '最新标题', 'rating' => ['value' => 9.8]])) : ['ok' => false];
+    });
+    expect($downgradeCalls === 2 && $preserved['title'] === '最新标题' && $preserved['rating'] === '9.8'
+        && $preserved['summary'] === $oldRich['summary'] && $preserved['cover_url'] === $oldRich['cover_url'], 'partial refresh retains richer cached fields without hiding fresh API values');
+    $preservedRecord = sblog_douban_subject_read_cache($richPath, 'movie', $richId);
+    expect($preservedRecord['next_retry_at'] > time(), 'preserved rich visuals still permit a later enrichment retry');
+    $preservedRecord['next_retry_at'] = time() - 1;
+    sblog_douban_write_cache($richPath, $preservedRecord);
+    $refreshedRich = sblog_douban_subject_data('movie', $richId, static function () use (&$downgradeCalls, $movie, $richId): array {
+        $downgradeCalls++; return response(encoded(array_replace($movie, ['id' => $richId, 'intro' => '后来补全的新简介'])));
+    });
+    expect($downgradeCalls === 3 && $refreshedRich['summary'] === '后来补全的新简介', 'cooldown expiry retries even when stale visual fields made the cached card look complete');
+    $expiredRichId = '9100007';
+    $expiredRich = sblog_douban_subject_normalize(array_replace($movie, ['id' => $expiredRichId]), 'movie', $expiredRichId);
+    sblog_douban_write_cache(sblog_douban_subject_cache_path('movie', $expiredRichId), record($expiredRich, time() - 7 * 86400 - 10));
+    $withoutExpired = sblog_douban_subject_data('movie', $expiredRichId, static fn(): array => response(encoded(['id' => $expiredRichId, 'title' => '新标题'])));
+    expect($withoutExpired['title'] === '新标题' && $withoutExpired['summary'] === '' && $withoutExpired['cover_url'] === '', 'expired cached visual fields cannot enrich a new partial result');
     $beforeInvalid = count($calls);
     foreach ([['invalid', '1'], ['movie', '../1'], ['movie', '1/?query='], ['movie.douban.com/subject/1/?foo=', '1'], ['movie', '0']] as [$type, $id]) {
         expect(sblog_douban_subject_data($type, $id, $transport) === [], 'invalid type/id rejected before network');
@@ -146,6 +235,8 @@ HTML;
     try { expect(sblog_douban_subject_data('movie', '1292052', $failure) === $parsed && $failureCalls === 6, 'parallel refresh lock returns stale without another request'); }
     finally { flock($lock, LOCK_UN); fclose($lock); }
     $corruptRecords = [record(array_replace($parsed, ['cover_url' => 'https://evil.example/x.jpg']), time()),
+        record(array_replace($parsed, ['cover_url' => 'https://img3.doubanio.com/icon/user.jpg']), time()),
+        record(array_replace($parsed, ['cover_url' => $officialCover . '?x=1']), time()),
         record(array_replace($parsed, ['id' => '999']), time()), record(array_replace($parsed, ['rating' => '999']), time()),
         record(array_replace($parsed, ['meta' => ['bad' => 'associative']]), time()),
         array_replace(record($parsed, time()), ['next_retry_at' => time() + 2 * 86400]), ['version' => 1, 'data' => []]];
