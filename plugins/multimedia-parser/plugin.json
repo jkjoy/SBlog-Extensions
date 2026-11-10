@@ -1,0 +1,8 @@
+{
+  "name": "多媒体解析",
+  "version": "1.0.0",
+  "requires": "1.14.31",
+  "tested": "1.14.31",
+  "author": "Simple PHP Blog",
+  "description": "将独占段落的哔哩哔哩、YouTube 视频及网易云音乐单曲、歌单和专辑链接转换为播放器。"
+}
