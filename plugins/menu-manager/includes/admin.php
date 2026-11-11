@@ -22,7 +22,102 @@ function sblog_menu_destinations(): array
     return $groups;
 }
 
-function sblog_menu_render_row(array $item, string $index, array $groups): void
+function sblog_menu_admin_order(array $items): array
+{
+    $byId = $children = [];
+    foreach ($items as $item) {
+        $id = $item['id'];
+        if (isset($byId[$id])) {
+            throw new InvalidArgumentException(sblog_t('菜单项标识或上级菜单无效。'));
+        }
+        $byId[$id] = $item;
+        $children[$item['parent_id'] ?? ''][] = $id;
+    }
+    $ordered = [];
+    $visit = static function (string $parent, int $depth) use (&$visit, &$ordered, $children, $byId): void {
+        foreach ($children[$parent] ?? [] as $id) {
+            if ($depth > 2) {
+                throw new InvalidArgumentException(sblog_t('菜单最多支持三级，请调整上级菜单。'));
+            }
+            $ordered[] = $byId[$id];
+            $visit((string)$id, $depth + 1);
+        }
+    };
+    $visit('', 0);
+    if (count($ordered) !== count($items)) {
+        throw new InvalidArgumentException(sblog_t('上级菜单不存在，或菜单层级包含循环。'));
+    }
+    return $ordered;
+}
+
+function sblog_menu_admin_depths(array $items): array
+{
+    $parents = array_column($items, 'parent_id', 'id');
+    $depths = [];
+    foreach ($items as $item) {
+        $parent = $item['parent_id'] ?? '';
+        $seen = [$item['id'] => true];
+        $depth = 0;
+        while ($parent !== '' && isset($parents[$parent]) && !isset($seen[$parent]) && $depth < 2) {
+            $seen[$parent] = true;
+            $parent = $parents[$parent];
+            $depth++;
+        }
+        $depths[$item['id']] = $depth;
+    }
+    return $depths;
+}
+
+function sblog_menu_admin_can_parent(array $item, array $candidate, array $items, array $depths): bool
+{
+    $parents = array_column($items, 'parent_id', 'id');
+    $height = 0;
+    foreach ($items as $descendant) {
+        $parent = $descendant['id'];
+        $seen = [];
+        while ($parent !== '' && isset($parents[$parent]) && !isset($seen[$parent])) {
+            if ($parent === $item['id']) {
+                $height = max($height, ($depths[$descendant['id']] ?? 0) - ($depths[$item['id']] ?? 0));
+                if ($descendant['id'] === $candidate['id']) {
+                    return false;
+                }
+                break;
+            }
+            $seen[$parent] = true;
+            $parent = $parents[$parent];
+        }
+    }
+    return ($depths[$candidate['id']] ?? 0) + 1 + $height <= 2;
+}
+
+function sblog_menu_admin_operation(array $items, string $command, string $id): array
+{
+    $items = sblog_menu_admin_order($items);
+    $index = array_search($id, array_column($items, 'id'), true);
+    if (!in_array($command, ['remove', 'up', 'down'], true) || $index === false) {
+        throw new InvalidArgumentException(sblog_t('菜单操作无效。'));
+    }
+    $parent = $items[$index]['parent_id'] ?? '';
+    if ($command === 'remove') {
+        foreach ($items as &$item) {
+            if (($item['parent_id'] ?? '') === $id) {
+                $item['parent_id'] = $parent;
+            }
+        }
+        unset($item);
+        array_splice($items, $index, 1);
+    } else {
+        $siblings = array_keys(array_filter($items, static fn(array $item): bool => ($item['parent_id'] ?? '') === $parent));
+        $position = array_search($index, $siblings, true);
+        $next = $siblings[$position + ($command === 'up' ? -1 : 1)] ?? null;
+        if ($next !== null) {
+            [$items[$index], $items[$next]] = [$items[$next], $items[$index]];
+        }
+    }
+    return sblog_menu_admin_order($items);
+}
+
+function sblog_menu_render_row(array $item, string $index, array $groups, array $items = [], array $depths = []): void
 {
     $prefix = 'items[' . $index . ']';
     $destination = $item['type'] === 'custom' ? 'custom' : $item['type'] . ':' . $item['reference'];
@@ -31,8 +126,8 @@ function sblog_menu_render_row(array $item, string $index, array $groups): void
         $known = $known || isset($choices[$destination]);
     }
     ?>
-    <li class="menu-manager-row" data-menu-row>
-      <input type="hidden" name="<?= h($prefix) ?>[id]" value="<?= h($item['id']) ?>">
+    <li class="menu-manager-row" data-menu-row data-menu-depth="<?= (int)($depths[$item['id']] ?? 0) ?>">
+      <input type="hidden" name="<?= h($prefix) ?>[id]" value="<?= h($item['id']) ?>" data-menu-id>
       <div class="menu-manager-row__head"><span class="menu-manager-row__number" data-menu-number></span><strong><?= h(sblog_t('菜单项')) ?></strong><div class="menu-manager-row__actions">
         <button class="button button--ghost" type="submit" name="operation" value="up:<?= h($item['id']) ?>" data-menu-move="up" aria-label="<?= h(sblog_t('上移菜单项')) ?>">↑</button>
         <button class="button button--ghost" type="submit" name="operation" value="down:<?= h($item['id']) ?>" data-menu-move="down" aria-label="<?= h(sblog_t('下移菜单项')) ?>">↓</button>
@@ -45,6 +140,16 @@ function sblog_menu_render_row(array $item, string $index, array $groups): void
           <option value="custom"<?= $destination === 'custom' ? ' selected' : '' ?>><?= h(sblog_t('自定义链接')) ?></option>
         </select></div>
         <div class="field"><label for="menu-label-<?= h($index) ?>"><?= h(sblog_t('显示名称')) ?></label><input id="menu-label-<?= h($index) ?>" name="<?= h($prefix) ?>[label]" value="<?= h($item['label']) ?>" maxlength="100" placeholder="<?= h(sblog_t('留空使用目标名称')) ?>" data-menu-label></div>
+        <div class="field"><label for="menu-parent-<?= h($index) ?>"><?= h(sblog_t('上级菜单')) ?></label><select id="menu-parent-<?= h($index) ?>" name="<?= h($prefix) ?>[parent_id]" data-menu-parent><option value=""><?= h(sblog_t('无（顶级菜单）')) ?></option><?php $parentFound = ($item['parent_id'] ?? '') === ''; ?><?php foreach ($items as $candidate): ?><?php
+            $candidateLabel = trim($candidate['label']);
+            if ($candidateLabel === '') {
+                foreach ($groups as $choices) {
+                    $candidateLabel = $choices[$candidate['type'] . ':' . $candidate['reference']] ?? $candidateLabel;
+                }
+            }
+            $selected = ($item['parent_id'] ?? '') === $candidate['id'];
+            $parentFound = $parentFound || $selected;
+            ?><option value="<?= h($candidate['id']) ?>"<?= $selected ? ' selected' : '' ?><?= sblog_menu_admin_can_parent($item, $candidate, $items, $depths) ? '' : ' disabled' ?>><?= h(str_repeat('— ', $depths[$candidate['id']] ?? 0) . ($candidateLabel ?: sblog_t('菜单项'))) ?></option><?php endforeach; ?><?php if (!$parentFound): ?><option value="<?= h($item['parent_id']) ?>" selected><?= h(sblog_t('上级菜单无效，请重新选择')) ?></option><?php endif; ?></select></div>
         <div class="field menu-manager-row__url" data-menu-url-field><label for="menu-url-<?= h($index) ?>"><?= h(sblog_t('自定义链接地址')) ?></label><input id="menu-url-<?= h($index) ?>" name="<?= h($prefix) ?>[url]" value="<?= h($item['url']) ?>" maxlength="2000" placeholder="https://example.com 或 /about" data-menu-url></div>
       </div>
       <div class="menu-manager-row__flags"><label><input type="checkbox" name="<?= h($prefix) ?>[enabled]" value="1"<?= $item['enabled'] ? ' checked' : '' ?>> <?= h(sblog_t('显示此项')) ?></label><label><input type="checkbox" name="<?= h($prefix) ?>[new_tab]" value="1"<?= $item['new_tab'] ? ' checked' : '' ?>> <?= h(sblog_t('新窗口打开')) ?></label><?php if (!$known): ?><span class="menu-manager-warning"><?= h(sblog_t('此项不会在前台显示，请选择其他目标。')) ?></span><?php endif; ?></div>
@@ -68,6 +173,12 @@ function sblog_menu_render_admin(): void
             $config['items'][] = sblog_menu_new_item('page', (string)$page['id']);
         }
     }
+    try {
+        $config['items'] = sblog_menu_admin_order($config['items']);
+    } catch (InvalidArgumentException) {
+        // Preserve an invalid draft for correction instead of discarding its fields.
+    }
+    $depths = sblog_menu_admin_depths($config['items']);
     ob_start();
     ?>
     <div class="admin-shell">
@@ -81,8 +192,8 @@ function sblog_menu_render_admin(): void
               <?= csrf_field() ?>
               <input type="hidden" name="items_present" value="1">
               <div class="menu-manager-mode"><label><input type="checkbox" name="managed" value="1"<?= $config['managed'] ? ' checked' : '' ?>> <strong><?= h(sblog_t('接管主题主菜单')) ?></strong></label><p class="field-hint"><?= h(sblog_t('勾选并保存后使用以下菜单；取消勾选可恢复主题默认导航，同时保留配置。')) ?></p></div>
-              <p class="field-hint"><?= h(sblog_t('使用上移、下移调整顺序。独立页面和分类会自动跟随名称与地址变化；未发布或已删除的目标自动隐藏。')) ?></p>
-              <ol class="menu-manager-list" data-menu-list><?php foreach ($config['items'] as $index => $item): ?><?php sblog_menu_render_row($item, (string)$index, $groups); ?><?php endforeach; ?></ol>
+              <p class="field-hint"><?= h(sblog_t('选择上级菜单创建子菜单，最多三级。上移、下移会连同子菜单调整同级顺序；删除父项会将子项提升一级。独立页面和分类会自动跟随名称与地址变化。')) ?></p>
+              <ol class="menu-manager-list" data-menu-list><?php foreach ($config['items'] as $index => $item): ?><?php sblog_menu_render_row($item, (string)$index, $groups, $config['items'], $depths); ?><?php endforeach; ?></ol>
               <p class="menu-manager-empty" data-menu-empty<?= $config['items'] !== [] ? ' hidden' : '' ?>><?= h(sblog_t('还没有菜单项。接管后，空菜单会隐藏主导航链接。')) ?></p>
               <div class="menu-manager-add"><label for="menu-new-destination"><?= h(sblog_t('添加到菜单')) ?></label><select id="menu-new-destination" name="new_destination" data-menu-new-destination><?php foreach ($groups as $group => $choices): ?><?php if ($choices !== []): ?><optgroup label="<?= h($group) ?>"><?php foreach ($choices as $value => $label): ?><option value="<?= h($value) ?>"><?= h($label) ?></option><?php endforeach; ?></optgroup><?php endif; ?><?php endforeach; ?><option value="custom"><?= h(sblog_t('自定义链接')) ?></option></select><button class="button button--ghost" type="submit" name="operation" value="add" data-menu-add><?= h(sblog_t('添加菜单项')) ?></button></div>
               <p class="field-hint" data-menu-status role="status" aria-live="polite"></p>
@@ -122,6 +233,9 @@ function sblog_menu_post_config(array $post): array
                 throw new InvalidArgumentException(sblog_t('菜单项格式无效。'));
             }
         }
+        if (array_key_exists('parent_id', $row) && !is_string($row['parent_id'])) {
+            throw new InvalidArgumentException(sblog_t('上级菜单格式无效。'));
+        }
         foreach (['enabled', 'new_tab'] as $field) {
             if (isset($row[$field]) && $row[$field] !== '1') {
                 throw new InvalidArgumentException(sblog_t('菜单开关无效。'));
@@ -129,7 +243,7 @@ function sblog_menu_post_config(array $post): array
         }
         [$type, $reference] = array_pad(explode(':', $row['destination'], 2), 2, '');
         $items[] = [
-            'id' => $row['id'], 'type' => $type, 'reference' => $reference,
+            'id' => $row['id'], 'parent_id' => $row['parent_id'] ?? '', 'type' => $type, 'reference' => $reference,
             'label' => $row['label'], 'url' => $row['url'],
             'enabled' => ($row['enabled'] ?? '') === '1', 'new_tab' => ($row['new_tab'] ?? '') === '1',
         ];
@@ -166,6 +280,7 @@ function sblog_menu_handle_request(array $context): void
         } else {
             $config = sblog_menu_post_config($_POST);
             $draft = $config;
+            $config['items'] = sblog_menu_admin_order($config['items']);
             if ($operation === 'add') {
                 $destination = $_POST['new_destination'] ?? '';
                 if (!is_string($destination)) {
@@ -176,18 +291,7 @@ function sblog_menu_handle_request(array $context): void
                 $config['items'][] = $type === 'custom' ? sblog_menu_new_item() : sblog_menu_new_item($type, $reference);
             } elseif ($operation !== 'save') {
                 [$command, $id] = array_pad(explode(':', $operation, 2), 2, '');
-                $index = array_search($id, array_column($config['items'], 'id'), true);
-                if (!in_array($command, ['remove', 'up', 'down'], true) || $index === false) {
-                    throw new InvalidArgumentException(sblog_t('菜单操作无效。'));
-                }
-                if ($command === 'remove') {
-                    array_splice($config['items'], $index, 1);
-                } else {
-                    $next = $index + ($command === 'up' ? -1 : 1);
-                    if (isset($config['items'][$next])) {
-                        [$config['items'][$index], $config['items'][$next]] = [$config['items'][$next], $config['items'][$index]];
-                    }
-                }
+                $config['items'] = sblog_menu_admin_operation($config['items'], $command, $id);
             }
         }
         sblog_menu_save($config);

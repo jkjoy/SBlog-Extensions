@@ -78,6 +78,19 @@ html[data-sunny-theme="dark"] body.sunny-theme {
 .sunny-theme .sunny-dropdown-panel a { padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 14px; border-radius: 6px; }
 .sunny-theme .sunny-dropdown-panel a:hover { background: var(--sunny-soft); }
 .sunny-theme .sunny-dropdown-panel a span { font-size: 12px; color: var(--sunny-faint); }
+.sunny-theme .sunny-nav--managed > .sunny-managed-dropdown > .sunny-dropdown-panel { width: min(280px, calc(100vw - 32px)); min-width: 0; }
+.sunny-theme .sunny-nav--managed > .sunny-managed-dropdown { min-width: 0; max-width: 240px; }
+.sunny-theme .sunny-nav--managed .sunny-managed-summary { display: flex; align-items: stretch; padding: 0; }
+.sunny-theme .sunny-managed-summary > .sunny-managed-link { flex: 1; min-width: 0; padding: 7px 10px; }
+.sunny-theme .sunny-managed-summary > .sunny-menu-disclosure { display: flex; align-items: center; justify-content: center; width: 32px; min-height: 38px; flex: none; }
+.sunny-theme .sunny-managed-summary .sunny-menu-disclosure .sunny-icon { position: static; color: var(--sunny-muted); }
+.sunny-theme .sunny-managed-dropdown[open] > .sunny-managed-summary .sunny-icon { transform: rotate(180deg); }
+.sunny-theme .sunny-nav--managed > .sunny-managed-link { max-width: 240px; white-space: normal; overflow-wrap: anywhere; }
+.sunny-theme .sunny-managed-dropdown .sunny-managed-link { white-space: normal; overflow-wrap: anywhere; }
+.sunny-theme .sunny-dropdown-panel .sunny-managed-dropdown > .sunny-dropdown-panel { position: static; min-width: 0; max-height: none; margin: 2px 0 4px 12px; padding: 4px; border: 0; border-left: 1px solid var(--sunny-line); border-radius: 0; box-shadow: none; background: var(--sunny-soft); }
+.sunny-theme .sunny-dropdown-panel .sunny-managed-summary { font-size: 14px; }
+.sunny-theme .sunny-dropdown-panel .sunny-managed-summary > .sunny-managed-link { padding: 8px 12px; }
+.sunny-theme .sunny-menu-active > .sunny-managed-summary, .sunny-theme .sunny-nav--managed a[aria-current="page"], .sunny-theme .sunny-mobile-dock--managed .sunny-menu-active, .sunny-theme .sunny-mobile-dock--managed a[aria-current="page"] { color: var(--sunny-accent); }
 .sunny-theme .sunny-tools { display: flex; align-items: center; gap: 16px; flex: none; }
 .sunny-theme .sunny-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 36px; border: 0; padding: 6px; border-radius: 8px; background: transparent; color: var(--sunny-muted); line-height: 1; transition: color .18s, background-color .18s; }
 .sunny-theme .sunny-icon-button:hover { background: var(--sunny-soft); color: var(--sunny-accent); }
@@ -451,6 +464,12 @@ body.sunny-theme.sunny-pjax-loading::before { content: ""; position: fixed; z-in
   .sunny-theme .sunny-nav summary .sunny-icon { bottom: calc(50% - 6px); left: auto; right: 12px; }
   .sunny-theme .sunny-dropdown-panel { position: static; min-width: 0; max-height: none; box-shadow: none; background: var(--sunny-soft); margin: 2px 0 8px; border: 0; }
   .sunny-theme .sunny-dropdown-panel a { padding: 10px 12px; }
+  .sunny-theme .sunny-nav--managed > .sunny-managed-dropdown > .sunny-dropdown-panel { width: auto; }
+  .sunny-theme .sunny-nav--managed > .sunny-managed-dropdown { max-width: none; }
+  .sunny-theme .sunny-nav--managed > .sunny-managed-link { max-width: none; }
+  .sunny-theme .sunny-nav--managed .sunny-managed-summary { padding: 0; }
+  .sunny-theme .sunny-managed-summary > .sunny-managed-link, .sunny-theme .sunny-dropdown-panel .sunny-managed-summary > .sunny-managed-link { padding: 12px 10px; }
+  .sunny-theme .sunny-managed-summary > .sunny-menu-disclosure { width: 44px; min-height: 44px; }
   .sunny-theme .sunny-columns { display: block; }
   .sunny-theme .sunny-panel, .sunny-theme .sunny-post-card, .sunny-theme .sunny-section-title, .sunny-theme .sunny-empty { border-radius: 8px; }
   .sunny-theme .sunny-panel { padding: 14px; margin-bottom: 12px; }
@@ -523,6 +542,8 @@ body.sunny-theme.sunny-pjax-loading::before { content: ""; position: fixed; z-in
   .sunny-theme .sunny-mobile-dock > a, .sunny-theme .sunny-mobile-dock > button { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 0; background: transparent; border: 0; font-size: 11px; color: var(--sunny-muted); line-height: 1.4; min-height: 46px; }
   .sunny-theme .sunny-mobile-dock > * > span { font-size: 16px; line-height: 23px; }
   .sunny-theme .sunny-mobile-dock .sunny-dock-home { padding: 0; }
+  .sunny-theme .sunny-mobile-dock--managed { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+  .sunny-theme .sunny-mobile-dock--managed > .sunny-managed-link { padding: 4px; overflow-wrap: anywhere; text-align: center; }
   .sunny-theme .sunny-dock-home img { height: 44px; width: 44px; object-fit: cover; border-radius: 50%; border: 2px solid var(--sunny-paper); box-shadow: 0 4px 12px #a48fff30; }
   .sunny-theme .sunny-search-dialog { padding: 20px; max-height: calc(100dvh - 40px); }
   .sunny-theme .sunny-lightbox { padding: 64px 14px 80px; }

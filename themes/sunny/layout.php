@@ -40,12 +40,7 @@ foreach ($sunnyArchives as $sunnyEntry) {
 $sunnyDays = (int)date('t');
 $sunnyFirstDay = (int)date('w', strtotime(date('Y-m-01')));
 $sunnyMonths = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
-$sunnyNav = [
-    ['home', '🏡', '首页'],
-    ['archives', '🗃️', '时光机'],
-    ['tags', '🍪', '更多'],
-    ['links', '🧰', '链接'],
-];
+$sunnyManagedMenu = sunny_managed_menu($themeContext);
 ?>
 <!doctype html>
 <html lang="<?= h(sblog_i18n_locale()) ?>" data-sunny-theme="light">
@@ -88,7 +83,10 @@ $sunnyNav = [
 
   <div class="sunny-navbar">
     <button class="sunny-icon-button sunny-mobile-toggle" type="button" data-sunny-menu aria-controls="sunny-nav" aria-expanded="false" aria-label="展开菜单" title="展开菜单"><?= sunny_icon('menu') ?></button>
-    <nav class="sunny-nav" id="sunny-nav" aria-label="主菜单">
+    <nav class="sunny-nav<?= $sunnyManagedMenu !== null ? ' sunny-nav--managed' : '' ?>" id="sunny-nav" aria-label="主菜单">
+      <?php if ($sunnyManagedMenu !== null): ?>
+      <?= sunny_render_menu($sunnyManagedMenu) ?>
+      <?php else: ?>
       <a class="sunny-nav-home" href="<?= h(sunny_url('home')) ?>"<?= $sunnyHome ? ' aria-current="page"' : '' ?>>🏡首页</a>
       <details class="sunny-nav-dropdown">
         <summary>🎣分类<?= sunny_icon('chevron-down', 12) ?></summary>
@@ -111,6 +109,7 @@ $sunnyNav = [
       <?php foreach ($navPages as $sunnyPage): ?>
       <a href="<?= h(sunny_url('page', ['slug' => (string)$sunnyPage['slug']])) ?>"<?= $active === 'page:' . $sunnyPage['slug'] ? ' aria-current="page"' : '' ?>>🐱<?= h($sunnyPage['title']) ?></a>
       <?php endforeach; ?>
+      <?php endif; ?>
     </nav>
     <div class="sunny-tools">
       <?php if ($sunnyMusicData !== null && $sunnyMusicData['tracks'] !== []): ?><button class="sunny-icon-button" type="button" data-music-open aria-controls="sunny-music-dialog" aria-label="打开音乐播放列表" title="音乐播放列表"><?= sunny_icon('music') ?></button><?php endif; ?>
@@ -203,11 +202,17 @@ $sunnyNav = [
   <?php theme_action('footer_after', $themeContext); ?>
 </div>
 
-<nav class="sunny-mobile-dock" aria-label="底部导航">
+<nav class="sunny-mobile-dock<?= $sunnyManagedMenu !== null ? ' sunny-mobile-dock--managed' : '' ?>" aria-label="底部导航">
+  <?php if ($sunnyManagedMenu !== null): ?>
+  <?php foreach (array_slice($sunnyManagedMenu, 0, 4) as $sunnyMenuItem): ?>
+  <?= sunny_menu_link($sunnyMenuItem, !empty($sunnyMenuItem['has_active_child']) ? 'sunny-menu-active' : '') ?>
+  <?php endforeach; ?>
+  <?php else: ?>
   <a href="<?= h(sunny_url('links')) ?>"><span>🍭</span>友链</a>
   <a href="<?= h(sunny_url('archives')) ?>"><span>📚</span>归档</a>
   <a class="sunny-dock-home" href="<?= h(sunny_url('home')) ?>" aria-label="首页"><img src="<?= h(theme_logo_url()) ?>" width="44" height="44" alt=""></a>
   <a href="<?= h(sunny_url('tags')) ?>"><span>🍪</span>标签</a>
+  <?php endif; ?>
   <button type="button" data-sunny-search-open><span>🔎</span>搜索</button>
 </nav>
 

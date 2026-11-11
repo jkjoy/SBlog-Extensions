@@ -105,9 +105,18 @@ function menu_theme_test_child(string $slug, string $mode, bool $guest): void
     if ($mode === 'home') {
         array_unshift($items, ['id' => 'fixture-home', 'type' => 'route', 'reference' => 'home', 'label' => 'Managed home', 'url' => '', 'enabled' => true, 'new_tab' => false]);
     }
+    if ($mode === 'nested') {
+        $items = [
+            ['id' => 'fixture-parent', 'parent_id' => '', 'type' => 'custom', 'reference' => '', 'label' => MENU_THEME_TEST_LABEL, 'url' => MENU_THEME_TEST_URL, 'enabled' => true, 'new_tab' => true],
+            ['id' => 'fixture-child', 'parent_id' => 'fixture-parent', 'type' => 'route', 'reference' => 'archives', 'label' => 'Managed child archives', 'url' => '', 'enabled' => true, 'new_tab' => false],
+            ['id' => 'fixture-grandchild', 'parent_id' => 'fixture-child', 'type' => 'custom', 'reference' => '', 'label' => 'Managed grandchild', 'url' => '/grandchild', 'enabled' => true, 'new_tab' => false],
+            ['id' => 'fixture-hidden-parent', 'parent_id' => '', 'type' => 'route', 'reference' => 'tags', 'label' => 'Hidden parent', 'url' => '', 'enabled' => false, 'new_tab' => false],
+            ['id' => 'fixture-hidden-child', 'parent_id' => 'fixture-hidden-parent', 'type' => 'custom', 'reference' => '', 'label' => 'Child of hidden parent', 'url' => '/hidden-child', 'enabled' => true, 'new_tab' => false],
+        ];
+    }
     $GLOBALS['menu_theme_test_settings'] = ['menu_manager_config' => json_encode([
         'version' => 1,
-        'managed' => in_array($mode, ['managed', 'empty', 'home'], true),
+        'managed' => in_array($mode, ['managed', 'empty', 'home', 'nested'], true),
         'items' => $mode === 'empty' ? [] : $items,
     ], JSON_THROW_ON_ERROR)];
 
@@ -231,12 +240,14 @@ try {
         $managedHtml = menu_theme_test_render($slug, 'managed');
         $managed = menu_theme_test_dom($managedHtml);
         $empty = menu_theme_test_dom(menu_theme_test_render($slug, 'empty'));
+        $nested = menu_theme_test_dom(menu_theme_test_render($slug, 'nested'));
         $baseMenus = $withoutPlugin->query($selector);
         $fallbackMenus = $fallback->query($selector);
         $managedMenus = $managed->query($selector);
         $emptyMenus = $empty->query($selector);
+        $nestedMenus = $nested->query($selector);
         $expectedCount = in_array($slug, ['butterfly', 'mango', 'once'], true) ? 2 : 1;
-        foreach ([$baseMenus, $fallbackMenus, $managedMenus, $emptyMenus] as $menus) {
+        foreach ([$baseMenus, $fallbackMenus, $managedMenus, $emptyMenus, $nestedMenus] as $menus) {
             menu_theme_test_assert($menus->length === $expectedCount, $slug . ': desktop/mobile menu container count changed');
         }
         menu_theme_test_assert(menu_theme_test_utilities($withoutPlugin) === menu_theme_test_utilities($managed), $slug . ': takeover changed account, RSS, search or toggle controls');
@@ -274,6 +285,18 @@ try {
                 menu_theme_test_assert(in_array($activeItemClass, explode(' ', $archive->item(0)->parentNode->getAttribute('class')), true), $slug . ': active wrapper styling was lost');
             }
             menu_theme_test_assert($empty->query('.//a[@href="/archives" or starts-with(@href,"/menu-fixture?")]', $emptyMenus->item($index))->length === 0, $slug . ': an intentionally empty menu fell back to default entries');
+            $nestedMenu = $nestedMenus->item($index);
+            $parent = $nested->query('.//details[summary/a[starts-with(@href,"/menu-fixture?")]]', $nestedMenu);
+            menu_theme_test_assert($parent->length === 1, $slug . ': parent menu did not have a native disclosure and an accessible link');
+            $parentLink = $nested->query('./summary/a', $parent->item(0))->item(0);
+            menu_theme_test_assert($parentLink->getAttribute('target') === '_blank' && $parentLink->getAttribute('rel') === 'noopener noreferrer', $slug . ': parent destination lost new-tab safety');
+            menu_theme_test_assert(!$parentLink->hasAttribute('aria-current'), $slug . ': ancestor was incorrectly marked as the current page');
+            $child = $nested->query('.//details[summary/a[@href="/archives"]]', $parent->item(0));
+            menu_theme_test_assert($child->length === 1, $slug . ': second level was flattened or lost its disclosure');
+            menu_theme_test_assert($nested->query('./summary/a[@aria-current="page"]', $child->item(0))->length === 1, $slug . ': active child lost current-page state');
+            menu_theme_test_assert($nested->query('.//a[@href="/grandchild"]', $child->item(0))->length === 1, $slug . ': third level was flattened or duplicated');
+            menu_theme_test_assert($nested->query('.//a[@href="/hidden-child"]', $nestedMenu)->length === 0, $slug . ': child of a hidden parent remained visible');
+            menu_theme_test_assert($nested->query('//*[@data-menu-payload]')->length === 0, $slug . ': nested parent label injected an element');
             $menuCount++;
         }
     }

@@ -28,7 +28,7 @@ function sblog_menu_new_item(string $type = 'route', string $reference = 'home')
 {
     return [
         'id' => bin2hex(random_bytes(8)), 'type' => $type, 'reference' => $reference,
-        'label' => '', 'url' => '', 'enabled' => true, 'new_tab' => false,
+        'label' => '', 'url' => '', 'enabled' => true, 'new_tab' => false, 'parent_id' => '',
     ];
 }
 
@@ -72,6 +72,10 @@ function sblog_menu_validate(array $config): array
             || !is_bool($item['enabled'] ?? null) || !is_bool($item['new_tab'] ?? null)) {
             throw new InvalidArgumentException(sblog_t('菜单项标识或开关无效。'));
         }
+        $parentId = array_key_exists('parent_id', $item) ? $item['parent_id'] : '';
+        if (!is_string($parentId) || ($parentId !== '' && !preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $parentId))) {
+            throw new InvalidArgumentException(sblog_t('父级菜单标识无效。'));
+        }
         $ids[$item['id']] = true;
         $label = trim($item['label']);
         if (str_len_u($label) > 100 || preg_match('/[\x00-\x1F\x7F]/', $label)) {
@@ -100,7 +104,27 @@ function sblog_menu_validate(array $config): array
             'id' => $item['id'], 'type' => $type, 'reference' => $reference,
             'label' => $label, 'url' => $type === 'custom' ? $url : '',
             'enabled' => $item['enabled'], 'new_tab' => $item['new_tab'],
+            'parent_id' => $parentId,
         ];
+    }
+    $parents = array_column($items, 'parent_id', 'id');
+    foreach ($items as $item) {
+        $seen = [$item['id'] => true];
+        $parentId = $item['parent_id'];
+        $depth = 0;
+        while ($parentId !== '') {
+            if (!isset($ids[$parentId])) {
+                throw new InvalidArgumentException(sblog_t('父级菜单不存在，请重新选择。'));
+            }
+            if (isset($seen[$parentId])) {
+                throw new InvalidArgumentException(sblog_t('菜单不能以自身或子项作为父级。'));
+            }
+            $seen[$parentId] = true;
+            if (++$depth > 2) {
+                throw new InvalidArgumentException(sblog_t('菜单最多支持三级。'));
+            }
+            $parentId = $parents[$parentId];
+        }
     }
     return ['version' => 1, 'managed' => $config['managed'], 'items' => $items];
 }
@@ -205,5 +229,45 @@ function sblog_menu_items(array $context = []): array
             'target' => $item['new_tab'] ? '_blank' : '_self',
         ]);
     }
-    return $items;
+    $visible = array_column($items, null, 'id');
+    $result = [];
+    foreach ($items as $item) {
+        $parentId = $item['parent_id'];
+        $depth = 0;
+        while ($parentId !== '') {
+            // A hidden or unavailable ancestor hides the entire branch.
+            if (!isset($visible[$parentId])) {
+                continue 2;
+            }
+            $depth++;
+            $parentId = $visible[$parentId]['parent_id'];
+        }
+        $item['depth'] = $depth;
+        $result[] = $item;
+    }
+    return $result;
+}
+
+function sblog_menu_tree(array $context = []): array
+{
+    $children = [];
+    foreach (sblog_menu_items($context) as $item) {
+        $children[$item['parent_id']][] = $item;
+    }
+    $build = static function (string $parentId) use (&$build, $children): array {
+        $branch = [];
+        foreach ($children[$parentId] ?? [] as $item) {
+            $item['children'] = $build($item['id']);
+            $item['has_active_child'] = false;
+            foreach ($item['children'] as $child) {
+                if ($child['active'] || $child['has_active_child']) {
+                    $item['has_active_child'] = true;
+                    break;
+                }
+            }
+            $branch[] = $item;
+        }
+        return $branch;
+    };
+    return $build('');
 }

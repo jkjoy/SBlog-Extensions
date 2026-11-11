@@ -172,7 +172,20 @@
     const nav = document.querySelector('#sunny-nav');
     const menuButton = document.querySelector('[data-sunny-menu]');
     const dropdowns = [...document.querySelectorAll('.sunny-nav-dropdown')];
-    const closeDropdowns = (except) => dropdowns.forEach((item) => { if (item !== except) item.open = false; });
+    const closeDropdowns = (except) => dropdowns.forEach((item) => {
+      if (item !== except && !item.contains(except) && !except?.contains(item)) item.open = false;
+    });
+    const positionDropdowns = () => {
+      nav?.querySelectorAll(':scope > .sunny-nav-dropdown').forEach((item) => {
+        const panel = item.querySelector(':scope > .sunny-dropdown-panel');
+        if (!panel) return;
+        panel.style.left = '';
+        if (!item.open || getComputedStyle(panel).position !== 'absolute') return;
+        const bounds = panel.getBoundingClientRect();
+        const shift = Math.min(0, window.innerWidth - 16 - bounds.right);
+        panel.style.left = `${Math.max(16 - bounds.left, shift)}px`;
+      });
+    };
     const closeMenu = (restoreFocus = false) => {
       const wasOpen = body.classList.contains('sunny-menu-open');
       body.classList.remove('sunny-menu-open');
@@ -194,13 +207,17 @@
       frame(() => nav?.querySelector('a, summary')?.focus());
     });
     listen(nav, 'click', (event) => { if (event.target.closest('a')) closeMenu(); });
-    dropdowns.forEach((item) => listen(item, 'toggle', () => { if (item.open) closeDropdowns(item); }));
+    dropdowns.forEach((item) => listen(item, 'toggle', () => {
+      if (item.open) closeDropdowns(item);
+      positionDropdowns();
+    }));
     listen(document, 'click', (event) => {
       if (!event.target.closest('.sunny-navbar')) closeMenu();
       else if (!event.target.closest('.sunny-nav-dropdown')) closeDropdowns();
     });
     listen(window, 'resize', () => {
-      if (menuButton && getComputedStyle(menuButton).display === 'none') closeMenu();
+      if (body.classList.contains('sunny-menu-open') && menuButton && getComputedStyle(menuButton).display === 'none') closeMenu();
+      positionDropdowns();
     });
     listen(document, 'keydown', (event) => {
       if (event.key === 'Escape') {

@@ -157,7 +157,7 @@ function menu_test_exception(string $class, callable $callback, string $message)
 }
 function menu_test_item(string $id, string $type, string $reference = '', string $label = '', string $url = '', array $extra = []): array
 {
-    return array_replace(['id' => $id, 'type' => $type, 'reference' => $reference, 'label' => $label, 'url' => $url, 'enabled' => true, 'new_tab' => false], $extra);
+    return array_replace(['id' => $id, 'type' => $type, 'reference' => $reference, 'label' => $label, 'url' => $url, 'enabled' => true, 'new_tab' => false, 'parent_id' => ''], $extra);
 }
 function menu_test_config(array $items, bool $managed = true): array
 {
@@ -223,6 +223,22 @@ try {
     ]);
     menu_test_assert(str_contains($wrapped, '<li class="item selected">') && str_contains($wrapped, 'class="link current"'), 'Theme wrapper or active classes were not rendered');
     menu_test_assert(str_contains($wrapped, '<span>[首页]</span>'), 'Theme label presentation was not rendered');
+    $legacy = $config;
+    foreach ($legacy['items'] as &$legacyItem) unset($legacyItem['parent_id']);
+    unset($legacyItem);
+    sblog_menu_save($legacy);
+    menu_test_same(array_fill(0, 5, ''), array_column(sblog_menu_config()['items'], 'parent_id'), 'Legacy menu entries were not normalized to roots');
+    menu_test_same([0, 0, 0, 0], array_column(sblog_menu_items(menu_test_context()), 'depth'), 'Legacy menu depths changed');
+    $legacyExpected = '<a href="/blog/index.php">首页</a>' . "\n"
+        . '<a href="/blog/index.php?a=page&amp;slug=about" aria-current="page">About &lt;site&gt;</a>' . "\n"
+        . '<a href="/blog/index.php?a=category&amp;slug=engineering">Engineering &amp; design</a>' . "\n"
+        . '<a href="https://example.test/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</a>' . "\n";
+    menu_test_same($legacyExpected, sblog_menu_render(menu_test_context('page:about')), 'Flat menu output is no longer byte-compatible with 1.0.0');
+    $legacyWrappedExpected = '<li class="item selected"><a href="/blog/index.php" class="link current" aria-current="page"><span>[首页]</span></a></li>' . "\n"
+        . '<li class="item"><a href="/blog/index.php?a=page&amp;slug=about" class="link"><span>[About &lt;site&gt;]</span></a></li>' . "\n"
+        . '<li class="item"><a href="/blog/index.php?a=category&amp;slug=engineering" class="link"><span>[Engineering &amp; design]</span></a></li>' . "\n"
+        . '<li class="item"><a href="https://example.test/?a=1&amp;b=2" class="link" target="_blank" rel="noopener noreferrer"><span>[&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;]</span></a></li>' . "\n";
+    menu_test_same($legacyWrappedExpected, $wrapped, 'Wrapped flat menu output is no longer byte-compatible with 1.0.0');
     $invalidTags = sblog_menu_render(menu_test_context(), ['item_tag' => 'script', 'label_tag' => 'img']);
     menu_test_assert(!str_contains($invalidTags, '<script') && !str_contains($invalidTags, '<img'), 'Invalid theme wrapper tags were accepted');
 
@@ -309,6 +325,19 @@ try {
     $bad = $valid; $bad['items'][0]['label'] = str_repeat('名', 101); $invalidConfigs[] = $bad;
     $bad = $valid; $bad['items'][0]['label'] = "bad\x01label"; $invalidConfigs[] = $bad;
     $bad = $valid; $bad['items'][] = $bad['items'][0]; $invalidConfigs[] = $bad;
+    foreach ([null, 1, [], 'invalid parent', 'missing', 'safe'] as $parentId) {
+        $bad = $valid; $bad['items'][0]['parent_id'] = $parentId; $invalidConfigs[] = $bad;
+    }
+    $invalidConfigs[] = menu_test_config([
+        menu_test_item('cycle-a', 'route', 'home', '', '', ['parent_id' => 'cycle-b']),
+        menu_test_item('cycle-b', 'route', 'archives', '', '', ['parent_id' => 'cycle-a']),
+    ]);
+    $invalidConfigs[] = menu_test_config([
+        menu_test_item('level-0', 'route', 'home'),
+        menu_test_item('level-1', 'route', 'archives', '', '', ['parent_id' => 'level-0']),
+        menu_test_item('level-2', 'route', 'tags', '', '', ['parent_id' => 'level-1']),
+        menu_test_item('level-3', 'route', 'links', '', '', ['parent_id' => 'level-2']),
+    ]);
     $invalidConfigs[] = menu_test_config([menu_test_item('unknown-route', 'route', 'save_settings')]);
     $invalidConfigs[] = menu_test_config([menu_test_item('bad-page', 'page', '1 OR 1=1')]);
     $invalidConfigs[] = menu_test_config([menu_test_item('bad-category', 'category', '-1')]);
@@ -332,7 +361,75 @@ try {
     sblog_menu_save(menu_test_config([]));
     menu_test_assert(sblog_menu_is_managed(), 'An intentionally empty menu disabled takeover');
     menu_test_same([], sblog_menu_items(menu_test_context()), 'An empty menu regained default entries');
+    menu_test_same([], sblog_menu_tree(menu_test_context()), 'An empty menu tree regained default entries');
     menu_test_same('', sblog_menu_render(menu_test_context(), []), 'An empty managed menu emitted links');
+
+    $hierarchy = menu_test_config([
+        menu_test_item('child-b', 'route', 'tags', '', '', ['parent_id' => 'root']),
+        menu_test_item('leaf', 'page', '1', '', '', ['parent_id' => 'child-a']),
+        menu_test_item('root', 'custom', '', 'Root <& "docs">', '/blog/catalog'),
+        menu_test_item('child-a', 'route', 'archives', '', '', ['parent_id' => 'root']),
+        menu_test_item('other-root', 'route', 'links'),
+        menu_test_item('external', 'custom', '', '<img src=x onerror=alert(1)>', 'https://example.test/?x=1&y=2', ['parent_id' => 'child-b', 'new_tab' => true]),
+    ]);
+    sblog_menu_save($hierarchy);
+    menu_test_same($hierarchy, json_decode(setting('menu_manager_config'), true), 'Validation reordered a child-before-parent import');
+    $nestedContext = menu_test_context('page:renamed-about');
+    $nestedFlat = sblog_menu_items($nestedContext);
+    menu_test_same(array_column($hierarchy['items'], 'id'), array_column($nestedFlat, 'id'), 'Flat API changed the configured order');
+    menu_test_same([1, 2, 0, 1, 0, 2], array_column($nestedFlat, 'depth'), 'Flat API reported incorrect menu depths');
+    $tree = sblog_menu_tree($nestedContext);
+    menu_test_same(['root', 'other-root'], array_column($tree, 'id'), 'Tree API lost root order');
+    menu_test_same(['child-b', 'child-a'], array_column($tree[0]['children'], 'id'), 'Tree API lost sibling order');
+    menu_test_same('leaf', $tree[0]['children'][1]['children'][0]['id'], 'Tree API lost the third level');
+    menu_test_assert(!$tree[0]['active'] && $tree[0]['has_active_child'], 'A root ancestor confused its own active state with a descendant');
+    menu_test_assert(!$tree[0]['children'][1]['active'] && $tree[0]['children'][1]['has_active_child'], 'Active state did not propagate through an intermediate parent');
+    menu_test_assert($tree[0]['children'][1]['children'][0]['active'] && !$tree[0]['children'][1]['children'][0]['has_active_child'], 'Leaf active state is incorrect');
+    menu_test_assert(!$tree[0]['children'][0]['has_active_child'] && !$tree[1]['has_active_child'], 'Active state leaked into another branch');
+    $callbackItems = [];
+    $nestedHtml = sblog_menu_render($nestedContext, [
+        'item_tag' => 'li', 'item_class' => 'item', 'active_item_class' => 'selected',
+        'link_class' => static fn(array $item): string => 'link-' . $item['id'], 'active_class' => 'current',
+        'label_tag' => 'span', 'label_prefix' => '[', 'label_suffix' => ']',
+        'url' => static function (string $url, array $item) use (&$callbackItems): string {
+            $callbackItems[] = [$item['id'], $item['depth']];
+            return $url . (str_contains($url, '?') ? '&' : '?') . 'menu=' . $item['id'];
+        },
+        'icon' => static fn(array $item): string => '<i data-menu-icon="' . h($item['id']) . '"></i>',
+    ]);
+    menu_test_same([['root', 0], ['child-b', 1], ['external', 2], ['child-a', 1], ['leaf', 2], ['other-root', 0]], $callbackItems, 'Recursive rendering skipped or changed callback contracts');
+    menu_test_same(1, substr_count($nestedHtml, 'aria-current="page"'), 'Ancestors incorrectly acquired aria-current');
+    menu_test_same(3, substr_count($nestedHtml, 'class="item selected"'), 'Theme active wrapper classes do not highlight ancestors');
+    menu_test_assert(str_contains($nestedHtml, 'class="link-root current"') && str_contains($nestedHtml, 'class="link-child-a current"'), 'Theme active link classes do not highlight ancestors');
+    menu_test_assert(str_contains($nestedHtml, '[Root &lt;&amp; &quot;docs&quot;&gt;]') && str_contains($nestedHtml, '[&lt;img src=x onerror=alert(1)&gt;]'), 'Nested labels can inject markup');
+    menu_test_assert(str_contains($nestedHtml, 'x=1&amp;y=2&amp;menu=external') && str_contains($nestedHtml, 'target="_blank" rel="noopener noreferrer"'), 'Nested external URL escaping or new-tab policy changed');
+    $dom = new DOMDocument();
+    $previousErrors = libxml_use_internal_errors(true);
+    $dom->loadHTML('<!doctype html><html><head><meta charset="utf-8"></head><body><ul id="menu">' . $nestedHtml . '</ul></body></html>');
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousErrors);
+    $xpath = new DOMXPath($dom);
+    menu_test_same(6, $xpath->query('//*[@id="menu"]//li')->length, 'Nested list markup lost menu items');
+    menu_test_same(0, $xpath->query('//*[@id="menu"]//ul/*[not(self::li)]')->length, 'Nested list contains invalid direct children');
+    menu_test_same(3, $xpath->query('//*[@id="menu"]//details/summary/a')->length, 'A parent stopped being a real link inside its toggle');
+    menu_test_same(2, $xpath->query('//*[@id="menu"]//details[@open]')->length, 'Active descendants are not expanded by default');
+    menu_test_same(0, $xpath->query('//*[@id="menu"]//script|//*[@id="menu"]//img')->length, 'Nested rendering introduced executable label content');
+    menu_test_assert(str_contains(sblog_menu_render($nestedContext, ['item_tag' => 'div']), '<div class="sblog-menu-children">'), 'Div wrappers acquired incompatible nested lists');
+
+    foreach ([
+        menu_test_item('unavailable', 'route', 'archives', '', '', ['enabled' => false]),
+        menu_test_item('unavailable', 'page', '2'), menu_test_item('unavailable', 'page', '3'),
+        menu_test_item('unavailable', 'page', '4'), menu_test_item('unavailable', 'page', '999'),
+        menu_test_item('unavailable', 'category', '999'),
+    ] as $unavailable) {
+        sblog_menu_save(menu_test_config([
+            menu_test_item('grandchild', 'route', 'tags', '', '', ['parent_id' => 'child']),
+            menu_test_item('child', 'route', 'home', '', '', ['parent_id' => 'unavailable']),
+            $unavailable, menu_test_item('unaffected', 'route', 'links'),
+        ]));
+        menu_test_same(['unaffected'], array_column(sblog_menu_items($nestedContext), 'id'), 'An unavailable parent exposed a descendant or hid an unrelated branch');
+        menu_test_same(['unaffected'], array_column(sblog_menu_tree($nestedContext), 'id'), 'Tree API exposed an orphan descendant');
+    }
 
     sblog_menu_save(menu_test_config([menu_test_item('replacement', 'custom', '', 'Replacement menu', '/blog/replacement')]));
     $public = '<!doctype html><html><head></head><body class="theme-public"><header class="text-header"><nav class="text-nav" aria-label="Main"><a href="/old">Old navigation</a></nav></header><main><nav class="article-nav"><a href="/article">Article navigation</a></nav></main></body></html>';
@@ -342,6 +439,7 @@ try {
         menu_test_assert(str_contains($output, 'Replacement menu') && !str_contains($output, 'Old navigation'), $theme . ' navigation fallback did not take over');
         menu_test_assert(str_contains($output, 'Article navigation'), 'Fallback replaced an unrelated navigation element');
         menu_test_same(1, substr_count($output, 'Replacement menu'), 'Fallback rendered duplicate primary menus');
+        menu_test_assert(!str_contains($output, 'data-sblog-menu-style'), 'A flat default menu loaded unused hierarchy CSS');
     }
     sblog_menu_save(menu_test_config([menu_test_item('home', 'route', 'home'), menu_test_item('numeric-page', 'page', '1')]));
     $expectedPageLink = '<a href="' . h(url_for('page', ['slug' => 'renamed-about'])) . '" aria-current="page">Updated about</a>';
@@ -359,6 +457,19 @@ try {
     $GLOBALS['menu_test_theme'] = 'paper';
     $dedicatedLayout = str_replace(['text-header', 'text-nav'], ['paper-header', 'paper-primary-nav'], $public);
     menu_test_same($dedicatedLayout, sblog_menu_output_html($dedicatedLayout, ['action' => 'home', 'content_type' => 'text/html']), 'Fallback rewrote a theme with a dedicated layout');
+    sblog_menu_save($hierarchy);
+    foreach (['default', 'starter', 'paper'] as $theme) {
+        $GLOBALS['menu_test_theme'] = $theme;
+        $nestedPage = $theme === 'paper'
+            ? str_replace('Old navigation', sblog_menu_render($nestedContext), $dedicatedLayout) : $public;
+        $output = sblog_menu_output_html($nestedPage, ['action' => 'home', 'content_type' => 'text/html']);
+        menu_test_same(1, substr_count($output, 'data-sblog-menu-style'), $theme . ' did not load hierarchy CSS exactly once');
+        menu_test_assert(str_contains($output, 'assets/public.css?v=' . SBLOG_MENU_MANAGER_VERSION), 'Hierarchy CSS did not use the plugin asset URL and cache version');
+        menu_test_same($output, sblog_menu_output_html($output, ['action' => 'home', 'content_type' => 'text/html']), 'A second output pass duplicated hierarchy assets or markup');
+        menu_test_assert(!str_contains($output, '<script'), 'Native submenu rendering introduced JavaScript');
+        menu_test_assert(str_contains($output, 'Article navigation'), 'Nested fallback changed an unrelated navigation');
+    }
+    sblog_menu_save(menu_test_config([menu_test_item('replacement', 'custom', '', 'Replacement menu', '/blog/replacement')]));
     $GLOBALS['menu_test_theme'] = 'default';
     $adminHtml = str_replace('theme-public', 'theme-admin', $public);
     $adminOutput = sblog_menu_output_html($adminHtml, ['action' => 'admin', 'content_type' => 'text/html']);
@@ -406,6 +517,7 @@ try {
     menu_test_same('success', $GLOBALS['menu_test_flash'][0], 'Valid form save reported failure');
     menu_test_assert(sblog_menu_is_managed(), 'Valid admin save did not activate takeover');
     menu_test_same(['first', 'second'], array_column(sblog_menu_config()['items'], 'id'), 'Admin save changed the submitted order');
+    menu_test_same(['', ''], array_column(sblog_menu_config()['items'], 'parent_id'), 'Legacy form fields without parent_id did not remain roots');
     menu_test_assert(sblog_menu_config()['items'][1]['new_tab'], 'Admin save lost the new-tab setting');
 
     $stored = setting('menu_manager_config');
@@ -421,6 +533,10 @@ try {
     $bad = $post; $bad['items'][0]['enabled'] = ['1']; $badPosts[] = $bad;
     $bad = $post; $bad['items'][1]['new_tab'] = ['1']; $badPosts[] = $bad;
     $bad = $post; $bad['operation'] = ['save']; $badPosts[] = $bad;
+    foreach ([null, 1, [], 'missing', 'first'] as $parentId) {
+        $bad = $post; $bad['items'][0]['parent_id'] = $parentId; $badPosts[] = $bad;
+    }
+    $bad = $post; $bad['items'][0]['parent_id'] = 'second'; $bad['items'][1]['parent_id'] = 'first'; $badPosts[] = $bad;
     foreach ($badPosts as $bad) {
         $_POST = $bad;
         menu_test_exception(MenuTestResponse::class, static fn() => sblog_menu_handle_request(['action' => 'save_menus']), 'Invalid form did not finish with a redirect');
@@ -446,6 +562,64 @@ try {
     menu_test_same(3, count($added), 'No-JS add did not preserve existing items');
     menu_test_same('page', $added[2]['type'], 'No-JS add did not choose the requested type');
     menu_test_same('1', $added[2]['reference'], 'No-JS add did not choose the requested page');
+
+    $nestedPost = $post;
+    $nestedPost['items'] = [
+        ['id' => 'leaf-a', 'parent_id' => 'child-a', 'destination' => 'route:home', 'label' => '', 'url' => '', 'enabled' => '1'],
+        ['id' => 'child-a', 'parent_id' => 'root-a', 'destination' => 'route:archives', 'label' => '', 'url' => '', 'enabled' => '1'],
+        ['id' => 'root-a', 'parent_id' => '', 'destination' => 'route:tags', 'label' => '', 'url' => '', 'enabled' => '1'],
+        ['id' => 'leaf-b', 'parent_id' => 'child-b', 'destination' => 'route:links', 'label' => '', 'url' => '', 'enabled' => '1'],
+        ['id' => 'child-b', 'parent_id' => 'root-a', 'destination' => 'route:categories', 'label' => '', 'url' => '', 'enabled' => '1'],
+        ['id' => 'root-b', 'parent_id' => '', 'destination' => 'route:rss', 'label' => '', 'url' => '', 'enabled' => '1'],
+        ['id' => 'other-child', 'parent_id' => 'root-b', 'destination' => 'route:sitemap', 'label' => '', 'url' => '', 'enabled' => '1'],
+    ];
+    foreach ([
+        'save' => ['root-a', 'child-a', 'leaf-a', 'child-b', 'leaf-b', 'root-b', 'other-child'],
+        'down:root-a' => ['root-b', 'other-child', 'root-a', 'child-a', 'leaf-a', 'child-b', 'leaf-b'],
+        'down:child-a' => ['root-a', 'child-b', 'leaf-b', 'child-a', 'leaf-a', 'root-b', 'other-child'],
+        'up:child-b' => ['root-a', 'child-b', 'leaf-b', 'child-a', 'leaf-a', 'root-b', 'other-child'],
+        'up:root-a' => ['root-a', 'child-a', 'leaf-a', 'child-b', 'leaf-b', 'root-b', 'other-child'],
+        'remove:root-a' => ['child-a', 'leaf-a', 'child-b', 'leaf-b', 'root-b', 'other-child'],
+        'remove:child-a' => ['root-a', 'leaf-a', 'child-b', 'leaf-b', 'root-b', 'other-child'],
+    ] as $operation => $expectedOrder) {
+        $_POST = $nestedPost;
+        $_POST['operation'] = $operation;
+        menu_test_exception(MenuTestResponse::class, static fn() => sblog_menu_handle_request(['action' => 'save_menus']), 'Nested form operation did not redirect');
+        menu_test_same('success', $GLOBALS['menu_test_flash'][0], 'Nested form operation failed: ' . $operation);
+        $savedItems = sblog_menu_config()['items'];
+        menu_test_same($expectedOrder, array_column($savedItems, 'id'), 'Nested form operation lost sibling order or detached a subtree: ' . $operation);
+        $parents = array_column($savedItems, 'parent_id', 'id');
+        if ($operation === 'remove:root-a') {
+            menu_test_same('', $parents['child-a'], 'Deleting a root did not promote its direct child');
+            menu_test_same('', $parents['child-b'], 'Deleting a root did not promote every direct child');
+            menu_test_same('child-a', $parents['leaf-a'], 'Deleting a root detached a grandchild from its surviving parent');
+        } elseif ($operation === 'remove:child-a') {
+            menu_test_same('root-a', $parents['leaf-a'], 'Deleting an intermediate parent did not promote its child one level');
+            menu_test_same('child-b', $parents['leaf-b'], 'Deleting a parent changed an unrelated branch');
+        }
+    }
+    $maxPost = $post;
+    $maxPost['items'] = [];
+    for ($index = 0; $index < 100; $index++) {
+        $maxPost['items'][] = ['id' => 'max-' . $index, 'parent_id' => $index === 0 ? '' : 'max-0', 'destination' => 'route:home', 'label' => '', 'url' => '', 'enabled' => '1'];
+    }
+    $_POST = $maxPost;
+    menu_test_exception(MenuTestResponse::class, static fn() => sblog_menu_handle_request(['action' => 'save_menus']), 'A complete 100-item hierarchy did not redirect');
+    menu_test_same('success', $GLOBALS['menu_test_flash'][0], 'A complete 100-item hierarchy was rejected');
+    menu_test_same(100, count(sblog_menu_config()['items']), 'A complete 100-item hierarchy was truncated');
+    $maxStored = setting('menu_manager_config');
+    $maxWrites = $GLOBALS['menu_test_settings_writes'];
+    unset($_POST['items_complete']);
+    menu_test_exception(MenuTestResponse::class, static fn() => sblog_menu_handle_request(['action' => 'save_menus']), 'A truncated 100-item hierarchy did not redirect');
+    menu_test_same('error', $GLOBALS['menu_test_flash'][0], 'A missing 100-item completeness sentinel was accepted');
+    menu_test_same($maxStored, setting('menu_manager_config'), 'A truncated 100-item hierarchy overwrote the stored menu');
+    menu_test_same($maxWrites, $GLOBALS['menu_test_settings_writes'], 'A truncated hierarchy caused a partial write');
+    $_POST = $maxPost;
+    $_POST['items'][] = ['id' => 'max-100', 'parent_id' => 'max-0', 'destination' => 'route:home', 'label' => '', 'url' => '', 'enabled' => '1'];
+    menu_test_exception(MenuTestResponse::class, static fn() => sblog_menu_handle_request(['action' => 'save_menus']), 'An oversized hierarchy did not redirect');
+    menu_test_same('error', $GLOBALS['menu_test_flash'][0], 'More than 100 combined parent and child entries were accepted');
+    menu_test_same($maxStored, setting('menu_manager_config'), 'An oversized hierarchy overwrote the stored menu');
+    unset($_SESSION['menu_manager_draft']);
 
     $beforeReset = sblog_menu_config()['items'];
     $_POST = ['csrf_token' => csrf_token(), 'operation' => 'reset'];

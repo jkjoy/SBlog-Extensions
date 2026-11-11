@@ -71,6 +71,47 @@ function sunny_url(string $action, array $params = []): string
     return sunny_preview_url(url_for($action, $params));
 }
 
+function sunny_managed_menu(array $context = []): ?array
+{
+    if (!function_exists('sblog_menu_is_managed') || !sblog_menu_is_managed()) {
+        return null;
+    }
+    if (function_exists('sblog_menu_tree')) {
+        return sblog_menu_tree($context);
+    }
+    return function_exists('sblog_menu_items') ? sblog_menu_items($context) : [];
+}
+
+function sunny_menu_link(array $item, string $class = ''): string
+{
+    $url = sunny_preview_url((string)($item['url'] ?? ''));
+    $newTab = !empty($item['new_tab']) || ($item['target'] ?? '') === '_blank';
+    return '<a class="' . h(trim('sunny-managed-link ' . $class)) . '" href="' . h($url) . '"'
+        . ' data-menu-id="' . h((string)($item['id'] ?? '')) . '"'
+        . (!empty($item['active']) ? ' aria-current="page"' : '')
+        . ($newTab ? ' target="_blank" rel="noopener noreferrer"' : '')
+        . '>' . h((string)($item['label'] ?? '')) . '</a>';
+}
+
+function sunny_render_menu(array $items, int $depth = 0): string
+{
+    $html = '';
+    foreach ($items as $item) {
+        $children = $depth < 2 && is_array($item['children'] ?? null) ? $item['children'] : [];
+        if ($children === []) {
+            $html .= sunny_menu_link($item);
+            continue;
+        }
+        $activeClass = !empty($item['active']) || !empty($item['has_active_child']) ? ' sunny-menu-active' : '';
+        $html .= '<details class="sunny-nav-dropdown sunny-managed-dropdown' . $activeClass . '" data-menu-depth="' . $depth . '">'
+            . '<summary class="sunny-managed-summary" aria-label="' . h((string)$item['label'] . ' 子菜单') . '">'
+            . sunny_menu_link($item)
+            . '<span class="sunny-menu-disclosure" aria-hidden="true">' . sunny_icon('chevron-down', 12) . '</span></summary>'
+            . '<div class="sunny-dropdown-panel">' . sunny_render_menu($children, $depth + 1) . '</div></details>';
+    }
+    return $html;
+}
+
 function sunny_author_name(int $authorId = 0): string
 {
     static $names = [];
