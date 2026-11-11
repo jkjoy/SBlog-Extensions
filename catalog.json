@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-11-10T12:25:12+00:00",
+    "updated_at": "2026-11-11T00:27:59+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -281,6 +281,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-sns-login-v1.0.1/plugin-sns-login-1.0.1.zip",
             "sha256": "9559f3c863536cf943a0635b6e0ae4c2e1e205308116c08060dbbca1f1644eb8",
             "source_sha256": "2025b7e206495d69e0d1c372b92a895bfd9cbbb9dc04b9be8567ba69db134f29"
+        },
+        {
+            "type": "plugin",
+            "slug": "stack-markdown",
+            "name": "Stack Markdown 增强",
+            "version": "1.0.0",
+            "author": "jkjoy",
+            "description": "为文章和独立页面提供 Markdown Extra：六级标题、嵌套与任务列表、脚注、语义 HTML、扩展代码围栏；配合 Stack 主题提供短代码与图片处理。解析器基于 Michel Fortin 的 PHP Markdown Extra，保留原许可。",
+            "homepage": "https://github.com/jkjoy/SBlog-Extensions/tree/main/plugins/stack-markdown",
+            "requires": "1.14.30",
+            "tested": "1.14.33",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-stack-markdown-v1.0.0/plugin-stack-markdown-1.0.0.zip",
+            "sha256": "6a1b7ccb99fd0d897ef62504129376c27fb1d487fa2f5a46af8115bf055efb07",
+            "source_sha256": "891d106559f52f726fb504ef0d9405ff8c303616ce1a744be6cdb0380c32396a"
         },
         {
             "type": "plugin",
@@ -603,6 +617,20 @@
             "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-photograph-v2.0.9-sblog.6/theme-photograph-2.0.9-sblog.6.zip",
             "sha256": "40e04b8ce6b18ee20d50ba5174c13b5b5add343bdba45bd0ae3086d8c1a58f9b",
             "source_sha256": "bc188f27868223e3d9c076d980c9f92517df3ae6ba7bd18d5eddf31480b0a367"
+        },
+        {
+            "type": "theme",
+            "slug": "stack",
+            "name": "stack",
+            "version": "1.0.0",
+            "author": "jkjoy",
+            "description": "移植自 Jimmy Cai（CaiJimmy）的 Hugo Theme Stack，保留原版卡片布局、侧栏组件与深浅色样式，适配 SBlog 原生评论与主题设置。原作：https://github.com/CaiJimmy/hugo-theme-stack",
+            "homepage": "https://github.com/jkjoy",
+            "requires": "1.14.30",
+            "tested": "1.14.33",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-stack-v1.0.0/theme-stack-1.0.0.zip",
+            "sha256": "480cef9b972fd893713fd366b1ded4ce1e899b2a85fe98c52d3d6bae260b9a67",
+            "source_sha256": "00a767bbcb5f8f9e72a781c48ba42b08f419939afb60833f1e975e8e1a0f2cc5"
         },
         {
             "type": "theme",
