@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-11-11T00:40:03+00:00",
+    "updated_at": "2026-11-11T01:38:40+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -174,15 +174,15 @@
             "type": "plugin",
             "slug": "menu-manager",
             "name": "菜单管理",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "author": "Simple PHP Blog",
-            "description": "统一管理所有官方主题的主导航，支持内置页面、独立页面、分类和自定义链接、排序、显示开关及新窗口打开。",
+            "description": "统一管理所有官方主题的主导航，支持最多三级子菜单、内置页面、独立页面、分类和自定义链接、排序、显示开关及新窗口打开。",
             "homepage": "https://github.com/jkjoy/Simple-PHP-Blog",
             "requires": "1.14.8",
-            "tested": "1.14.8",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-menu-manager-v1.0.0/plugin-menu-manager-1.0.0.zip",
-            "sha256": "687ac90c01c0ef2cf86238b77907c557c82a554baf518c28015b53108b4c918e",
-            "source_sha256": "c44a222ab9281e3662a26e70fedf2a983ce0012a582728d580a634e03edddd6e"
+            "tested": "1.14.33",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/plugin-menu-manager-v1.1.0/plugin-menu-manager-1.1.0.zip",
+            "sha256": "4a50b708b1a4e6ddbe9a7e7733b6de084a984dd05e5a934724551f7397de1e2d",
+            "source_sha256": "acaba5ac627424fd63a969f8bac739ddd47539bbd681ae4b20a463370f92f92e"
         },
         {
             "type": "plugin",
@@ -650,15 +650,15 @@
             "type": "theme",
             "slug": "sunny",
             "name": "Sunny",
-            "version": "1.0.14",
+            "version": "1.0.15",
             "author": "SBlog",
             "description": "参照喵喵小站的 Sunny 风格制作：横向导航、动态卡片、评论预览与侧栏。文章点赞功能依赖文章点赞（article-likes）插件，请在插件管理中启用。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.29",
             "tested": "1.14.33",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-sunny-v1.0.14/theme-sunny-1.0.14.zip",
-            "sha256": "f479139157679d27f886623fea187aeecb4db296190db9aa65c2817ef93ea81d",
-            "source_sha256": "934fcac5d7297d7a3a275e7abe1804a6c5f82623830ac8fa52c4b45f466d7dd9"
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-sunny-v1.0.15/theme-sunny-1.0.15.zip",
+            "sha256": "f2b9a9989669c714fb51c8da8f7456c96b971230dc239cd30b6dddd4e406d184",
+            "source_sha256": "44e7f166642eb6b916fecb442ee518d907984188bca23014fe705b019a62b9af"
         },
         {
             "type": "theme",
