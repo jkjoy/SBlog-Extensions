@@ -8,6 +8,8 @@ const path = require('node:path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const runtime = fs.readFileSync(path.join(__dirname, '../pjax.js'), 'utf8');
 const pageRuntime = fs.readFileSync(path.join(__dirname, '../script.js'), 'utf8');
+const doubanCardsPath = path.join(__dirname, '../../../plugins/douban-showcase/assets/cards.js');
+const doubanCardsRuntime = fs.existsSync(doubanCardsPath) ? fs.readFileSync(doubanCardsPath, 'utf8') : null;
 const version = JSON.parse(fs.readFileSync(path.join(__dirname, '../theme.json'), 'utf8')).version;
 const corePath = process.argv.slice(2).find((argument) => argument.startsWith('--core='))?.slice('--core='.length);
 const coreRuntime = corePath ? fs.readFileSync(corePath, 'utf8') : null;
@@ -697,6 +699,73 @@ test('a visit tracker first encountered on the destination uses PJAX and complet
     assert.equal(t.errors.length, 0);
   } finally { t.close(); }
 });
+
+for (const initiallyLoaded of [true, false]) test(`Douban cards ${initiallyLoaded ? 'already loaded on home' : 'first encountered on an article'} scan PJAX pages with one runtime and observer`, async () => {
+  const cardsScript = '<script defer src="/plugins/douban-showcase/assets/cards.js?v=1.1.1"></script>';
+  const card = (id) => `<figure class="media-embed media-embed--douban"><a class="sblog-douban-card" data-douban-subject data-subject-type="movie" data-subject-id="${id}" data-subject-endpoint="/index.php?a=douban_showcase_subject" href="https://movie.douban.com/subject/${id}/" target="_blank"><span class="sblog-douban-card__body"><span class="sblog-douban-card__title">Pending</span></span></a></figure>`;
+  const subjectRequests = [];
+  const t = setup({
+    core: Boolean(coreRuntime),
+    html: initiallyLoaded ? { body: cardsScript, extra: card('1001') + card('1001') } : {},
+    fetch: async (url) => {
+      const parsed = new URL(url);
+      if (parsed.searchParams.get('a') === 'douban_showcase_subject') {
+        const id = parsed.searchParams.get('id');
+        subjectRequests.push(id);
+        return { ok: true, json: async () => ({ ok: true, subject: { id, type: 'movie', title: `Movie ${id}`, year: '2026', rating: '8.5', rating_count: 123, meta: ['Fixture director'], summary: 'Fixture summary', cover_url: '' } }) };
+      }
+      const name = parsed.pathname.startsWith('/post') ? 'post' : parsed.pathname.slice(1) || 'home';
+      const id = name === 'post' ? '1002' : name === 'archives' ? '1003' : '1001';
+      return response(name, { url, body: cardsScript, extra: card(id) + card(id) });
+    },
+  });
+  try {
+    // Preserve jsdom's native observer for the harness; count only the plugin's observers.
+    const NativeObserver = t.w.MutationObserver;
+    let observers = 0;
+    t.w.MutationObserver = class extends NativeObserver {
+      constructor(callback) { super(callback); observers++; }
+    };
+    const scriptLoads = [];
+    new NativeObserver((records) => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node.nodeType !== 1 || !node.matches('script[src]') || new URL(node.src).pathname !== '/plugins/douban-showcase/assets/cards.js') continue;
+        scriptLoads.push(node.src);
+        // Execute the shipped plugin source, as a successfully fetched script would.
+        t.w.eval(doubanCardsRuntime);
+        node.onload();
+      }
+    }).observe(t.w.document.body, { childList: true });
+    await until(() => t.w.document.readyState !== 'loading', 'initial document readiness');
+    if (initiallyLoaded) {
+      t.w.eval(doubanCardsRuntime);
+      await until(() => [...t.w.document.querySelectorAll('[data-douban-subject]')].every((item) => item.dataset.subjectState === 'ready'), 'initial cards');
+      assert.deepEqual(subjectRequests, ['1001'], 'Duplicate cards share one subject request');
+    }
+    for (const [selector, name, id] of [['#to-post', 'post', '1002'], ['#to-archives', 'archives', '1003'], ['#to-home', 'home', '1001']]) {
+      assert.equal(t.click(selector).defaultPrevented, true);
+      await until(() => t.w.document.title === `${name} | Sunny` && !t.w.document.body.hasAttribute('aria-busy'), `${name} with Douban cards`);
+      await until(() => [...t.w.document.querySelectorAll('[data-douban-subject]')].every((item) => item.dataset.subjectState === 'ready'), `${name} card hydration`);
+      assert.deepEqual([...t.w.document.querySelectorAll('.sblog-douban-card__title')].map((item) => item.textContent), [`Movie ${id}`, `Movie ${id}`]);
+      assert.equal(t.w.document.querySelector('audio'), t.audio);
+      assert.equal(t.audio.currentTime, 42.75);
+      assert.equal(t.audio.paused, false);
+      assert.equal(observers, 1, 'New pages reuse the plugin observer');
+      assert.equal(scriptLoads.length, initiallyLoaded ? 0 : 1, 'The card runtime loads at most once');
+    }
+    const requestCount = subjectRequests.length;
+    // Both the plugin's explicit rescan and its own render mutations must stay idempotent.
+    t.w.document.dispatchEvent(new t.w.CustomEvent('wcf:posts-loaded', { detail: { posts: [t.w.document.querySelector('main')] } }));
+    await pause(25);
+    assert.equal(subjectRequests.length, requestCount);
+    assert.deepEqual([...new Set(subjectRequests)].sort(), ['1001', '1002', '1003']);
+    assert.equal(subjectRequests.length, 3, 'Subjects remain cached across page replacements');
+    assert.equal(t.events.filter((event) => event.name === 'sunny:page-load').length, 3);
+    assert.equal(t.mediaCalls(), 0);
+    assert.deepEqual(t.transitions, []);
+    assert.equal(t.errors.length, 0, t.errors.map((error) => error.stack).join('\n'));
+  } finally { t.close(); }
+}, { skip: doubanCardsRuntime ? '' : 'install douban-showcase beside themes to run its real card runtime integration' });
 
 test('an external script explicitly marked for each page executes once on every destination', async () => {
   const pageScript = '<script defer src="https://analytics.example.test/page-hook.js" data-sunny-pjax="page" data-fixture-hook="active"></script>';

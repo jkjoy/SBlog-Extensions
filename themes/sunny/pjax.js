@@ -53,6 +53,7 @@
   const pluginKind = (url) => {
     const path = new URL(url).pathname;
     if (/\/plugins\/article-likes\/assets\/article-likes\.js$/.test(path)) return 'once';
+    if (/\/plugins\/douban-showcase\/assets\/cards\.js$/.test(path)) return 'once';
     if (/\/plugins\/comment-enhancer\/assets\/comment-enhancer\.js$/.test(path)) return 'comments';
     if (/\/plugins\/(?:steam-showcase|douban-showcase)\/assets\/script\.js$/.test(path)
       || /\/plugins\/gallery\/assets\/public\.js$/.test(path)) return 'page';

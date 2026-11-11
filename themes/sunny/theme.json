@@ -1,8 +1,8 @@
 {
   "name": "Sunny",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "requires": "1.14.29",
-  "tested": "1.14.29",
+  "tested": "1.14.33",
   "author": "SBlog",
   "url": "https://github.com/jkjoy/SBlog-Extensions",
   "description": "参照喵喵小站的 Sunny 风格制作：横向导航、动态卡片、评论预览与侧栏。文章点赞功能依赖文章点赞（article-likes）插件，请在插件管理中启用。"
