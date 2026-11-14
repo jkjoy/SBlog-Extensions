@@ -297,7 +297,7 @@
 .void-theme .void-code-lines { position: absolute; left: 0; top: 10px; bottom: 10px; width: 3em; padding-right: .7em; border-right: 1px solid var(--void-line); color: #999; text-align: right; font: inherit; line-height: inherit; user-select: none; pointer-events: none; white-space: pre; }
 .void-theme.macStyleCodeBlock .void-code-lines { top: 42px; }
 .void-theme[data-line-numbers="1"] pre:has(> .void-code-lines) > code { padding-left: 3.8em; }
-.void-theme .articleBody img { cursor: zoom-in; }
+.void-theme .articleBody img.void-zoomable { cursor: zoom-in; }
 .void-theme .articleBody .photos { gap: 5px; }
 .void-theme .articleBody .photos > img { flex: 1; width: 0; min-width: 0; object-fit: cover; }
 .void-theme .articleBody .void-figcaption { text-align: center; color: var(--void-muted); font-size: 13px; margin: 8px auto 24px; }
@@ -330,6 +330,34 @@
 .void-theme[data-navigating="true"] #pjax-container { opacity: .65; }
 .void-theme > footer { margin-top: auto; }
 
+/* Native theme settings override the upstream defaults without rebuilding SCSS. */
+.void-theme, .void-theme.theme-dark { background-color: var(--void-bg); }
+.void-theme > header { position: var(--void-header-desktop, fixed); }
+.void-theme > header .brand { display: inline-flex; align-items: center; gap: 9px; }
+.void-theme > header .brand, .void-theme .banner-title .brand {
+  font-family: var(--void-brand-font, var(--sys-sans), sans-serif);
+  font-weight: var(--void-brand-weight, 400);
+  font-style: var(--void-brand-style, normal);
+}
+.void-theme > header .brand img { width: auto; height: 30px; max-width: 90px; object-fit: contain; margin: 0; }
+.void-theme .banner-title .subtitle { white-space: pre-line; }
+.void-theme .void-logo-night, .void-theme.theme-dark .void-logo-day { display: none; }
+.void-theme.theme-dark .void-logo-night { display: inline-block; }
+.void-theme .lazy-wrap .banner-title.index:not(.force-normal) .brand::before { background-color: var(--void-brand-color, #8dfbff); border-color: var(--void-brand-color, #8dfbff); }
+.void-theme.theme-dark .lazy-wrap .banner-title.index:not(.force-normal) .brand::before { background-color: color-mix(in srgb, var(--void-brand-color) 14%, #222); border-color: color-mix(in srgb, var(--void-brand-color) 14%, #222); }
+.void-theme .articleBody a { color: var(--void-accent); }
+.void-theme #index-list .masonry-item:hover { border-color: var(--void-accent); }
+.void-theme #index-list .masonry-item:not(.style-2):hover article .title { color: var(--void-accent) !important; }
+.void-theme main > .wrapper.container:not(.wide):not(.narrow), .void-theme .void-comments.container { width: calc(var(--void-content-width, 820px) + 40px); }
+.void-theme main > .wrapper.container.wide { width: calc(var(--void-list-width, 1000px) + 40px); }
+.void-theme .void-comment-notice { padding: 14px 18px; border-left: 3px solid var(--void-accent); background: var(--void-soft); line-height: 1.8; }
+.void-theme .articleBody figcaption.void-figcaption { font-size: 13px; line-height: 1.6; color: var(--void-muted); text-align: center; }
+.void-theme #toc .toc-level-5 { padding-left: 2.25rem; }
+.void-theme #toc .toc-level-6 { padding-left: 3rem; }
+@media (min-width: 1200px) {
+  .void-theme .articleBody .photos.large { width: min(var(--void-list-width, 1000px), calc(100vw - 80px)); max-width: none; margin-left: calc((100% - min(var(--void-list-width, 1000px), calc(100vw - 80px))) / 2); }
+}
+
 @media (min-width: 768px) and (max-width: 1100px) {
   .void-theme > header .container nav { padding-left: 160px; justify-content: flex-start; }
   .void-theme > header .container nav .brand { max-width: 150px; overflow: hidden; white-space: nowrap; font-size: 1.4rem; }
@@ -338,6 +366,9 @@
   .void-theme .search-form-desktop input:focus { width: 8rem; }
 }
 @media (max-width: 767px) {
+  .void-theme > header { position: var(--void-header-mobile, fixed); }
+  .void-theme > header .brand img { height: 25px; max-width: 55px; }
+  .void-theme.void-no-search > header #toggle-setting { right: 0; }
   .void-theme .lazy-wrap:not(.no-banner) .banner-title { min-height: var(--void-mobile-banner-height, 32vh); }
   .void-theme #index-list > #masonry { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .void-theme #index-list > #masonry > .masonry-item { padding-bottom: 28px; border-bottom: 1px solid var(--void-line); }

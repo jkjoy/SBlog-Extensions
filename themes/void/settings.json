@@ -1,0 +1,584 @@
+{
+  "sections": [
+    {
+      "title": "站点标识与配色",
+      "description": "自定义导航站名、Logo、首页标题及主题配色。留空的标题沿用博客站点设置。",
+      "fields": [
+        {
+          "key": "name",
+          "label": "导航站名",
+          "type": "text",
+          "default": "",
+          "maxlength": 100
+        },
+        {
+          "key": "logo",
+          "label": "日间 Logo",
+          "type": "url",
+          "default": "",
+          "description": "支持完整 HTTP(S) 地址或以 / 开头的站内图片路径。",
+          "maxlength": 2048
+        },
+        {
+          "key": "logo_dark",
+          "label": "夜间 Logo",
+          "type": "url",
+          "default": "",
+          "description": "留空沿用日间 Logo，也可只设置夜间 Logo。",
+          "maxlength": 2048
+        },
+        {
+          "key": "index_title",
+          "label": "首页标题",
+          "type": "text",
+          "default": "",
+          "maxlength": 200
+        },
+        {
+          "key": "index_subtitle",
+          "label": "首页副标题",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 1000
+        },
+        {
+          "key": "brand_font",
+          "label": "站名与首页标题字体",
+          "type": "select",
+          "default": "sans",
+          "options": {
+            "sans": "系统无衬线字体",
+            "serif": "系统衬线字体",
+            "mono": "等宽字体"
+          }
+        },
+        {
+          "key": "accent_color",
+          "label": "强调色",
+          "type": "color",
+          "default": "#bd6262",
+          "required": true
+        },
+        {
+          "key": "brand_color",
+          "label": "首页站名底色",
+          "type": "color",
+          "default": "#8dfbff",
+          "required": true
+        },
+        {
+          "key": "background_color",
+          "label": "日间页面背景",
+          "type": "color",
+          "default": "#ffffff",
+          "required": true
+        },
+        {
+          "key": "dark_background_color",
+          "label": "夜间页面背景",
+          "type": "color",
+          "default": "#1a1a1a",
+          "required": true
+        },
+        {
+          "key": "brand_font_url",
+          "label": "站名字体文件",
+          "type": "url",
+          "default": "",
+          "maxlength": 2048,
+          "description": "可选：可信的 WOFF2、WOFF 或 TTF 字体地址，支持站内绝对路径。留空使用所选系统字体。"
+        },
+        {
+          "key": "brand_font_weight",
+          "label": "站名字体字重",
+          "type": "select",
+          "default": "400",
+          "options": {
+            "300": "300 · 纤细",
+            "400": "400 · 常规",
+            "500": "500 · 中等",
+            "600": "600 · 半粗",
+            "700": "700 · 粗体"
+          }
+        },
+        {
+          "key": "brand_font_italic",
+          "label": "站名使用斜体",
+          "type": "checkbox",
+          "default": "0"
+        }
+      ]
+    },
+    {
+      "title": "导航与菜单",
+      "description": "桌面端和手机端共用导航内容，可分别调整固定方式。",
+      "fields": [
+        {
+          "key": "header_mode",
+          "label": "桌面导航固定方式",
+          "type": "select",
+          "default": "fixed",
+          "options": {
+            "fixed": "始终固定在顶部",
+            "auto": "向上滚动时显示",
+            "static": "随页面滚动"
+          }
+        },
+        {
+          "key": "header_mode_mobile",
+          "label": "手机导航固定方式",
+          "type": "select",
+          "default": "fixed",
+          "options": {
+            "fixed": "始终固定在顶部",
+            "auto": "向上滚动时显示",
+            "static": "随页面滚动"
+          }
+        },
+        {
+          "key": "show_home",
+          "label": "显示首页链接",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_archives",
+          "label": "显示归档链接",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_tags",
+          "label": "显示标签链接",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_links",
+          "label": "显示友链链接",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_pages",
+          "label": "显示独立页面",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_categories",
+          "label": "显示分类下拉菜单",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_search",
+          "label": "显示文章搜索",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "navigation_links",
+          "label": "附加导航链接",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 6000,
+          "placeholder": "更多 | 项目 | https://example.com\n关于 | /about",
+          "description": "每行“分组 | 名称 | 地址”；也可填“名称 | 地址”，归入“更多”分组。只接受 HTTP(S) 地址或站内绝对路径，最多 40 条；无效行不显示。首次保存前沿用 config.php 中的 navigation。"
+        }
+      ]
+    },
+    {
+      "title": "首页头图与文章列表",
+      "description": "设置头图、缩略图、文章摘要和列表宽度。",
+      "fields": [
+        {
+          "key": "banner",
+          "label": "首页与索引头图",
+          "type": "url",
+          "default": "",
+          "description": "支持完整 HTTP(S) 地址或以 / 开头的站内图片路径。",
+          "maxlength": 2048
+        },
+        {
+          "key": "banner_height",
+          "label": "桌面头图高度",
+          "type": "text",
+          "default": "40",
+          "maxlength": 5,
+          "description": "填写 15–100 的整数，单位 vh；格式无效或超出范围时使用默认值 40。"
+        },
+        {
+          "key": "mobile_banner_height",
+          "label": "手机头图高度",
+          "type": "text",
+          "default": "32",
+          "maxlength": 5,
+          "description": "填写 15–100 的整数，单位 vh；格式无效或超出范围时使用默认值 32。"
+        },
+        {
+          "key": "index_style",
+          "label": "文章列表布局",
+          "type": "select",
+          "default": "grid",
+          "options": {
+            "grid": "双栏卡片",
+            "single": "单栏卡片"
+          }
+        },
+        {
+          "key": "cover_style",
+          "label": "列表封面样式",
+          "type": "select",
+          "default": "1",
+          "options": {
+            "0": "纯文字",
+            "1": "顶部缩略图",
+            "2": "图片作为背景"
+          }
+        },
+        {
+          "key": "auto_cover",
+          "label": "自动提取公开正文首图",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "default_cover",
+          "label": "统一默认缩略图",
+          "type": "url",
+          "default": "",
+          "description": "支持完整 HTTP(S) 地址或以 / 开头的站内图片路径。",
+          "maxlength": 2048
+        },
+        {
+          "key": "title_cover",
+          "label": "无图文章自动生成标题封面",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_excerpt",
+          "label": "显示文章摘要",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "excerpt_length",
+          "label": "摘要字数",
+          "type": "text",
+          "default": "80",
+          "maxlength": 5,
+          "description": "填写 20–500 的整数；格式无效或超出范围时使用默认值 80。"
+        },
+        {
+          "key": "show_list_date",
+          "label": "显示列表发布日期",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_pinned",
+          "label": "显示置顶标识",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "list_width",
+          "label": "列表最大宽度",
+          "type": "text",
+          "default": "1000",
+          "maxlength": 5,
+          "description": "填写 800–1400 的整数，单位 px；格式无效或超出范围时使用默认值 1000。"
+        }
+      ]
+    },
+    {
+      "title": "阅读外观",
+      "description": "设置访客首次访问时的阅读偏好；访客手动选择的字号、字体和配色优先。",
+      "fields": [
+        {
+          "key": "color_scheme",
+          "label": "默认配色模式",
+          "type": "select",
+          "default": "auto",
+          "options": {
+            "auto": "自动（系统与夜间时段）",
+            "light": "日间",
+            "dark": "夜间"
+          }
+        },
+        {
+          "key": "follow_system",
+          "label": "自动模式跟随系统深色偏好",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "dark_start",
+          "label": "夜间开始小时",
+          "type": "text",
+          "default": "22",
+          "maxlength": 4,
+          "description": "填写 0–24 的小时数，支持半小时，例如 22.5 表示 22:30；无效时使用 22。"
+        },
+        {
+          "key": "dark_end",
+          "label": "夜间结束小时",
+          "type": "text",
+          "default": "7",
+          "maxlength": 4,
+          "description": "填写 0–24 的小时数，支持半小时，例如 22.5 表示 22:30；无效时使用 7。"
+        },
+        {
+          "key": "font_size",
+          "label": "默认正文字号",
+          "type": "select",
+          "default": "3",
+          "options": {
+            "1": "14 px",
+            "2": "16 px",
+            "3": "18 px",
+            "4": "20 px",
+            "5": "22 px"
+          }
+        },
+        {
+          "key": "serif",
+          "label": "正文默认使用衬线字体",
+          "type": "checkbox",
+          "default": "0"
+        },
+        {
+          "key": "content_width",
+          "label": "正文最大宽度",
+          "type": "text",
+          "default": "820",
+          "maxlength": 5,
+          "description": "填写 600–1100 的整数，单位 px；格式无效或超出范围时使用默认值 820。"
+        }
+      ]
+    },
+    {
+      "title": "文章功能与图片",
+      "description": "保留核心的评论、密码文章与回复隐藏保护。",
+      "fields": [
+        {
+          "key": "post_banner",
+          "label": "文章详情显示正文封面头图",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_word_count",
+          "label": "列表显示公开字数",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_reading_time",
+          "label": "详情显示字数与阅读时间",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_likes",
+          "label": "显示文章点赞",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_share",
+          "label": "显示分享按钮",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_post_navigation",
+          "label": "显示上一篇与下一篇",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_toc",
+          "label": "生成文章目录",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "toc_depth",
+          "label": "目录最大标题层级",
+          "type": "select",
+          "default": "6",
+          "options": {
+            "2": "H2",
+            "3": "H2–H3",
+            "4": "H2–H4",
+            "5": "H2–H5",
+            "6": "H2–H6"
+          }
+        },
+        {
+          "key": "image_lightbox",
+          "label": "启用图片灯箱",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "lazyload",
+          "label": "正文图片延迟加载",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "parse_figcaption",
+          "label": "将图片说明显示为图注",
+          "type": "checkbox",
+          "default": "0",
+          "description": "将独立图片的替代文本显示在图片下方；不改变链接、图组和内容门禁。"
+        },
+        {
+          "key": "large_photoset",
+          "label": "使用宽幅图组",
+          "type": "checkbox",
+          "default": "0"
+        },
+        {
+          "key": "reward_image",
+          "label": "赞赏二维码",
+          "type": "url",
+          "default": "",
+          "description": "支持完整 HTTP(S) 地址或以 / 开头的站内图片路径。",
+          "maxlength": 2048
+        },
+        {
+          "key": "comment_notice",
+          "label": "评论区提示",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 1000,
+          "description": "在评论表单上方显示纯文本说明，支持换行；留空不显示。"
+        }
+      ]
+    },
+    {
+      "title": "代码与页面交互",
+      "description": "独立控制代码块外观、复制和数学公式。",
+      "fields": [
+        {
+          "key": "mac_code",
+          "label": "Mac 风格代码块",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "line_numbers",
+          "label": "显示代码行号",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "show_copy",
+          "label": "显示代码复制按钮",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "pjax",
+          "label": "启用 PJAX 导航",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "math",
+          "label": "按需渲染数学公式",
+          "type": "checkbox",
+          "default": "1"
+        },
+        {
+          "key": "math_url",
+          "label": "MathJax 脚本地址",
+          "type": "url",
+          "default": "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js",
+          "description": "仅开启数学公式且正文含公式时加载。请填写可信的 HTTP(S) 脚本地址。",
+          "maxlength": 2048
+        }
+      ]
+    },
+    {
+      "title": "社交链接与页脚",
+      "description": "社交链接显示在阅读设置面板中，留空隐藏。页脚文字按纯文本显示。",
+      "fields": [
+        {
+          "key": "social_github",
+          "label": "GitHub 地址",
+          "type": "url",
+          "default": "",
+          "description": "填写完整 HTTP(S) 主页地址。",
+          "maxlength": 2048
+        },
+        {
+          "key": "social_twitter",
+          "label": "X / Twitter 地址",
+          "type": "url",
+          "default": "",
+          "description": "填写完整 HTTP(S) 主页地址。",
+          "maxlength": 2048
+        },
+        {
+          "key": "social_telegram",
+          "label": "Telegram 地址",
+          "type": "url",
+          "default": "",
+          "description": "填写完整 HTTP(S) 主页地址。",
+          "maxlength": 2048
+        },
+        {
+          "key": "social_weibo",
+          "label": "微博地址",
+          "type": "url",
+          "default": "",
+          "description": "填写完整 HTTP(S) 主页地址。",
+          "maxlength": 2048
+        },
+        {
+          "key": "social_email",
+          "label": "联系邮箱",
+          "type": "text",
+          "default": "",
+          "maxlength": 254,
+          "description": "填写有效邮箱地址，点击后调用邮件客户端。首次保存前保留 config.php 中的 social。"
+        },
+        {
+          "key": "start_date",
+          "label": "建站日期",
+          "type": "date",
+          "default": ""
+        },
+        {
+          "key": "footer_text",
+          "label": "主题页脚补充文字",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 3000,
+          "description": "支持换行；站点版权、备案信息仍沿用博客设置。"
+        }
+      ]
+    },
+    {
+      "title": "高级样式",
+      "description": "只填写 CSS 规则；不会执行 JavaScript 或 HTML。",
+      "fields": [
+        {
+          "key": "custom_css",
+          "label": "自定义 CSS",
+          "type": "textarea",
+          "default": "",
+          "maxlength": 20000,
+          "placeholder": ".void-theme .post-title { letter-spacing: 1px; }",
+          "description": "无需 <style> 标签。最多 20000 字符，设置保存于数据库，主题升级后保留。"
+        }
+      ]
+    }
+  ]
+}

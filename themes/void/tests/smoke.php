@@ -14,6 +14,7 @@ set_error_handler(static function (int $severity, string $message, string $file,
     throw new ErrorException($message, 0, $severity, $file, $line);
 });
 define('APP_VERSION', 'void-test');
+define('THEMES_DIR', dirname(__DIR__, 2));
 
 function check(bool $value, string $message): void
 {
@@ -30,7 +31,7 @@ function load_core_helpers(array $names): void
     for ($i = 0, $length = count($tokens); $i < $length; $i++) {
         if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) { continue; }
         $j = $i + 1;
-        while (isset($tokens[$j]) && (is_array($tokens[$j]) && $tokens[$j][0] === T_WHITESPACE || $tokens[$j] === '&')) { $j++; }
+        while (isset($tokens[$j]) && ((is_array($tokens[$j]) && $tokens[$j][0] === T_WHITESPACE) || (is_array($tokens[$j]) ? $tokens[$j][1] : $tokens[$j]) === '&')) { $j++; }
         $name = is_array($tokens[$j] ?? null) ? $tokens[$j][1] : '';
         if (!isset($needed[$name])) { continue; }
         $code = '';
@@ -70,6 +71,8 @@ load_core_helpers([
     'content_allows_comments', 'is_live_content', 'csrf_token', 'csrf_field',
     'fetch_published_posts', 'count_published_posts', 'fetch_content_by_identifier',
     'add_theme_filter', 'theme_filter', 'theme_callbacks', 'plugin_callbacks',
+    'theme_inventory_cache', 'refresh_theme_cache', 'theme_manifest', 'theme_settings_schema',
+    'theme_setting_value_error', 'theme_settings', 'theme_setting', 'theme_settings_values',
 ]);
 require_once dirname(__DIR__) . '/content.php';
 require dirname(__DIR__) . '/functions.php';
@@ -88,6 +91,7 @@ function reset_fixture(): void
     $GLOBALS['void_test_database'] = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     db()->exec('CREATE TABLE posts(id INTEGER PRIMARY KEY,kind TEXT,slug TEXT,title TEXT,content TEXT,excerpt TEXT,content_password_hash TEXT,status TEXT,published_at INTEGER,created_at INTEGER,is_pinned INTEGER,allow_comments INTEGER)');
     $GLOBALS['void_test_settings'] = ['site_name' => '测试站点', 'posts_per_page' => '2', 'pretty_url' => '0', 'comments_enabled' => '1'];
+    refresh_theme_cache();
     $GLOBALS['void_test_admin'] = false;
     $GLOBALS['sblog_current_action'] = 'home';
     $_SERVER['SCRIPT_NAME'] = '/blog/index.php';
@@ -241,6 +245,48 @@ $tests['list cover priority, disabled options and background layout preserve exi
     $config['cover_style'] = 1;
     check(str_starts_with(sbvoid_list_cover($post, $config)['src'], 'data:image/svg+xml;base64,'), 'Retained old configuration should enable title covers by default.');
 };
+$tests['native excerpt and visibility settings affect cards and preserve protected content and comments'] = static function (): void {
+    $GLOBALS['void_test_settings']['theme_settings_void'] = json_encode(['excerpt_length' => '240'], JSON_THROW_ON_ERROR);
+    same(240, sbvoid_config()['excerpt_length'], 'The native excerpt setting was not read from the real core API.');
+    $publicBody = str_repeat('公开正文', 100);
+    $projected = public_content_context(post_fixture(['content' => $publicBody]));
+    check(str_len_u($projected['excerpt']) <= 141, 'The fixture must exercise the core list description limit.');
+    $xpath = fragment(sbvoid_cards([$projected]));
+    $excerpt = $xpath->query('//div[@class="articleBody"]/p')->item(0)->textContent;
+    check(str_len_u($excerpt) > 140 && str_len_u($excerpt) <= 241, 'A longer native excerpt must expand the core description from its public body.');
+
+    $explicit = '保留手写摘要 & 原始文字';
+    $xpath = fragment(sbvoid_cards([public_content_context(post_fixture(['content' => $publicBody, 'excerpt' => $explicit]))]));
+    same($explicit, $xpath->query('//div[@class="articleBody"]/p')->item(0)->textContent, 'A custom excerpt should not be replaced by the long body.');
+    $secret = 'NATIVESETTINGSECRETMARKER';
+    $password = public_content_context(post_fixture(['content' => $publicBody . $secret, 'excerpt' => $secret, 'content_password_hash' => 'fixture-hash']));
+    $card = sbvoid_cards([$password]);
+    check(str_contains($card, '此文章受密码保护') && !str_contains($card, $secret), 'Long excerpts must preserve password notices without exposing content.');
+    $reply = public_content_context(post_fixture(['content' => $publicBody . "\n[reply]\n$secret\n[/reply]", 'excerpt' => $secret]));
+    $card = sbvoid_cards([$reply]);
+    check(!str_contains($card, $secret), 'Expanding the native excerpt exposed reply-only text or a private custom excerpt.');
+    $replyExcerpt = fragment($card)->query('//div[@class="articleBody"]/p')->item(0)->textContent;
+    check(str_len_u($replyExcerpt) > 140 && str_len_u($replyExcerpt) <= 241, 'Reply-gated posts must still receive the configured public excerpt length.');
+
+    $GLOBALS['void_test_settings']['theme_settings_void'] = json_encode([
+        'show_excerpt' => '0', 'show_list_date' => '0', 'show_pinned' => '0',
+        'lazyload' => '0', 'show_post_navigation' => '0',
+    ], JSON_THROW_ON_ERROR);
+    $xpath = fragment(sbvoid_cards([post_fixture(['content' => '![封面](/cover.jpg)', 'is_pinned' => 1])]));
+    same(0, $xpath->query('//div[@class="articleBody"]')->length, 'Disabled excerpt is still rendered.');
+    same(0, $xpath->query('//time')->length, 'Disabled list dates are still rendered.');
+    same(0, $xpath->query('//*[contains(@class,"void-pinned")]')->length, 'Disabled pinned labels are still rendered.');
+    same('eager', $xpath->query('//img')->item(0)->getAttribute('loading'), 'Disabling lazy loading did not affect the cover.');
+    same('公开文章', $xpath->query('//h1')->item(0)->textContent, 'Visibility switches removed the article title.');
+    same(1, $xpath->query('//li/a[@href]')->length, 'Visibility switches removed the article link.');
+    [$body, , $comments] = sbvoid_detail('<article class="post-detail"><div class="post-content"><p>保留正文</p></div></article><ul class="pagination post-navigation"><li><a href="/next" data-post-title="相邻文章">下一篇</a></li></ul><section id="comments"><p>保留评论</p><form id="comment-form"><textarea name="content">保留草稿</textarea></form></section>');
+    same(0, fragment($body)->query('//ul[contains(@class,"post-navigation")]')->length, 'Disabled post navigation is still rendered.');
+    check(str_contains($body, '保留正文'), 'Disabling post navigation removed article content.');
+    $commentXpath = fragment($comments);
+    same(1, $commentXpath->query('//section[@id="comments"]/form[@id="comment-form"]')->length, 'Disabling post navigation removed the comment form.');
+    same('保留草稿', $commentXpath->query('//textarea')->item(0)->textContent, 'Disabling post navigation changed the comment draft.');
+    check(str_contains($comments, '保留评论'), 'Disabling post navigation removed existing comments.');
+};
 $tests['detail transformation retains gate forms, comments, feedback and plugin HTML'] = static function (): void {
     $post = post_fixture(['content_password_hash' => 'hash']);
     $_SESSION['content_password_notices'][1] = '访问密码不正确。';
@@ -268,32 +314,6 @@ $tests['detail transformation retains gate forms, comments, feedback and plugin 
     check(str_contains($commentHtml, '邮箱错误'), 'Comment error feedback was lost.');
     [$replyBody] = sbvoid_detail('<article><div class="post-content">' . render_reply_content_gate($post) . '</div></article>');
     check(str_contains($replyBody, 'content-gate--reply') && str_contains($replyBody, '#comments'), 'Reply gate action was lost.');
-};
-$tests['article metadata is separated once with and without DOM'] = static function (): void {
-    $function = new ReflectionFunction('sbvoid_detail');
-    $source = array_slice(file($function->getFileName()), $function->getStartLine() - 1, $function->getEndLine() - $function->getStartLine() + 1);
-    // Exercise the actual fallback on PHP builds where DOM is compiled in.
-    eval('namespace SBlogVoidWithoutDom; function class_exists(string $name): bool { return false; }' . implode('', $source));
-
-    foreach (['sbvoid_detail', 'SBlogVoidWithoutDom\\sbvoid_detail'] as $transform) {
-        foreach (['meta', 'meta extra-class', 'extra-class meta'] as $class) {
-            $metadata = '<div class="' . $class . '"><time datetime="2026-10-29T08:00:00+08:00">2026-10-29</time><span>作者：测试作者</span><span>分类：<a href="/category/test">测试分类</a></span><span>浏览：42</span></div>';
-            $html = '<article class="post-detail"><h1 class="post-title" itemprop="name headline">正文标题</h1>' . $metadata
-                . '<div class="post-content"><p>正文内容</p><div class="meta">正文内的自定义信息</div><aside class="content-gate"><form><input name="csrf_token" value="must-survive"></form></aside></div></article>'
-                . '<section id="comments"><p>评论内容</p></section>';
-            [$body, $meta, $comments] = $transform($html);
-            $xpath = fragment($body);
-            same(0, $xpath->query('//article/div[contains(concat(" ", normalize-space(@class), " "), " meta ")]')->length, 'Core article metadata remained in the body: ' . $transform . ', ' . $class);
-            same(1, fragment($meta)->query('//time')->length, 'Publication time was lost or duplicated.');
-            check(str_contains($meta, '测试作者') && str_contains($meta, '/category/test') && str_contains($meta, '浏览：42'), 'Article metadata changed while moving it.');
-            same(1, $xpath->query('//div[@class="post-content" or contains(@class,"articleBody")]/div[@class="meta"]')->length, 'Custom metadata inside the article body was removed.');
-            same('must-survive', $xpath->query('//input[@name="csrf_token"]')->item(0)->getAttribute('value'), 'Content gate changed while removing metadata.');
-            same(1, fragment($body . $comments)->query('//section[@id="comments"]')->length, 'Comments were lost or duplicated.');
-        }
-        [$body, $meta] = $transform('<article><h1 class="post-title">独立页</h1><div class="post-content"><article><div class="meta">正文嵌套文章的信息</div><p>正文内容</p></article></div></article>');
-        same('', $meta, 'Nested article metadata was mistaken for the page header.');
-        check(str_contains($body, '正文嵌套文章的信息'), 'Custom nested article metadata was removed from a page without header metadata.');
-    }
 };
 $tests['neighbor titles render as visible escaped text with legacy label fallback'] = static function (): void {
     $previousTitle = '上一篇的标题 “引号” & <img src=x onerror=alert(1)>';

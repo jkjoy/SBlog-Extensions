@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-// Changes take effect on the next request. Keep this file when upgrading.
+// Legacy file configuration. Keep this file when upgrading a customized installation.
+// Native values saved under Themes > Theme settings override matching keys below.
+// Before the first native save, this file keeps its previous behavior.
 return [
     'name' => '',                     // Empty: use the site's name.
     'index_title' => '',

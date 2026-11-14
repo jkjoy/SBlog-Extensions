@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 if (!defined('APP_VERSION')) { http_response_code(403); exit; }
 require_once __DIR__ . '/content.php';
+require_once __DIR__ . '/settings.php';
 
 function sbvoid_config(): array
 {
-    static $config;
-    return $config ??= require __DIR__ . '/config.php';
+    return sbvoid_settings_config(require __DIR__ . '/config.php');
 }
 
 function sbvoid_url(string $url): string
@@ -156,19 +156,25 @@ function sbvoid_cards(array $posts): string
         $cover = sbvoid_list_cover($post, $config);
         $style = $cover['src'] === '' ? 0 : max(0, min(2, (int)$config['cover_style']));
         $time = (int)($post['published_at'] ?: $post['created_at']);
-        $excerpt = trim((string)($post['excerpt'] ?? '')) ?: derive_excerpt((string)($post['content'] ?? ''), 100);
+        $excerpt = trim((string)($post['excerpt'] ?? ''));
+        // Core public lists supply a 140-character generated description. Expand it
+        // from the already public body when a longer theme excerpt is requested.
+        $publicBody = (string)($post['content'] ?? '');
+        if ($excerpt === '' || $excerpt === derive_excerpt($publicBody)) {
+            $excerpt = derive_excerpt($publicBody, (int)$config['excerpt_length']);
+        }
         $excerpt = preg_replace('/(?:^|\s)#{1,6}\s+/u', ' ', $excerpt) ?? $excerpt;
-        $excerpt = derive_excerpt($excerpt, 80);
+        $excerpt = derive_excerpt($excerpt, (int)$config['excerpt_length']);
         $wordCount = sbvoid_word_count($post);
         ?>
         <li id="p-<?= (int)$post['id'] ?>" class="masonry-item style-<?= $style ?> done">
           <a href="<?= h(sbvoid_url(content_permalink($post))) ?>">
             <article class="yue">
-              <?php if ($cover['src'] !== '' && $style !== 0): ?><div class="banner"><img src="<?= h($cover['src']) ?>"<?php if ($cover['fallback'] !== ''): ?> data-void-cover-fallback="<?= h($cover['fallback']) ?>"<?php endif; ?> width="960" height="600" alt="" loading="lazy" decoding="async"></div><?php endif; ?>
+              <?php if ($cover['src'] !== '' && $style !== 0): ?><div class="banner"><img src="<?= h($cover['src']) ?>"<?php if ($cover['fallback'] !== ''): ?> data-void-cover-fallback="<?= h($cover['fallback']) ?>"<?php endif; ?> width="960" height="600" alt="" loading="<?= $config['lazyload'] ? 'lazy' : 'eager' ?>" decoding="async"></div><?php endif; ?>
               <div class="content-wrap">
-                <div class="post-meta-index"><time datetime="<?= h(date(DATE_ATOM, $time)) ?>"><?= h(date('M d, Y', $time)) ?></time><?php if ($config['show_word_count'] && $wordCount > 0): ?><span class="word-count"> + <?= $wordCount ?> 字</span><?php endif; ?><?php if (!empty($post['is_pinned'])): ?><span class="void-pinned"> · 置顶</span><?php endif; ?></div>
+                <div class="post-meta-index"><?php if ($config['show_list_date']): ?><time datetime="<?= h(date(DATE_ATOM, $time)) ?>"><?= h(date('M d, Y', $time)) ?></time><?php endif; ?><?php if ($config['show_word_count'] && $wordCount > 0): ?><span class="word-count"><?= $config['show_list_date'] ? ' + ' : '' ?><?= $wordCount ?> 字</span><?php endif; ?><?php if ($config['show_pinned'] && !empty($post['is_pinned'])): ?><span class="void-pinned"> · 置顶</span><?php endif; ?></div>
                 <h1 class="title"><?= h($post['title']) ?></h1>
-                <div class="articleBody"><p><?= h($excerpt) ?></p></div>
+                <?php if ($config['show_excerpt']): ?><div class="articleBody"><p><?= h($excerpt) ?></p></div><?php endif; ?>
               </div>
             </article>
           </a>
@@ -218,17 +224,13 @@ function sbvoid_archives(): string
 /** Rearrange rendered HTML so core gates, feedback and plugin output survive intact. */
 function sbvoid_detail(string $html): array
 {
+    $config = sbvoid_config();
     if (!class_exists(DOMDocument::class)) {
         // Preserve the complete core response on hosts without the optional DOM extension.
         $html = preg_replace('/<h1\b[^>]*class="post-title"[^>]*>.*?<\/h1>/s', '', $html, 1) ?? $html;
-        $metaHtml = '';
-        // Move only the leading core metadata; leave body markup and content gates intact.
-        $html = preg_replace_callback('/\A(\s*<article\b[^>]*>\s*)(<div\b[^>]*\sclass="(?:[^"]*\s)?meta(?:\s[^"]*)?"[^>]*>(?:(?!<\/?div\b).)*<\/div>)/s', static function (array $match) use (&$metaHtml): string {
-            $metaHtml = $match[2];
-            return $match[1];
-        }, $html, 1) ?? $html;
+        if (!$config['show_post_navigation']) { $html = preg_replace('/<ul\b[^>]*class="[^"]*\bpost-navigation\b[^"]*"[^>]*>.*?<\/ul>/s', '', $html) ?? $html; }
         $html = str_replace('class="post-content"', 'class="post-content articleBody full"', $html);
-        return ['<div class="post yue">' . $html . '</div>', $metaHtml, ''];
+        return ['<div class="post yue">' . $html . '</div>', '', ''];
     }
     $document = new DOMDocument('1.0', 'UTF-8');
     $previous = libxml_use_internal_errors(true);
@@ -243,7 +245,7 @@ function sbvoid_detail(string $html): array
     $article = $xpath->query('.//article[1]', $root)->item(0);
     if ($article instanceof DOMElement) {
         $article->setAttribute('class', trim($article->getAttribute('class') . ' post yue'));
-        $meta = $xpath->query('./div[contains(concat(" ", normalize-space(@class), " "), " meta ")]', $article)->item(0);
+        $meta = $xpath->query('./div[@class="meta"]', $article)->item(0);
         if ($meta) {
             $metaHtml = $document->saveHTML($meta);
             $meta->parentNode->removeChild($meta);
@@ -251,6 +253,11 @@ function sbvoid_detail(string $html): array
     }
     foreach ($xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " post-content ")]', $root) as $node) {
         $node->setAttribute('class', $node->getAttribute('class') . ' articleBody full');
+    }
+    if (!$config['show_post_navigation']) {
+        foreach ($xpath->query('.//ul[contains(concat(" ", normalize-space(@class), " "), " post-navigation ")]', $root) as $node) {
+            $node->parentNode->removeChild($node);
+        }
     }
     foreach ($xpath->query('.//ul[contains(concat(" ", normalize-space(@class), " "), " post-navigation ")]//a', $root) as $link) {
         $label = trim($link->textContent);

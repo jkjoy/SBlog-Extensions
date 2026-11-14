@@ -2,13 +2,13 @@
 
 基于 [AlanDecode / Typecho-Theme-VOID](https://github.com/AlanDecode/Typecho-Theme-VOID) 3.5.1 的独立移植，参考提交 `a70bbc9a173b7f80ebf6dcd386e4286a8a7fbcb2`。直接使用原版 SCSS、图标字体、正文排版及代码高亮样式，保留原作者 MIT 许可；PHP 模板和浏览器交互适配 Simple PHP Blog，不需要 Typecho 或配套插件。
 
-主题维护在 [jkjoy/SBlog-Extensions](https://github.com/jkjoy/SBlog-Extensions/tree/main/themes/void)，适配并已验证 Simple PHP Blog **1.14.16**。
+主题维护在 [jkjoy/SBlog-Extensions](https://github.com/jkjoy/SBlog-Extensions/tree/main/themes/void)，需要 Simple PHP Blog **1.14.18+**，已验证 **1.14.33**。
 
 ## 安装
 
 推荐在后台「扩展商店」搜索 **VOID** 并安装，再到「主题管理」预览或启用 **VOID · 无类型**。
 
-也可从 [1.0.2 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.0.2) 下载 `theme-void-1.0.2.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
+也可从 [1.1.0 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.1.0) 下载 `theme-void-1.1.0.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
 
 ## 已实现
 
@@ -26,7 +26,24 @@
 
 ## 配置
 
-编辑 `config.php`，刷新即生效。升级时保留该文件。站名、副标题、SEO、每页数量、评论审核、favicon、页脚和备案号沿用博客后台设置。
+进入后台 **主题管理 → VOID → 更多 → 主题设置**，保存后前台生效。设置保存在数据库，升级主题不会覆盖。面板参考原版 VOID 的常用选项，提供 8 组、71 个设置：
+
+| 分组 | 可调整内容 |
+| --- | --- |
+| 站点标识与配色 | 导航站名、日夜 Logo、首页标题/副标题、系统或自定义字体、字重/斜体、强调色、站名底色、日夜背景 |
+| 导航与菜单 | 桌面/手机分别固定、滚动上显或随页面滚动；内置链接、独立页、分类、搜索开关及附加下拉链接 |
+| 首页头图与文章列表 | 头图与高度、单/双栏、三种封面布局、默认与标题封面、摘要字数、日期、置顶标识、列表宽度 |
+| 阅读外观 | 默认配色、系统跟随、半小时精度的夜间时段、字号、衬线字体、正文宽度 |
+| 文章功能与图片 | 详情头图、字数/阅读时间、点赞、分享、上下篇、目录与层级、灯箱、懒加载、图注、宽幅图组、赞赏二维码 |
+| 代码与页面交互 | Mac 风格代码块、行号、复制按钮、PJAX、数学公式与资源地址 |
+| 社交链接与页脚 | GitHub、X/Twitter、Telegram、微博、邮箱、建站日期与页脚文字 |
+| 高级样式 | 自定义 CSS，保存在数据库中 |
+
+附加导航每行填写 `分组 | 名称 | 地址`，例如 `项目 | GitHub | https://github.com/jkjoy`；两段式 `关于 | /index.php?a=page&slug=about` 会归入“更多”分组。只支持 HTTP(S) 或站内绝对路径，无效行会被跳过。
+
+旧版 `config.php` 继续兼容：后台尚未保存的字段沿用文件里的值；后台保存后，保存的字段优先。**首次打开设置面板时显示的是数据库值或面板默认值，请先将旧文件里的个性配置填入面板再保存**，包括旧的社交链接和导航。之后建议统一从后台修改。访客手动选择的配色、字号、字体仍优先于站点默认值。
+
+站点 SEO、每页数量、评论审核、favicon、基础页脚和备案号沿用博客后台设置。以下旧配置键仍可使用：
 
 | 配置 | 用途 |
 | --- | --- |
@@ -80,6 +97,8 @@
 ```bash
 npx --yes sass --silence-deprecation=import,global-builtin,color-functions themes/void/assets/scss/void.scss themes/void/assets/void.css --style=compressed --no-source-map
 php themes/void/tests/smoke.php
+php themes/void/tests/settings.php
+php tests/theme-settings.php
 php tests/themes.php
 php tests/visibility.php
 php tests/public-layout.php
@@ -88,4 +107,4 @@ node --check themes/void/assets/void.js
 
 PHP DOM 扩展用于详情重排和扩展语法。缺少该扩展时保留核心完整正文与评论，降级显示。验证脚本使用内存 SQLite，不读取或修改已安装博客。
 
-Typecho 专属的评论投票、访客互动统计及 Service Worker 缓存尚未移植。本站的后台配置仍通过 `config.php` 完成；原主题的 Typecho 设置面板不适用于 SBlog。原主题版权归 AlanDecode；PrismJS 版权见 `assets/PRISM-LICENSE`。
+Typecho 专属的评论投票、访客互动统计及 Service Worker 缓存尚未移植。SBlog 使用自己的原生主题设置面板。原主题版权归 AlanDecode；PrismJS 版权见 `assets/PRISM-LICENSE`。

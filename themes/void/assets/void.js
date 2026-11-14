@@ -8,6 +8,7 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const systemDark = matchMedia('(prefers-color-scheme: dark)');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const mobileViewport = matchMedia('(max-width: 767px)');
   const storage = {
     get(key) { try { return localStorage.getItem(key); } catch (_) { return null; } },
     set(key, value) { try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch (_) {} },
@@ -105,7 +106,10 @@
   function buildTOC() {
     observer?.disconnect();
     const list = $('#toc-content');
-    const headings = $$('.articleBody h2, .articleBody h3, .articleBody h4');
+    const configuredDepth = Number(body.dataset.tocDepth || 4);
+    const depth = Number.isFinite(configuredDepth) ? Math.min(6, Math.max(2, configuredDepth)) : 4;
+    const headings = body.dataset.showToc === '0' ? []
+      : $$('.articleBody h2, .articleBody h3, .articleBody h4, .articleBody h5, .articleBody h6').filter(heading => Number(heading.tagName.slice(1)) <= depth);
     const sidebar = $('#toc');
     if (!list) return;
     list.replaceChildren();
@@ -126,6 +130,7 @@
     });
     $$('[data-void-toc]').forEach(button => {
       button.hidden = headings.length === 0;
+      if (!headings.length) button.setAttribute('aria-expanded', 'false');
       const item = button.closest('#toggle-toc');
       if (item) item.hidden = headings.length === 0;
     });
@@ -160,7 +165,7 @@
 
   function openLightbox(source) {
     const dialog = $('#void-lightbox');
-    if (!dialog?.showModal) return;
+    if (body.dataset.lightbox === '0' || !dialog?.showModal || !lightboxImages.includes(source)) return;
     lightboxIndex = lightboxImages.indexOf(source);
     lightboxTrigger = document.activeElement;
     updateLightbox();
@@ -203,19 +208,62 @@
     });
   }
 
+  function enhanceFigureCaptions(images) {
+    if (body.dataset.figcaption !== '1') return;
+    const imageOnly = container => {
+      if (container.querySelectorAll('img').length !== 1 || container.querySelector('figcaption') || container.textContent.trim()) return false;
+      return [...container.querySelectorAll('*')].every(node => ['IMG', 'A', 'PICTURE', 'SOURCE', 'BR'].includes(node.tagName));
+    };
+    images.forEach(image => {
+      const captionText = (image.alt || image.title || '').trim();
+      if (!captionText || image.closest('[data-no-caption], .no-caption')) return;
+      let figure = image.closest('figure');
+      if (figure) {
+        if (!imageOnly(figure)) return;
+      } else {
+        const paragraph = image.closest('p');
+        // Do not restructure decorated paragraphs or component/plugin markup.
+        if (!paragraph || paragraph.attributes.length || paragraph.closest('.photos, [data-no-caption], .no-caption') || !imageOnly(paragraph)) return;
+        figure = document.createElement('figure');
+        paragraph.replaceWith(figure);
+        while (paragraph.firstChild) figure.append(paragraph.firstChild);
+      }
+      const caption = document.createElement('figcaption');
+      caption.className = 'void-figcaption';
+      caption.textContent = captionText;
+      figure.append(caption);
+    });
+  }
+
+  function applyHeaderMode() {
+    const header = $('body > header');
+    if (!header) return;
+    const configured = mobileViewport.matches ? body.dataset.headerModeMobile || body.dataset.headerMode : body.dataset.headerMode;
+    const mode = { auto: '0', fixed: '1', static: '2' }[configured] || '1';
+    ['0', '1', '2'].forEach(value => header.classList.toggle(`header-mode-${value}`, value === mode));
+    header.classList.remove('headroom--unpinned');
+    header.classList.add('headroom--pinned');
+    previousScroll = scrollY;
+  }
+
   function enhanceContent() {
     const main = $('#pjax-container');
     if (!main) return;
     enhanceCoverFallbacks(main);
-    lightboxImages = $$('.articleBody img', main).filter(image => {
+    const articleImages = $$('.articleBody img', main);
+    articleImages.forEach(image => {
+      image.loading = body.dataset.lazyload === '0' ? 'eager' : 'lazy';
+      image.decoding = 'async';
+    });
+    $$('.articleBody .photos', main).forEach(group => group.classList.toggle('large', body.dataset.largePhotoset !== '0'));
+    enhanceFigureCaptions(articleImages);
+    lightboxImages = body.dataset.lightbox === '0' ? [] : articleImages.filter(image => {
       if (image.closest('[data-no-lightbox], .no-lightbox')) return false;
       const anchor = image.closest('a');
       if (anchor && anchor.href !== image.src && anchor.href !== image.currentSrc) return false;
       return true;
     });
     lightboxImages.forEach(image => {
-      image.loading = 'lazy';
-      image.decoding = 'async';
       image.classList.add('void-zoomable');
       image.tabIndex = 0;
       image.setAttribute('role', 'button');
@@ -229,7 +277,6 @@
     });
     if (window.Prism) window.Prism.highlightAllUnder(main);
     $$('.articleBody pre', main).forEach(pre => {
-      if ($('[data-void-copy]', pre)) return;
       const code = $('code', pre);
       if (!code) return;
       if (body.dataset.lineNumbers === '1' && !$('.line-numbers-rows', pre)) {
@@ -241,6 +288,7 @@
         for (let i = 0; i < count; i++) lines.append(document.createElement('span'));
         pre.append(lines);
       }
+      if (body.dataset.showCopy === '0' || $('[data-void-copy]', pre)) return;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'void-copy void-code-copy';
@@ -610,7 +658,7 @@
         storage.set('void-font-size', String(Math.min(5, Math.max(1, Number(body.getAttribute('fontsize')) + Number(control.dataset.voidFontSize)))));
         applyFont();
       } else if (control.hasAttribute('data-void-top')) window.scrollTo({ top: 0, behavior: behavior() });
-      else if (control.hasAttribute('data-void-toc')) panel('#toc', 'sidebar-show', '[data-void-toc]');
+      else if (control.hasAttribute('data-void-toc') && body.dataset.showToc !== '0') panel('#toc', 'sidebar-show', '[data-void-toc]');
       else if (control.hasAttribute('data-void-archive')) {
         const section = document.getElementById(control.getAttribute('aria-controls'));
         if (section) {
@@ -636,7 +684,7 @@
       }
       return;
     }
-    if (target.matches('.void-zoomable')) { event.preventDefault(); openLightbox(target); return; }
+    if (body.dataset.lightbox !== '0' && target.matches('.void-zoomable')) { event.preventDefault(); openLightbox(target); return; }
     if (target === $('#void-lightbox')) { closeLightbox(); return; }
     if (target === $('#void-login')) {
       const bounds = target.getBoundingClientRect();
@@ -696,7 +744,7 @@
       event.preventDefault();
       lightboxIndex = (lightboxIndex + (event.key === 'ArrowLeft' ? -1 : 1) + lightboxImages.length) % lightboxImages.length;
       updateLightbox();
-    } else if (event.target instanceof Element && event.target.matches('.void-zoomable') && ['Enter', ' '].includes(event.key)) {
+    } else if (body.dataset.lightbox !== '0' && event.target instanceof Element && event.target.matches('.void-zoomable') && ['Enter', ' '].includes(event.key)) {
       event.preventDefault(); openLightbox(event.target);
     } else if (event.key === ' ' && event.target instanceof Element && event.target.matches('a[role="button"]')) {
       event.preventDefault(); event.target.click();
@@ -706,6 +754,7 @@
   window.addEventListener('popstate', event => {
     if (body.dataset.pjax === '1') navigate(location.href, { pop: true, scroll: event.state?.voidScroll || 0 });
   });
+  mobileViewport.addEventListener('change', applyHeaderMode);
   window.addEventListener('scroll', () => {
     if (body.dataset.pjax === '1' && !body.classList.contains('void-loading')) {
       clearTimeout(historyTimer);
@@ -717,7 +766,7 @@
       const header = $('body > header');
       const current = scrollY;
       header?.classList.toggle('headroom--unpinned', header.classList.contains('header-mode-0') && current > 160 && current > previousScroll && !body.classList.contains('nav-show'));
-      header?.classList.toggle('headroom--pinned', current < previousScroll || current < 160);
+      header?.classList.toggle('headroom--pinned', !header.classList.contains('header-mode-0') || current < previousScroll || current < 160);
       header?.classList.toggle('void-header-scrolled', current > 30);
       header?.classList.toggle('pull-up', current > 30);
       $('#go-top')?.classList.toggle('show', current > 300);
@@ -734,5 +783,6 @@
   }
   applyTheme();
   applyFont();
+  applyHeaderMode();
   enhanceContent();
 })();
