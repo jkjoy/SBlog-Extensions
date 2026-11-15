@@ -134,6 +134,8 @@
 .void-theme .lazy-wrap .post-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px 10px; }
 .void-theme .lazy-wrap .post-meta > span { display: inline; }
 .void-theme .lazy-wrap .post-meta .meta { display: contents; }
+.void-theme #post > .post-detail > .meta:first-child,
+.void-theme #post > .post > .post-detail > .meta:first-child { display: none; }
 .void-theme .void-notice, .void-theme .text-notice {
   padding: 12px 16px;
   margin: 24px 0;

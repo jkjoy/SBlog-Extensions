@@ -315,6 +315,26 @@ $tests['detail transformation retains gate forms, comments, feedback and plugin 
     [$replyBody] = sbvoid_detail('<article><div class="post-content">' . render_reply_content_gate($post) . '</div></article>');
     check(str_contains($replyBody, 'content-gate--reply') && str_contains($replyBody, '#comments'), 'Reply gate action was lost.');
 };
+$tests['detail metadata belongs to the core article and preserves plugin body and comment metadata'] = static function (): void {
+    $plugin = '<article id="plugin-article" class="plugin-card"><h1 class="post-title" id="plugin-title">插件标题</h1><div class="meta plugin-meta" id="plugin-meta">插件元信息<div>插件嵌套信息</div></div><div class="post-content" id="plugin-content">插件正文</div></article>';
+    $html = $plugin . '<article class="entry post-detail" id="core-article"><h1 id="core-title" class="heading post-title">核心文章标题</h1><header><div class="meta" id="wrapped-meta">保留非直属元信息</div></header><div id="core-meta" class="extra meta compact"><a href="/category/one">核心分类</a><div id="core-nested-meta">核心嵌套元信息</div><span>嵌套后尾部</span></div><div class="rich post-content"><h1 class="post-title" id="body-title">正文内标题</h1><div class="meta body-meta" id="body-meta">正文元信息<div>正文嵌套信息</div></div><p>保留正文</p></div><div class="meta" id="after-content-meta">正文之后的独立元信息</div></article><section id="comments"><div id="comment-meta" class="meta comment-meta">评论元信息<div>评论嵌套信息</div></div><form id="comment-form"><textarea name="content">评论草稿</textarea></form></section>';
+    [$body, $meta, $comments] = sbvoid_detail($html);
+    $bodyXpath = fragment($body);
+    $metaXpath = fragment($meta);
+    $commentXpath = fragment($comments);
+    same(1, $metaXpath->query('//div[@id="core-meta"]')->length, 'Metadata with additional class tokens was not extracted.');
+    same(1, $metaXpath->query('//*[@id="core-nested-meta"]')->length, 'Nested core metadata was cut short.');
+    check(str_contains($meta, '嵌套后尾部'), 'Extracting nested metadata lost its trailing content.');
+    same(0, $bodyXpath->query('//*[@id="core-title" or @id="core-meta"]')->length, 'Core heading or metadata remained duplicated in the body.');
+    same(1, $bodyXpath->query('//article[@id="core-article" and contains(concat(" ",normalize-space(@class)," ")," yue ")]')->length, 'A preceding plugin article took the core article typography.');
+    foreach (['plugin-article', 'plugin-title', 'plugin-meta', 'plugin-content', 'wrapped-meta', 'body-title', 'body-meta', 'after-content-meta'] as $id) {
+        same(1, $bodyXpath->query('//*[@id="' . $id . '"]')->length, 'Unrelated article content was removed or moved: ' . $id);
+        same(0, $metaXpath->query('//*[@id="' . $id . '"]')->length, 'Unrelated metadata moved into the article banner: ' . $id);
+    }
+    same(1, $commentXpath->query('//*[@id="comment-meta"]')->length, 'Comment metadata was removed or moved to the banner.');
+    same('评论草稿', $commentXpath->query('//textarea')->item(0)->textContent, 'Metadata cleanup changed the comment draft.');
+    same(0, $metaXpath->query('//*[@id="comment-meta"]')->length, 'Comment metadata moved to the article banner.');
+};
 $tests['neighbor titles render as visible escaped text with legacy label fallback'] = static function (): void {
     $previousTitle = '上一篇的标题 “引号” & <img src=x onerror=alert(1)>';
     $nextTitle = str_repeat('下一篇长标题', 20);

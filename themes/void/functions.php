@@ -221,17 +221,80 @@ function sbvoid_archives(): string
     <?php return (string)ob_get_clean();
 }
 
+/** Keep the core response intact when the optional DOM extension is unavailable. */
+function sbvoid_detail_fallback(string $html, array $config): array
+{
+    $hasClass = static function (string $tag, string $class): bool {
+        if (!preg_match('/\sclass\s*=\s*(["\'])(.*?)\1/is', $tag, $match)) { return false; }
+        return in_array($class, preg_split('/\s+/', trim(html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8'))) ?: [], true);
+    };
+    // Track only the core article's header. Tag boundaries respect quoted
+    // attributes; raw text and comments cannot masquerade as article elements.
+    preg_match_all('~<!--.*?-->|<(script|style|textarea|title)\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>.*?</\1\s*>|</?[a-z][a-z0-9:-]*\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>~is', $html, $tags, PREG_OFFSET_CAPTURE);
+    $targetOffset = $pageOffset = null;
+    $articleLevel = 0;
+    foreach ($tags[0] as [$tag, $offset]) {
+        if (!preg_match('~^<(/)?article\b~i', $tag, $match)) { continue; }
+        if (($match[1] ?? '') !== '') { $articleLevel = max(0, $articleLevel - 1); continue; }
+        if ($articleLevel++ !== 0) { continue; }
+        if ($hasClass($tag, 'post-detail')) { $targetOffset = $offset; break; }
+        // Core independent pages use an unadorned article instead of post-detail.
+        if ($pageOffset === null && preg_match('~^<article\s*>$~i', $tag)) { $pageOffset = $offset; }
+    }
+    $targetOffset ??= $pageOffset;
+    $stack = [];
+    $articleDepth = null;
+    $removal = null;
+    $edits = [];
+    $foundBody = false;
+    foreach ($tags[0] as [$tag, $offset]) {
+        if (!preg_match('~^<(/)?([a-z][a-z0-9:-]*)~i', $tag, $name)) { continue; }
+        $closing = ($name[1] ?? '') !== '';
+        $name = strtolower($name[2]);
+        if (in_array($name, ['script', 'style', 'textarea', 'title'], true)) { continue; }
+        if ($closing) {
+            if (end($stack) !== $name) { break; }
+            if ($removal !== null && count($stack) === $removal['depth']) {
+                $edits[] = [$removal['start'], $offset + strlen($tag) - $removal['start'], ''];
+                $removal = null;
+            }
+            array_pop($stack);
+            if ($articleDepth !== null && count($stack) === $articleDepth) { break; }
+            continue;
+        }
+        if ($articleDepth === null && $name === 'article' && $offset === $targetOffset) {
+            $articleDepth = count($stack);
+        } elseif ($articleDepth !== null && count($stack) === $articleDepth + 1) {
+            if ($name === 'div' && $hasClass($tag, 'post-content')) {
+                $edits[] = [$offset, strlen($tag), preg_replace('/(\sclass\s*=\s*)(["\'])(.*?)\2/is', '$1$2$3 articleBody full$2', $tag, 1)];
+                $foundBody = true;
+                break;
+            }
+            if (($name === 'h1' && $hasClass($tag, 'post-title')) || ($name === 'div' && $hasClass($tag, 'meta'))) {
+                $removal = ['start' => $offset, 'depth' => count($stack) + 1];
+            }
+        }
+        if (!str_ends_with(rtrim($tag), '/>') && !in_array($name, ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'], true)) {
+            $stack[] = $name;
+        }
+    }
+    // Incomplete or unfamiliar markup stays intact rather than losing content.
+    if ($foundBody) {
+        foreach (array_reverse($edits) as [$offset, $length, $replacement]) { $html = substr_replace($html, $replacement, $offset, $length); }
+    }
+    if (!$config['show_post_navigation']) {
+        $html = preg_replace_callback('~(<ul\b[^>]*>)(?:(?!</?ul\b).)*</ul\s*>~is', static function (array $match) use ($hasClass): string {
+            return $hasClass($match[1], 'post-navigation') ? '' : $match[0];
+        }, $html) ?? $html;
+    }
+    return ['<div class="post yue">' . $html . '</div>', '', ''];
+}
+
 /** Rearrange rendered HTML so core gates, feedback and plugin output survive intact. */
 function sbvoid_detail(string $html): array
 {
     $config = sbvoid_config();
-    if (!class_exists(DOMDocument::class)) {
-        // Preserve the complete core response on hosts without the optional DOM extension.
-        $html = preg_replace('/<h1\b[^>]*class="post-title"[^>]*>.*?<\/h1>/s', '', $html, 1) ?? $html;
-        if (!$config['show_post_navigation']) { $html = preg_replace('/<ul\b[^>]*class="[^"]*\bpost-navigation\b[^"]*"[^>]*>.*?<\/ul>/s', '', $html) ?? $html; }
-        $html = str_replace('class="post-content"', 'class="post-content articleBody full"', $html);
-        return ['<div class="post yue">' . $html . '</div>', '', ''];
-    }
+    if (!class_exists(DOMDocument::class)) { return sbvoid_detail_fallback($html, $config); }
     $document = new DOMDocument('1.0', 'UTF-8');
     $previous = libxml_use_internal_errors(true);
     $document->loadHTML('<?xml encoding="UTF-8"><div id="void-fragment">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
@@ -240,12 +303,14 @@ function sbvoid_detail(string $html): array
     $xpath = new DOMXPath($document);
     $root = $document->getElementById('void-fragment');
     $metaHtml = '';
-    $firstTitle = $xpath->query('.//h1[contains(concat(" ", normalize-space(@class), " "), " post-title ")]', $root)->item(0);
+    $article = $xpath->query('.//article[contains(concat(" ", normalize-space(@class), " "), " post-detail ")][./div[contains(concat(" ", normalize-space(@class), " "), " post-content ")]]', $root)->item(0);
+    $article ??= $xpath->query('.//article[./div[contains(concat(" ", normalize-space(@class), " "), " post-content ")] and ./h1[contains(concat(" ", normalize-space(@class), " "), " post-title ")]]', $root)->item(0);
+    $article ??= $xpath->query('.//article[./div[contains(concat(" ", normalize-space(@class), " "), " post-content ")]]', $root)->item(0);
+    $firstTitle = $article ? $xpath->query('./h1[contains(concat(" ", normalize-space(@class), " "), " post-title ")]', $article)->item(0) : null;
     if ($firstTitle) { $firstTitle->parentNode->removeChild($firstTitle); }
-    $article = $xpath->query('.//article[1]', $root)->item(0);
     if ($article instanceof DOMElement) {
         $article->setAttribute('class', trim($article->getAttribute('class') . ' post yue'));
-        $meta = $xpath->query('./div[@class="meta"]', $article)->item(0);
+        $meta = $xpath->query('./div[contains(concat(" ", normalize-space(@class), " "), " meta ")][following-sibling::div[contains(concat(" ", normalize-space(@class), " "), " post-content ")]]', $article)->item(0);
         if ($meta) {
             $metaHtml = $document->saveHTML($meta);
             $meta->parentNode->removeChild($meta);

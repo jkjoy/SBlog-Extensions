@@ -8,7 +8,7 @@
 
 推荐在后台「扩展商店」搜索 **VOID** 并安装，再到「主题管理」预览或启用 **VOID · 无类型**。
 
-也可从 [1.1.0 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.1.0) 下载 `theme-void-1.1.0.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
+也可从 [1.1.1 发布页](https://github.com/jkjoy/SBlog-Extensions/releases/tag/theme-void-v1.1.1) 下载 `theme-void-1.1.1.zip`，将包内 `void/` 目录复制到 SBlog 的 `themes/void/`，然后在后台启用。无需 Node.js 或构建步骤。
 
 ## 已实现
 
@@ -97,6 +97,7 @@
 ```bash
 npx --yes sass --silence-deprecation=import,global-builtin,color-functions themes/void/assets/scss/void.scss themes/void/assets/void.css --style=compressed --no-source-map
 php themes/void/tests/smoke.php
+php themes/void/tests/no-dom.php
 php themes/void/tests/settings.php
 php tests/theme-settings.php
 php tests/themes.php
@@ -105,6 +106,6 @@ php tests/public-layout.php
 node --check themes/void/assets/void.js
 ```
 
-PHP DOM 扩展用于详情重排和扩展语法。缺少该扩展时保留核心完整正文与评论，降级显示。验证脚本使用内存 SQLite，不读取或修改已安装博客。
+PHP DOM 扩展用于详情重排和扩展语法。缺少该扩展时保留核心完整正文与评论，降级显示；文章标题及作者、分类、时间、浏览量的重复信息仍会移除。`no-dom.php` 单独验证此兼容分支。验证脚本使用隔离环境，不读取或修改已安装博客。
 
 Typecho 专属的评论投票、访客互动统计及 Service Worker 缓存尚未移植。SBlog 使用自己的原生主题设置面板。原主题版权归 AlanDecode；PrismJS 版权见 `assets/PRISM-LICENSE`。
