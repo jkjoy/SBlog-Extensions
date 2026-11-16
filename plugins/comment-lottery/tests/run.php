@@ -26,7 +26,8 @@ if ($lotteryRaceWorker) {
         exit(1);
     }
 }
-$GLOBALS['lottery_test_db'] = new PDO('sqlite:' . $lotteryTestDatabase, null, null, [
+$lotteryPdoClass = class_exists('Pdo\\Sqlite') ? 'Pdo\\Sqlite' : PDO::class;
+$GLOBALS['lottery_test_db'] = new $lotteryPdoClass('sqlite:' . $lotteryTestDatabase, null, null, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     PDO::ATTR_EMULATE_PREPARES => false,
@@ -112,7 +113,8 @@ sblog_lottery_init();
 
 if ($lotteryRaceWorker) {
     $workerDirectory = dirname($lotteryTestDatabase);
-    db()->sqliteCreateFunction('lottery_test_hold_lock', static function (): int { usleep(200000); return 1; }, 0);
+    $createFunction = method_exists(db(), 'createFunction') ? 'createFunction' : 'sqliteCreateFunction';
+    db()->{$createFunction}('lottery_test_hold_lock', static function (): int { usleep(200000); return 1; }, 0);
     file_put_contents($workerDirectory . '/ready-' . $argv[4], 'ready');
     $deadline = microtime(true) + 10;
     while (!is_file($workerDirectory . '/go')) {
@@ -265,16 +267,93 @@ $tests['datetime-local uses Asia Shanghai even when the host default timezone di
         lottery_test_same($expected, (int)$lottery['starts_at'], 'Editor dates must consistently use the advertised timezone.');
     } finally { date_default_timezone_set('Asia/Shanghai'); }
 };
-$tests['only the first standalone module is active and copied tokens cannot rebind'] = static function (): void {
+$tests['all standalone modules activate once and copied tokens cannot rebind'] = static function (): void {
     $postId = lottery_test_post();
     $first = lottery_test_create([], $postId, false);
     $second = lottery_test_create([], $postId, false);
-    lottery_test_bind($postId, '[comment-lottery id="' . $first['id'] . '"]' . "\n\n" . '[comment-lottery id="' . $second['id'] . '"]');
+    lottery_test_bind($postId, sblog_lottery_shortcode($first['id']) . "\n\n" . sblog_lottery_shortcode($second['id']) . "\n\n" . sblog_lottery_shortcode($first['id']));
     lottery_test_same(1, (int)sblog_lottery_get($first['id'])['enabled'], 'The first module must activate.');
-    lottery_test_same(0, (int)sblog_lottery_get($second['id'])['enabled'], 'A second module in the same article must remain inactive.');
+    lottery_test_same(1, (int)sblog_lottery_get($second['id'])['enabled'], 'A second module in the same article must also activate.');
+    lottery_test_same(2, count(sblog_lotteries_for_post($postId)), 'Repeating a marker must not create a duplicate activity.');
     $otherPost = lottery_test_post();
-    lottery_test_bind($otherPost, '[comment-lottery id="' . $first['id'] . '"]');
+    $own = lottery_test_create([], $otherPost, false);
+    lottery_test_bind($otherPost, sblog_lottery_shortcode($first['id']) . "\n\n" . sblog_lottery_shortcode($own['id']));
     lottery_test_same($postId, (int)sblog_lottery_get($first['id'])['post_id'], 'A copied marker must never move an existing draw to another post.');
+    lottery_test_same([$own['id']], array_column(sblog_lotteries_for_post($otherPost), 'id'), 'A foreign marker must not prevent the article from binding its own activity.');
+};
+$tests['a later round preserves the old result and sent mail with independent participation windows'] = static function (): void {
+    $first = lottery_test_create(['title' => 'First round', 'winners_count' => '1', 'notify' => '1']);
+    $postId = (int)$first['post_id'];
+    $firstComment = lottery_test_comment($postId, (int)$first['starts_at'], ['author_email' => 'same-reader@example.test']);
+    sblog_lottery_draw($first['id'], (int)$first['ends_at']);
+    sblog_lottery_notify($first['id']);
+    $oldWinners = sblog_lottery_winners($first['id']);
+    $oldDraw = sblog_lottery_get($first['id']);
+    $second = lottery_test_create([
+        'title' => 'Second round', 'winners_count' => '1', 'notify' => '1',
+        'starts_at' => sblog_lottery_date((int)$first['ends_at'], 'Y-m-d\TH:i'),
+        'ends_at' => sblog_lottery_date((int)$first['ends_at'] + 1800, 'Y-m-d\TH:i'),
+    ], $postId, false);
+    $secondComment = lottery_test_comment($postId, (int)$first['ends_at'], ['author_email' => 'same-reader@example.test']);
+    lottery_test_bind($postId, sblog_lottery_shortcode($first['id']) . "\n\n" . sblog_lottery_shortcode($second['id']));
+    $tick = sblog_lottery_tick(time(), 'test');
+    lottery_test_same(1, $tick['drawn'], 'The automatic worker must draw the new round while the old result remains published.');
+    lottery_test_same([$firstComment], lottery_test_winner_ids($first['id']), 'The first round must retain its original winner.');
+    lottery_test_same([$secondComment], lottery_test_winner_ids($second['id']), 'The later round must use its own start-inclusive window and per-round email dedup.');
+    lottery_test_same($oldWinners, sblog_lottery_winners($first['id']), 'Starting another round must preserve the old snapshot and sent mail state.');
+    lottery_test_same($oldDraw['drawn_at'], sblog_lottery_get($first['id'])['drawn_at'], 'The old draw timestamp must remain fixed.');
+    lottery_test_same(2, count($GLOBALS['lottery_test_mail']), 'Each round must send its own notification exactly once.');
+    foreach ([$first, $second] as $lottery) {
+        lottery_test_same('already_drawn', sblog_lottery_draw($lottery['id'])['reason'], 'Repeated requests must not redraw either round.');
+    }
+    sblog_lottery_tick(time(), 'test');
+    lottery_test_same(2, count($GLOBALS['lottery_test_mail']), 'A later worker run must not resend either successful notice.');
+    $GLOBALS['sblog_current_action'] = 'post';
+    $_GET = ['id' => (string)$postId];
+    $source = '<html><body><p>' . h(sblog_lottery_shortcode($second['id'])) . '</p><p>' . h(sblog_lottery_shortcode($first['id'])) . '</p></body></html>';
+    $html = lottery_test_buffered_output($source);
+    lottery_test_same(2, substr_count($html, '<section class="sblog-lottery"'), 'Both current and historical results must render.');
+    lottery_test_assert(strpos($html, 'id="lottery-' . $second['id']) < strpos($html, 'id="lottery-' . $first['id']), 'Modules must stay in the article order.');
+    lottery_test_assert(!str_contains($html, '[comment-lottery'), 'Every active shortcode must be replaced.');
+    $gate = '<html><body><section class="password-gate">输入密码后查看文章</section></body></html>';
+    lottery_test_same($gate, lottery_test_buffered_output($gate), 'Multiple modules must not expose any result across a locked article gate.');
+    foreach ([$firstComment, $secondComment] as $commentId) {
+        lottery_test_assert(str_contains(sblog_lottery_badge('', ['post' => ['id' => $postId], 'comment' => ['id' => $commentId]]), '抽奖中奖'), 'Winners from every round must receive their comment badge.');
+    }
+};
+$tests['overlapping rounds draw and notify independently for the same winning comment'] = static function (): void {
+    $postId = lottery_test_post();
+    $first = lottery_test_create(['notify' => '1', 'winners_count' => '1'], $postId, false);
+    $second = lottery_test_create(['notify' => '1', 'winners_count' => '1'], $postId, false);
+    $commentId = lottery_test_comment($postId, (int)$first['starts_at']);
+    lottery_test_bind($postId, sblog_lottery_shortcode($first['id']) . "\n\n" . sblog_lottery_shortcode($second['id']));
+    lottery_test_same(2, sblog_lottery_tick(time(), 'test')['drawn'], 'Every due activity on the same article must be drawn.');
+    foreach ([$first, $second] as $lottery) {
+        lottery_test_same([$commentId], lottery_test_winner_ids($lottery['id']), 'A comment may win independently in overlapping rounds.');
+    }
+    lottery_test_same(2, count($GLOBALS['lottery_test_mail']), 'The same comment must receive separate notices for its two prizes.');
+    sblog_lottery_tick(time(), 'test');
+    lottery_test_same(2, count($GLOBALS['lottery_test_mail']), 'Independent notifications must each remain idempotent.');
+    $badge = sblog_lottery_badge('Reader', ['post' => ['id' => $postId], 'comment' => ['id' => $commentId]]);
+    lottery_test_same(1, substr_count($badge, 'sblog-lottery-winner-badge'), 'A multi-round winner must receive a single comment badge.');
+};
+$tests['removing one module pauses only that round and preserves its history'] = static function (): void {
+    $postId = lottery_test_post();
+    $first = lottery_test_create(['notify' => '1', 'winners_count' => '1'], $postId, false);
+    $second = lottery_test_create(['notify' => '1', 'winners_count' => '1'], $postId, false);
+    lottery_test_comment($postId, (int)$first['starts_at']);
+    lottery_test_bind($postId, sblog_lottery_shortcode($first['id']) . "\n\n" . sblog_lottery_shortcode($second['id']));
+    sblog_lottery_draw($first['id'], (int)$first['ends_at']);
+    $oldWinners = sblog_lottery_winners($first['id']);
+    lottery_test_bind($postId, sblog_lottery_shortcode($second['id']));
+    lottery_test_same(0, (int)sblog_lottery_get($first['id'])['enabled'], 'Only the removed activity must stop.');
+    lottery_test_same(1, (int)sblog_lottery_get($second['id'])['enabled'], 'The retained activity must stay active.');
+    lottery_test_same(1, sblog_lottery_tick(time(), 'test')['drawn'], 'The remaining activity must still draw.');
+    lottery_test_same(1, count($GLOBALS['lottery_test_mail']), 'The removed activity must pause its unsent notification.');
+    lottery_test_same($oldWinners, sblog_lottery_winners($first['id']), 'Removing a module must preserve its audit and mail records.');
+    lottery_test_bind($postId, sblog_lottery_shortcode($first['id']) . "\n\n" . sblog_lottery_shortcode($second['id']));
+    lottery_test_same(0, sblog_lottery_tick(time(), 'test')['drawn'], 'Restoring the old result must never redraw it.');
+    lottery_test_same(2, count($GLOBALS['lottery_test_mail']), 'Restoring the module must resume its unsent notice without resending the other notice.');
 };
 $tests['inline markers and fenced code examples cannot activate a lottery'] = static function (): void {
     foreach (['inline', 'fenced'] as $mode) {

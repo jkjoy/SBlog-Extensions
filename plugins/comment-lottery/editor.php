@@ -26,12 +26,11 @@ function sblog_lottery_editor_toolbar(string $html, array $context): string
 function sblog_lottery_editor_modal(string $html, array $context): string
 {
     $postId = max(0, (int)($context['post_id'] ?? 0));
-    $existing = $postId > 0 ? sblog_lottery_for_post($postId) : null;
     $assetVersion = rawurlencode((string)(plugin_manifest('comment-lottery')['version'] ?? ''));
     ob_start();
     ?>
     <link rel="stylesheet" href="<?= h(plugin_asset_url('comment-lottery', 'assets/style.css') . '?v=' . $assetVersion) ?>">
-    <dialog class="sblog-lottery-editor" id="sblog-lottery-editor" aria-labelledby="lottery-editor-title" aria-describedby="lottery-editor-hint" data-post-id="<?= h((string)$postId) ?>" data-existing-id="<?= h((string)($existing['id'] ?? '')) ?>">
+    <dialog class="sblog-lottery-editor" id="sblog-lottery-editor" aria-labelledby="lottery-editor-title" aria-describedby="lottery-editor-hint" data-post-id="<?= h((string)$postId) ?>">
       <div class="sblog-lottery-editor__header">
         <div><h2 id="lottery-editor-title">评论抽奖</h2><p id="lottery-editor-hint">从本篇文章在活动时间内通过审核的评论中随机抽取中奖评论。</p></div>
         <button class="button button--secondary" type="button" data-lottery-close aria-label="关闭抽奖设置">关闭</button>
@@ -41,7 +40,8 @@ function sblog_lottery_editor_modal(string $html, array $context): string
         <input type="hidden" name="id" value="">
         <input type="hidden" name="post_id" value="<?= h((string)$postId) ?>">
         <p class="sblog-lottery-editor__error" data-lottery-error role="alert" aria-live="assertive" hidden></p>
-        <p class="sblog-lottery-editor__notice" data-lottery-locked hidden>抽奖已开始或已开奖，活动设置已锁定。可在插件管理中查看开奖和通知情况。</p>
+        <p class="sblog-lottery-editor__notice" data-lottery-locked hidden>抽奖已开始或已开奖，活动设置已锁定。点击「新建一轮」可继续举办抽奖，旧活动和结果会保留。</p>
+        <p class="sblog-lottery-editor__notice" data-lottery-choice role="status" hidden>正文包含多个抽奖模块。选中要编辑的短代码后再打开设置，或点击「新建一轮」添加活动。</p>
         <fieldset class="sblog-lottery-editor__fields" data-lottery-fields>
           <legend class="sr-only">抽奖设置</legend>
           <div class="field"><label for="lottery-title">活动标题</label><input id="lottery-title" name="title" type="text" maxlength="80" required autocomplete="off" value="评论抽奖"></div>
@@ -62,8 +62,8 @@ function sblog_lottery_editor_modal(string $html, array $context): string
             </div>
           </fieldset>
         </fieldset>
-        <p class="field-hint sblog-lottery-editor__save-hint">插入后请保存或发布文章，活动才会绑定到文章并生效。再次点击「评论抽奖」可修改未开始的活动；删除正文中的抽奖短代码可移除模块。开奖结果会在模块内公示，邮箱不会公开。<a href="<?= h(sblog_lottery_url('admin_lottery')) ?>" target="_blank" rel="noopener">查看抽奖管理与自动开奖设置</a>。</p>
-        <div class="sblog-lottery-editor__actions"><button class="button button--secondary" type="button" data-lottery-close>取消</button><button class="button" type="submit" data-lottery-submit>插入抽奖</button></div>
+        <p class="field-hint sblog-lottery-editor__save-hint">插入后请保存或发布文章，活动才会生效。点击「新建一轮」可添加独立活动并保留旧模块；有多个模块时，选中短代码后点击「评论抽奖」可编辑对应活动。删除短代码可移除模块。开奖结果会在各自模块内公示，邮箱不会公开。<a href="<?= h(sblog_lottery_url('admin_lottery')) ?>" target="_blank" rel="noopener">查看抽奖管理与自动开奖设置</a>。</p>
+        <div class="sblog-lottery-editor__actions"><button class="button button--secondary" type="button" data-lottery-new>新建一轮</button><button class="button button--secondary" type="button" data-lottery-close>取消</button><button class="button" type="submit" data-lottery-submit>插入抽奖</button></div>
       </form>
     </dialog>
     <script defer src="<?= h(plugin_asset_url('comment-lottery', 'assets/editor.js') . '?v=' . $assetVersion) ?>"></script>

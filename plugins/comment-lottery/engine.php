@@ -124,6 +124,14 @@ function sblog_lottery_for_post(int $postId): ?array
     return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+function sblog_lotteries_for_post(int $postId): array
+{
+    sblog_lottery_init();
+    $statement = db()->prepare('SELECT * FROM plugin_comment_lotteries WHERE post_id = ? AND enabled = 1 ORDER BY created_at ASC, id ASC');
+    $statement->execute([$postId]);
+    return $statement->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function sblog_lottery_post(array $lottery): ?array
 {
     $statement = db()->prepare('SELECT * FROM posts WHERE id = ?');
@@ -247,7 +255,6 @@ function sblog_lottery_sync_post(array $context): void
             }
             $statement = $database->prepare('UPDATE plugin_comment_lotteries SET post_id=?, enabled=1, updated_at=? WHERE id=?');
             $statement->execute([$postId, time(), $token]);
-            break; // One active lottery per article.
         }
         $database->exec('COMMIT');
     } catch (Throwable $exception) {

@@ -93,8 +93,10 @@ function sblog_lottery_output(string $html, array $context): string
         return $html;
     }
     $post = sblog_lottery_current_post();
-    $lottery = $post ? sblog_lottery_for_post((int)$post['id']) : null;
-    if (!$lottery || !in_array($lottery['id'], sblog_lottery_tokens((string)$post['content']), true)) {
+    $lotteries = $post ? sblog_lotteries_for_post((int)$post['id']) : [];
+    $tokens = $post ? sblog_lottery_tokens((string)$post['content']) : [];
+    $lotteries = array_filter($lotteries, static fn(array $lottery): bool => in_array($lottery['id'], $tokens, true));
+    if (!$lotteries) {
         return $html;
     }
     // Keep this article dynamic, including a locked password/reply gate.
@@ -102,8 +104,11 @@ function sblog_lottery_output(string $html, array $context): string
         spc_release_plan_lock();
         unset($GLOBALS['sblog_static_page_cache_plan']);
     }
-    $pattern = '~<p>\s*\[comment-lottery id=(?:"|&quot;)' . preg_quote($lottery['id'], '~') . '(?:"|&quot;)\]\s*</p>~';
-    return preg_replace_callback($pattern, static fn(): string => sblog_lottery_render($lottery), $html, 1) ?? $html;
+    foreach ($lotteries as $lottery) {
+        $pattern = '~<p>\s*\[comment-lottery id=(?:"|&quot;)' . preg_quote($lottery['id'], '~') . '(?:"|&quot;)\]\s*</p>~';
+        $html = preg_replace_callback($pattern, static fn(): string => sblog_lottery_render($lottery), $html, 1) ?? $html;
+    }
+    return $html;
 }
 
 function sblog_lottery_badge(string $html, array $context): string
@@ -115,9 +120,12 @@ function sblog_lottery_badge(string $html, array $context): string
         return $html;
     }
     if (!array_key_exists($postId, $winnersByPost)) {
-        $lottery = sblog_lottery_for_post($postId);
-        $winnersByPost[$postId] = $lottery && $lottery['status'] === 'drawn'
-            ? array_map('intval', array_column(sblog_lottery_winners($lottery['id']), 'comment_id')) : [];
+        sblog_lottery_init();
+        $statement = db()->prepare("SELECT DISTINCT w.comment_id FROM plugin_comment_lottery_winners w
+            JOIN plugin_comment_lotteries l ON l.id=w.lottery_id
+            WHERE l.post_id=? AND l.enabled=1 AND l.status='drawn'");
+        $statement->execute([$postId]);
+        $winnersByPost[$postId] = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
     }
     return in_array($commentId, $winnersByPost[$postId], true)
         ? $html . '<span class="sblog-lottery-winner-badge">抽奖中奖</span>' : $html;

@@ -9,6 +9,8 @@
   const fields = dialog.querySelector("[data-lottery-fields]");
   const errorBox = dialog.querySelector("[data-lottery-error]");
   const lockedBox = dialog.querySelector("[data-lottery-locked]");
+  const choiceBox = dialog.querySelector("[data-lottery-choice]");
+  const newButton = dialog.querySelector("[data-lottery-new]");
   const submit = dialog.querySelector("[data-lottery-submit]");
   const kind = document.querySelector("#kind");
   const closeButtons = Array.from(dialog.querySelectorAll("[data-lottery-close]"));
@@ -39,6 +41,7 @@
     form.setAttribute("aria-busy", String(value));
     fields.disabled = value || locked;
     submit.disabled = value || locked;
+    newButton.disabled = value;
     closeButtons.forEach((button) => { button.disabled = value; });
     submit.textContent = value ? "处理中…" : control("id").value ? "更新抽奖" : "插入抽奖";
   };
@@ -106,8 +109,29 @@
     const selected = markers.find((match) => selection.start >= match.index && selection.end <= match.index + match.shortcode.length);
     if (selected) return selected.id;
     if (markers.length === 1) return markers[0].id;
-    if (markers.length > 1) throw new Error("正文包含多个抽奖短代码，请先选中要编辑的短代码。");
-    return dialog.dataset.existingId || "";
+    return "";
+  };
+
+  const resetNewLottery = () => {
+    form.reset();
+    control("id").value = "";
+    locked = false;
+    lockedBox.hidden = true;
+    choiceBox.hidden = activeMarkers().length < 2;
+    showError("");
+    const now = Math.floor(Date.now() / 1000);
+    control("starts_at").value = shanghaiTime(now);
+    control("ends_at").value = shanghaiTime(now + 7 * 86400);
+    setBusy(false);
+  };
+
+  const insertionPosition = () => {
+    const markers = activeMarkers();
+    // A new round never replaces selected text or splits an existing module.
+    const overlapping = markers.filter((marker) => selection.start <= marker.index + marker.shortcode.length
+      && selection.end >= marker.index);
+    const lastMarker = overlapping[overlapping.length - 1];
+    return lastMarker ? lastMarker.index + lastMarker.shortcode.length : Math.min(selection.end, content.value.length);
   };
 
   const syncKind = () => {
@@ -127,18 +151,12 @@
       trigger = button;
       focusEditorOnClose = false;
       selection = { start: content.selectionStart, end: content.selectionEnd };
-      form.reset();
-      locked = false;
-      lockedBox.hidden = true;
-      showError("");
-      const now = Math.floor(Date.now() / 1000);
-      control("starts_at").value = shanghaiTime(now);
-      control("ends_at").value = shanghaiTime(now + 7 * 86400);
-      setBusy(false);
+      resetNewLottery();
       dialog.showModal();
       try {
         const token = currentToken();
         if (token) {
+          choiceBox.hidden = true;
           setBusy(true);
           const url = new URL(form.action, window.location.href);
           url.searchParams.set("id", token);
@@ -154,6 +172,12 @@
         if (!locked) control("title").focus();
       }
     });
+  });
+
+  newButton.addEventListener("click", () => {
+    if (busy) return;
+    resetNewLottery();
+    control("title").focus();
   });
 
   closeButtons.forEach((button) => button.addEventListener("click", () => { if (!busy) dialog.close(); }));
@@ -184,16 +208,14 @@
       if (!/^[a-f0-9]{32}$/.test(id) || payload.shortcode !== shortcode) throw new Error("抽奖短代码无效，请刷新页面后重试。");
       const alreadyInserted = activeMarkers().some((marker) => marker.id === id);
       if (!alreadyInserted) {
-        const start = Math.min(selection.start, content.value.length);
-        const end = Math.min(selection.end, content.value.length);
+        const start = insertionPosition();
         const before = content.value.slice(0, start);
-        const after = content.value.slice(end);
+        const after = content.value.slice(start);
         const prefix = before && !before.endsWith("\n\n") ? before.endsWith("\n") ? "\n" : "\n\n" : "";
-        const suffix = after && !after.startsWith("\n\n") ? after.startsWith("\n") ? "\n" : "\n\n" : "\n\n";
-        content.setRangeText(prefix + shortcode + suffix, start, end, "end");
+        const suffix = after.startsWith("\n\n") ? "" : after.startsWith("\n") ? "\n" : "\n\n";
+        content.setRangeText(prefix + shortcode + suffix, start, start, "end");
       }
       content.dispatchEvent(new Event("input", { bubbles: true }));
-      dialog.dataset.existingId = id;
       focusEditorOnClose = true;
       dialog.close();
       content.focus();

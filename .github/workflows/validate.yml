@@ -27,6 +27,7 @@ jobs:
         run: |
           node scripts/test-gallery-admin.cjs
           node scripts/test-menu-manager-admin.cjs
+          node plugins/comment-lottery/tests/editor.cjs
           php scripts/test.php
           php scripts/validate.php
 
