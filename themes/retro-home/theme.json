@@ -1,0 +1,8 @@
+{
+  "name": "旧日小屋 · Retro Home",
+  "version": "1.0.1",
+  "requires": "1.14.18",
+  "tested": "1.14.36",
+  "author": "SBlog contributors",
+  "description": "复古个人主页：米色纸张、宋体、像素软盘、更新日志、个人资料与数字阅读计数器。"
+}

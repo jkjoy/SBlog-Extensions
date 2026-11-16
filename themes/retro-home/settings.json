@@ -1,0 +1,39 @@
+{
+  "sections": [
+    {
+      "title": "报头与欢迎语",
+      "description": "站名使用博客的站点名称。以下内容均为纯文本。",
+      "fields": [
+        {"key":"subtitle","label":"报头副标题","type":"text","default":"A QUIET CORNER ON THE WEB","maxlength":200,"description":"留空使用博客副标题。"},
+        {"key":"welcome_title","label":"欢迎语开头","type":"text","default":"你好，陌生人。","maxlength":100},
+        {"key":"welcome_text","label":"欢迎介绍","type":"textarea","default":"这里是我在网上的一小块自留地。没有算法，没有推送，只有一些慢慢写下来的文字、喜欢的链接，和一台总也关不掉的旧电脑。","maxlength":3000},
+        {"key":"welcome_note","label":"欢迎语补充","type":"textarea","default":"随便坐，慢慢看。若觉得眼熟，也许我们在别的地方见过。","maxlength":1000},
+        {"key":"since_date","label":"建站日期","type":"date","default":"","description":"留空使用最早一篇已发布内容的日期；没有内容时隐藏日期。"}
+      ]
+    },
+    {
+      "title": "关于我与联系",
+      "fields": [
+        {"key":"show_profile","label":"首页显示关于我","type":"checkbox","default":"1"},
+        {"key":"profile_name","label":"网名","type":"text","default":"","maxlength":100,"description":"留空使用站点名称。"},
+        {"key":"profile_location","label":"坐标","type":"text","default":"一座常下雨的城市","maxlength":200},
+        {"key":"profile_doing","label":"在做","type":"text","default":"写字、做点小网页、收集旧磁带","maxlength":300},
+        {"key":"profile_likes","label":"喜欢","type":"text","default":"长信、纸质书、深夜的电台、慢一点的互联网","maxlength":300},
+        {"key":"contact_email","label":"联系邮箱","type":"text","default":"","maxlength":254,"description":"填写有效邮箱后在个人资料与页脚显示写信链接；留空隐藏。"},
+        {"key":"show_links","label":"首页显示友情链接","type":"checkbox","default":"1","description":"显示后台友情链接中的前 6 项，并提供完整列表入口。"}
+      ]
+    },
+    {
+      "title": "侧栏",
+      "fields": [
+        {"key":"status_text","label":"当前状态","type":"text","default":"在线 · 正在听雨","maxlength":100},
+        {"key":"now_playing","label":"正在播放","type":"text","default":"磁带 B 面","maxlength":200,"description":"仅显示文字，不自动播放音频；留空隐藏。"},
+        {"key":"show_clock","label":"显示访客本地时钟","type":"checkbox","default":"1"},
+        {"key":"show_counter","label":"显示文章阅读计数","type":"checkbox","default":"1","description":"汇总已发布文章的真实阅读次数，不使用模拟访客数字。"},
+        {"key":"show_badges","label":"显示复古徽章","type":"checkbox","default":"1"},
+        {"key":"quote","label":"摘句","type":"textarea","default":"网页应该是安静的，像一张摆在窗边的桌子。","maxlength":1000,"description":"留空隐藏摘句卡片。"},
+        {"key":"quote_author","label":"摘句署名","type":"text","default":"某天深夜","maxlength":100}
+      ]
+    }
+  ]
+}
