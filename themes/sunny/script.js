@@ -4,6 +4,10 @@
   if (window.sunnyThemeScriptReady) return;
   window.sunnyThemeScriptReady = true;
 
+  const listSnapshots = new Map();
+  const listCards = (list) => [...list.querySelectorAll(':scope > .sunny-post-grid > .sunny-post-card')];
+  const listSignature = (list) => listCards(list).map((card) => card.dataset.sunnyPostId || '').join(',');
+  const listLocation = () => { const url = new URL(location.href); url.hash = ''; return url.href; };
   let disposePage = () => {};
   const initialize = () => {
     disposePage();
@@ -30,6 +34,21 @@
     const cancelLater = (id) => { clearTimeout(id); timers.delete(id); };
     const root = document.documentElement;
     const body = document.body;
+    const listURL = listLocation();
+    const initialList = document.querySelector('[data-sunny-list]');
+    const listSeed = initialList ? {
+      version: body.dataset.sunnyPjax,
+      key: initialList.dataset.listKey,
+      mode: initialList.dataset.loadMode,
+      page: initialList.dataset.page,
+      signature: listSignature(initialList),
+    } : null;
+    const snapshot = listSnapshots.get(listURL);
+    if (initialList && snapshot && Object.keys(listSeed).every((key) => snapshot.seed[key] === listSeed[key])) {
+      initialList.replaceWith(snapshot.node.cloneNode(true));
+      listSnapshots.delete(listURL);
+      listSnapshots.set(listURL, snapshot);
+    }
     const pageDialogs = [...document.querySelectorAll('dialog')].filter((dialog) => !dialog.closest('#sunny-player-root'));
     disposePage = () => {
       controller.abort();
@@ -379,7 +398,10 @@
       renderLightbox();
     };
 
-    document.querySelectorAll('[data-sunny-gallery]').forEach((gallery) => {
+    const enhancedGalleries = new WeakSet();
+    const enhanceGalleries = (scope) => scope.querySelectorAll('[data-sunny-gallery]').forEach((gallery) => {
+      if (enhancedGalleries.has(gallery)) return;
+      enhancedGalleries.add(gallery);
       const links = [...gallery.querySelectorAll('[data-sunny-gallery-image]')];
       const refreshGallery = () => {
         const available = links.filter((link) => !link.dataset.sunnyImageFailed);
@@ -421,6 +443,7 @@
         });
       });
     });
+    enhanceGalleries(document);
 
     document.querySelectorAll('.sunny-content .post-content img').forEach((image) => {
       if (!canPreview || image.closest('a, button')) return;
@@ -583,10 +606,162 @@
       if (cover) { cover.classList.add('sunny-post-cover--empty'); image.remove(); }
       else { image.hidden = true; image.parentElement?.classList.add('has-image-error'); }
     };
-    document.querySelectorAll('.sunny-hero-avatar img, .sunny-post-avatar img, .sunny-post-cover img, .sunny-discover > img, .sunny-dock-home img').forEach((image) => {
+    const enhancedImages = new WeakSet();
+    const enhanceImages = (scope) => scope.querySelectorAll('.sunny-hero-avatar img, .sunny-post-avatar img, .sunny-post-cover img, .sunny-discover > img, .sunny-dock-home img').forEach((image) => {
+      if (enhancedImages.has(image)) return;
+      enhancedImages.add(image);
       listen(image, 'error', () => hideBrokenImage(image), { once: true });
       if (image.complete && image.naturalWidth === 0) hideBrokenImage(image);
     });
+    enhanceImages(document);
+
+    const list = document.querySelector('[data-sunny-list]');
+    if (!list || !['button', 'auto'].includes(list.dataset.loadMode) || !window.fetch || !window.DOMParser || !body.dataset.sunnyPjax) return;
+    const grid = list.querySelector(':scope > .sunny-post-grid');
+    const controls = list.querySelector('[data-sunny-load-controls]');
+    const more = controls?.querySelector('[data-sunny-load-more]');
+    const loadStatus = controls?.querySelector('[data-sunny-load-status]');
+    const initialPage = Number(list.dataset.page);
+    if (!controls || !loadStatus || !Number.isSafeInteger(initialPage) || initialPage < 1 || !/^(?:home|category:.+|tag:.+)$/.test(list.dataset.listKey || '')) return;
+    const listKey = list.dataset.listKey;
+    const baseURL = new URL(location.href);
+    const version = body.dataset.sunnyPjax;
+    const filterKey = (url) => {
+      const entries = [...url.searchParams].filter(([key, value]) => key !== 'p' && !(listKey === 'home' && key === 'a' && value === 'home'));
+      return JSON.stringify(entries.sort(([a, av], [b, bv]) => a.localeCompare(b) || av.localeCompare(bv)));
+    };
+    const pagePath = (url) => listKey === 'home' ? url.pathname.replace(/\/page\/[1-9]\d*\/?$/, '').replace(/\/$/, '') : url.pathname;
+    const pageURL = (value, page) => {
+      const url = safeUrl(value);
+      if (!url || url.hash || pagePath(url) !== pagePath(baseURL) || filterKey(url) !== filterKey(baseURL)) return null;
+      const pathPage = listKey === 'home' ? url.pathname.match(/\/page\/([1-9]\d*)\/?$/)?.[1] : null;
+      const number = url.searchParams.get('p') || pathPage || '1';
+      return /^[1-9]\d*$/.test(number) && Number(number) === page ? url : null;
+    };
+    const nextLink = (scope) => scope.querySelector(':scope > .sunny-pagination a.sunny-page-next[rel="next"]');
+    let next = nextLink(list)?.getAttribute('href') || '';
+    if (next && (!grid || !more || !pageURL(next, initialPage + 1))) return;
+    let page = initialPage;
+    let pending = null;
+    let autoStopped = false;
+    let observer = null;
+    const seen = new Set(listCards(list).map((card) => card.dataset.sunnyPostId).filter(Boolean));
+    const rememberList = () => {
+      if (!listSeed || !list.isConnected || pending) return;
+      if (seen.size > 300) { listSnapshots.delete(listURL); return; }
+      const copy = list.cloneNode(true);
+      copy.querySelectorAll('[data-article-like][aria-busy="true"]').forEach((button) => {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+      });
+      listSnapshots.delete(listURL);
+      listSnapshots.set(listURL, { seed: listSeed, node: copy });
+      while (listSnapshots.size > 5) listSnapshots.delete(listSnapshots.keys().next().value);
+    };
+    const showLoadState = (state, count = 0) => {
+      if (state === 'loading') list.setAttribute('aria-busy', 'true'); else list.removeAttribute('aria-busy');
+      controls.classList.toggle('is-loading', state === 'loading');
+      if (more) {
+        more.hidden = !next;
+        more.textContent = state === 'loading' ? '正在加载…' : state === 'error' ? '重试加载' : '加载更多';
+        more.setAttribute('aria-disabled', String(state === 'loading'));
+        if (next) more.href = next; else more.removeAttribute('href');
+      }
+      loadStatus.textContent = state === 'loading' ? '正在加载更多文章…' : state === 'error' ? '加载失败，请点击重试。' : !next ? '已全部加载' : count ? `已加载 ${count} 篇文章` : '';
+    };
+    const loadMore = async (manual = false) => {
+      if (pending || signal.aborted || !next || !list.isConnected || (!manual && autoStopped)) return;
+      const requested = pageURL(next, page + 1);
+      if (!requested) return;
+      const request = new AbortController();
+      pending = request;
+      observer?.unobserve(controls);
+      let rejectTimeout;
+      const expired = new Promise((_, reject) => { rejectTimeout = reject; });
+      const cancel = () => { request.abort(); rejectTimeout(new DOMException('Aborted', 'AbortError')); };
+      signal.addEventListener('abort', cancel, { once: true });
+      const timeout = later(() => { request.abort(); rejectTimeout(new Error('List request timed out.')); }, 20000);
+      showLoadState('loading');
+      try {
+        const { response, html } = await Promise.race([(async () => {
+          const response = await fetch(requested.href, { credentials: 'same-origin', headers: { Accept: 'text/html', 'X-Sunny-List': '1' }, signal: request.signal });
+          return { response, html: await response.text() };
+        })(), expired]);
+        if (!response.ok || !response.headers.get('content-type')?.includes('text/html') || !pageURL(response.url || requested.href, page + 1)) throw new Error('Invalid list response.');
+        if (typeof html !== 'string' || html.length > 4 * 1024 * 1024) throw new Error('List response is too large.');
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        const incoming = parsed.querySelector('[data-sunny-list]');
+        if (!parsed.body.classList.contains('sunny-theme') || parsed.body.dataset.sunnyPjax !== version || !incoming
+          || incoming.dataset.listKey !== listKey || incoming.dataset.loadMode !== list.dataset.loadMode || Number(incoming.dataset.page) !== page + 1) throw new Error('List page changed.');
+        const incomingGrid = incoming.querySelector(':scope > .sunny-post-grid');
+        const cards = incomingGrid ? [...incomingGrid.children] : [];
+        if (!incomingGrid || cards.length === 0 || cards.some((card) => !card.matches('article.sunny-post-card') || !/^[1-9]\d*$/.test(card.dataset.sunnyPostId || ''))) throw new Error('Invalid article cards.');
+        const href = nextLink(incoming)?.getAttribute('href') || '';
+        if (href && !pageURL(href, page + 2)) throw new Error('Invalid next page.');
+        if (signal.aborted || request.signal.aborted || pending !== request || !list.isConnected) return;
+        const fragment = document.createDocumentFragment();
+        const appended = [];
+        let added = 0;
+        cards.forEach((card) => {
+          const id = card.dataset.sunnyPostId;
+          if (seen.has(id)) return;
+          seen.add(id);
+          const copy = document.importNode(card, true);
+          copy.querySelectorAll('script').forEach((script) => script.remove());
+          fragment.append(copy);
+          appended.push(copy);
+          added++;
+        });
+        grid.append(fragment);
+        appended.forEach((card) => { enhanceGalleries(card); enhanceImages(card); });
+        page++;
+        list.dataset.page = String(page);
+        next = href;
+        const oldPagination = list.querySelector(':scope > .sunny-pagination');
+        const pagination = incoming.querySelector(':scope > .sunny-pagination');
+        if (pagination) {
+          const copy = document.importNode(pagination, true);
+          copy.querySelectorAll('script').forEach((script) => script.remove());
+          copy.hidden = true;
+          if (oldPagination) oldPagination.replaceWith(copy); else list.insertBefore(copy, controls);
+        } else oldPagination?.remove();
+        autoStopped = false;
+        showLoadState('ready', added);
+        scheduleProgress();
+      } catch (_) {
+        if (!signal.aborted && list.isConnected && pending === request) {
+          autoStopped = true;
+          showLoadState('error');
+        }
+      } finally {
+        cancelLater(timeout);
+        signal.removeEventListener('abort', cancel);
+        if (pending === request) {
+          pending = null;
+          if (!signal.aborted && list.isConnected) {
+            rememberList();
+            if (next && !autoStopped) frame(() => observer?.observe(controls));
+          }
+        }
+      }
+    };
+    list.querySelector(':scope > .sunny-pagination')?.setAttribute('hidden', '');
+    controls.hidden = false;
+    showLoadState('ready');
+    listen(more, 'click', (event) => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      void loadMore(true);
+    });
+    if (list.dataset.loadMode === 'auto' && 'IntersectionObserver' in window && next) {
+      observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      }, { rootMargin: '0px 0px 320px 0px', threshold: 0 });
+      observer.observe(controls);
+      observers.push(observer);
+    }
+    rememberList();
+    cleanups.push(() => { pending?.abort(); pending = null; rememberList(); });
   };
 
   document.addEventListener('sunny:before-replace', () => disposePage());

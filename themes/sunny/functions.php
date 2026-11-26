@@ -131,13 +131,39 @@ function sunny_author_name(int $authorId = 0): string
 
 function sunny_home_posts(): array
 {
-    static $posts;
-    if ($posts === null) {
-        $perPage = max(1, (int)setting('posts_per_page', '6'));
-        $page = max(1, (int)($_GET['p'] ?? 1));
-        $posts = fetch_published_posts($perPage, ($page - 1) * $perPage);
+    static $pages = [];
+    $perPage = sunny_list_per_page();
+    $page = sunny_list_page(count_published_posts());
+    $key = $perPage . ':' . $page;
+    return $pages[$key] ??= fetch_published_posts($perPage, ($page - 1) * $perPage);
+}
+
+function sunny_list_load_mode(): string
+{
+    $mode = theme_setting('list_load_mode', 'pagination', 'sunny');
+    return in_array($mode, ['pagination', 'button', 'auto'], true) ? $mode : 'pagination';
+}
+
+function sunny_list_per_page(): int
+{
+    return max(1, (int)setting('posts_per_page', '6'));
+}
+
+function sunny_list_page(int $total): int
+{
+    $requested = $_GET['p'] ?? 1;
+    $page = is_scalar($requested) ? max(1, (int)$requested) : 1;
+    return min($page, max(1, (int)ceil(max(0, $total) / sunny_list_per_page())));
+}
+
+function sunny_list_page_url(string $action, string $slug, int $page): string
+{
+    if ($action === 'home') {
+        return sunny_preview_url(home_page_url($page));
     }
-    return $posts;
+    $url = sunny_url($action, ['slug' => $slug]);
+    // Core slug routes consume only slug; append their page query explicitly.
+    return $page > 1 ? url_with_query($url, ['p' => $page]) : $url;
 }
 
 function sunny_categories(): array
@@ -320,7 +346,7 @@ function sunny_render_card(array $post, array $counts = [], array $comments = []
     $tags = array_slice(tag_descriptors($post), 0, 3);
     ob_start();
     ?>
-    <article class="sunny-post-card<?= $images !== [] ? ' sunny-post-card--image' : '' ?>" itemscope itemtype="https://schema.org/BlogPosting">
+    <article class="sunny-post-card<?= $images !== [] ? ' sunny-post-card--image' : '' ?>" data-sunny-post-id="<?= (int)$post['id'] ?>" itemscope itemtype="https://schema.org/BlogPosting">
       <header class="sunny-post-author">
         <a class="sunny-post-avatar" href="<?= h(sunny_url('home')) ?>" aria-label="<?= h($authorName) ?>"><img src="<?= h(theme_logo_url()) ?>" alt="" loading="lazy" decoding="async"></a>
         <div class="sunny-post-author-info"><a class="sunny-post-author-name" href="<?= h(sunny_url('home')) ?>"><?= h($authorName) ?></a><div class="sunny-post-date"><time datetime="<?= h(date(DATE_ATOM, $date)) ?>" title="<?= h(public_date($date)) ?>"><?= h(friendly_public_date($date)) ?></time><?php if ($category): ?><span aria-hidden="true"> · </span><a href="<?= h(sunny_url('category', ['slug' => (string)$category['slug']])) ?>"><?= h((string)$category['name']) ?></a><?php endif; ?></div></div>
@@ -342,7 +368,7 @@ function sunny_render_card(array $post, array $counts = [], array $comments = []
 function sunny_render_grid(array $posts): string
 {
     if ($posts === []) {
-        return '<div class="sunny-empty">' . sunny_icon('book-open', 30) . '<p>这里还没有已发布的文章。</p></div>';
+        return '<div class="sunny-post-grid"><div class="sunny-empty">' . sunny_icon('book-open', 30) . '<p>这里还没有已发布的文章。</p></div></div>';
     }
     $counts = sunny_post_counts($posts);
     $comments = sunny_card_comments($posts);
@@ -353,17 +379,17 @@ function sunny_render_grid(array $posts): string
     return $html . '</div>';
 }
 
-function sunny_pagination(): string
+function sunny_pagination(?int $total = null, string $action = 'home', string $slug = '', ?int $page = null): string
 {
-    $page = max(1, (int)($_GET['p'] ?? 1));
-    $perPage = max(1, (int)setting('posts_per_page', '6'));
-    $totalPages = max(1, (int)ceil(count_published_posts() / $perPage));
+    $total ??= count_published_posts();
+    $page ??= sunny_list_page($total);
+    $totalPages = max(1, (int)ceil(max(0, $total) / sunny_list_per_page()));
     if ($totalPages < 2) {
         return '';
     }
     $html = '<nav class="sunny-pagination" aria-label="文章分页">';
     if ($page > 1) {
-        $html .= '<a class="sunny-page-prev" href="' . h(sunny_preview_url(home_page_url($page - 1))) . '" aria-label="上一页">' . sunny_icon('chevron-left', 18) . '</a>';
+        $html .= '<a class="sunny-page-prev" href="' . h(sunny_list_page_url($action, $slug, $page - 1)) . '" rel="prev" aria-label="上一页">' . sunny_icon('chevron-left', 18) . '</a>';
     }
     $shown = [];
     foreach (array_merge([1], range(max(1, $page - 2), min($totalPages, $page + 2)), [$totalPages]) as $number) {
@@ -376,12 +402,31 @@ function sunny_pagination(): string
         $shown[] = $number;
         $html .= $number === $page
             ? '<span class="is-current" aria-current="page">' . $number . '</span>'
-            : '<a href="' . h(sunny_preview_url(home_page_url($number))) . '">' . $number . '</a>';
+            : '<a href="' . h(sunny_list_page_url($action, $slug, $number)) . '">' . $number . '</a>';
     }
     if ($page < $totalPages) {
-        $html .= '<a class="sunny-page-next" href="' . h(sunny_preview_url(home_page_url($page + 1))) . '" aria-label="下一页">' . sunny_icon('chevron-right', 18) . '</a>';
+        $html .= '<a class="sunny-page-next" href="' . h(sunny_list_page_url($action, $slug, $page + 1)) . '" rel="next" aria-label="下一页">' . sunny_icon('chevron-right', 18) . '</a>';
     }
     return $html . '</nav>';
+}
+
+function sunny_render_list(array $posts, int $total, string $action = 'home', string $slug = ''): string
+{
+    $mode = sunny_list_load_mode();
+    $page = sunny_list_page($total);
+    $pages = max(1, (int)ceil(max(0, $total) / sunny_list_per_page()));
+    $key = $action === 'home' ? 'home' : $action . ':' . $slug;
+    $next = $page < $pages ? sunny_list_page_url($action, $slug, $page + 1) : '';
+    $html = '<div class="sunny-post-list" data-sunny-list data-list-key="' . h($key) . '" data-load-mode="' . h($mode) . '" data-page="' . $page . '">'
+        . sunny_render_grid($posts) . sunny_pagination($total, $action, $slug, $page);
+    if ($mode !== 'pagination') {
+        $html .= '<div class="sunny-load-more" data-sunny-load-controls hidden>';
+        if ($next !== '') {
+            $html .= '<a class="sunny-load-more-button" data-sunny-load-more href="' . h($next) . '" data-no-pjax>加载更多</a>';
+        }
+        $html .= '<p class="sunny-load-more-status" data-sunny-load-status role="status" aria-live="polite">' . ($next === '' ? '已全部加载' : '') . '</p></div>';
+    }
+    return $html . '</div>';
 }
 
 function sunny_search_items(): array
@@ -474,7 +519,7 @@ add_theme_filter('content', static function (string $content, array $context): s
         return $content;
     }
     if ($active === 'home' && $action === 'home' && (string)($context['title'] ?? '') === (string)($context['site_name'] ?? '')) {
-        return sunny_render_grid(sunny_home_posts()) . sunny_pagination();
+        return sunny_render_list(sunny_home_posts(), count_published_posts());
     }
     if ($active === 'home' && $action === 'category') {
         $category = one('SELECT * FROM categories WHERE slug = ?', [trim((string)($_GET['slug'] ?? ''))]);
@@ -482,11 +527,18 @@ add_theme_filter('content', static function (string $content, array $context): s
             return $content;
         }
         $posts = array_map('public_content_context', all_rows('SELECT * FROM posts WHERE kind = ? AND category_id = ? AND status = ? AND published_at <= ? ORDER BY is_pinned DESC, published_at DESC, id DESC', ['post', (int)$category['id'], 'published', time()]));
-        return '<header class="sunny-section-title"><h1>' . sunny_icon('folder', 24) . h((string)$category['name']) . '</h1><p>' . h((string)$category['description']) . '</p></header>' . sunny_render_grid($posts);
+        $total = count($posts);
+        $posts = array_slice($posts, (sunny_list_page($total) - 1) * sunny_list_per_page(), sunny_list_per_page());
+        return '<header class="sunny-section-title"><h1>' . sunny_icon('folder', 24) . h((string)$category['name']) . '</h1><p>' . h((string)$category['description']) . '</p></header>'
+            . sunny_render_list($posts, $total, 'category', (string)$category['slug']);
     }
     if ($active === 'tags' && $action === 'tag') {
-        $posts = fetch_posts_by_tag_slug(trim((string)($_GET['slug'] ?? '')));
-        return '<header class="sunny-section-title"><h1>' . sunny_icon('tags', 24) . h((string)($context['title'] ?? '标签')) . '</h1><p>共 ' . count($posts) . ' 篇文章</p></header>' . sunny_render_grid($posts);
+        $slug = trim((string)($_GET['slug'] ?? ''));
+        $posts = fetch_posts_by_tag_slug($slug);
+        $total = count($posts);
+        $posts = array_slice($posts, (sunny_list_page($total) - 1) * sunny_list_per_page(), sunny_list_per_page());
+        return '<header class="sunny-section-title"><h1>' . sunny_icon('tags', 24) . h((string)($context['title'] ?? '标签')) . '</h1><p>共 ' . $total . ' 篇文章</p></header>'
+            . sunny_render_list($posts, $total, 'tag', $slug);
     }
     if ($active === 'archives') {
         return sunny_render_archives();

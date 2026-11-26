@@ -24,6 +24,15 @@ php themes/sunny/tests/comments.php --core=/path/to/SBlog/index.php
 
 浏览器中另外检查明暗模式、宽窄屏、回复与取消、键盘焦点、触屏回复按钮，以及多级回复与缺失父评论的显示。
 
+## 文章列表加载
+
+```sh
+php themes/sunny/tests/list-loading.php
+NODE_PATH=/path/to/jsdom/node_modules node themes/sunny/tests/list-loading.cjs
+```
+
+PHP 检查设置默认值、三种加载方式、首页／分类／标签分页与公开文章过滤，覆盖普通链接、伪静态链接和主题预览。JavaScript 检查追加与去重、失败重试、自动加载与回退、切页取消、图片预览和列表恢复。浏览器中另外检查宽窄屏、键盘操作、关闭 JavaScript 的分页，以及播放音乐时加载更多和打开文章再后退。
+
 ## 首页多图拼图
 
 ```sh

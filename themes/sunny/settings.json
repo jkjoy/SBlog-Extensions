@@ -1,6 +1,20 @@
 {
   "sections": [
     {
+      "title": "文章列表",
+      "description": "首页、分类和标签列表沿用站点设置中的每页文章数量。",
+      "fields": [
+        {
+          "key": "list_load_mode",
+          "label": "列表加载方式",
+          "type": "select",
+          "default": "pagination",
+          "options": {"pagination": "分页导航", "button": "点击加载更多", "auto": "滚动自动加载"},
+          "description": "自动加载失败后可点击按钮重试。未启用 JavaScript 时始终显示分页导航。"
+        }
+      ]
+    },
+    {
       "title": "首页公告",
       "description": "自定义首页文章列表上方的公告内容。",
       "fields": [

@@ -246,6 +246,15 @@ body.sunny-theme.sunny-pjax-loading::before { content: ""; position: fixed; z-in
 .sunny-theme .sunny-pagination > * { min-width: 42px; height: 42px; display: grid; place-items: center; background: var(--sunny-paper); border: 1px solid var(--sunny-line); border-radius: 8px; }
 .sunny-theme .sunny-pagination .is-current { color: #fff; background: #607ab3; }
 .sunny-theme .sunny-pagination .sunny-page-gap { min-width: 20px; background: transparent; border: 0; }
+.sunny-theme .sunny-load-more { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 32px 0; text-align: center; }
+.sunny-theme .sunny-load-more-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 168px; min-height: 44px; padding: 9px 24px; border: 1px solid var(--sunny-line); border-radius: 12px; background: var(--sunny-paper); color: var(--sunny-text); font-size: 14px; line-height: 1.8; transition: color .2s, background-color .2s, border-color .2s; }
+.sunny-theme .sunny-load-more-button:hover { color: var(--sunny-accent); background: var(--sunny-accent-soft); border-color: var(--sunny-accent); }
+.sunny-theme .sunny-load-more-button:focus-visible { outline: 2px solid var(--sunny-accent); outline-offset: 4px; }
+.sunny-theme .sunny-load-more-button[aria-disabled="true"] { cursor: progress; color: var(--sunny-muted); }
+.sunny-theme .sunny-load-more-button[aria-disabled="true"]::before { content: ""; width: 14px; height: 14px; flex: none; border: 2px solid var(--sunny-line); border-top-color: var(--sunny-accent); border-radius: 50%; animation: sunny-load-more-spin .7s linear infinite; }
+.sunny-theme .sunny-load-more-status { margin: 0; color: var(--sunny-muted); font-size: 13px; line-height: 1.8; }
+.sunny-theme .sunny-load-more-status:empty { display: none; }
+@keyframes sunny-load-more-spin { to { transform: rotate(360deg); } }
 .sunny-theme .sunny-empty { text-align: center; padding: 48px 24px; color: var(--sunny-muted); }
 .sunny-theme .sunny-section-title { padding: 28px 32px; margin: 0 0 24px; }
 .sunny-theme .sunny-section-title h1 { display: flex; align-items: center; gap: 12px; font-size: 24px; line-height: 1.5; margin: 0 0 8px; }
