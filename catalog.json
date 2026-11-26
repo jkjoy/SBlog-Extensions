@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "updated_at": "2026-11-16T05:24:49+00:00",
+    "updated_at": "2026-11-26T13:02:32+00:00",
     "extensions": [
         {
             "type": "plugin",
@@ -664,15 +664,15 @@
             "type": "theme",
             "slug": "sunny",
             "name": "Sunny",
-            "version": "1.0.15",
+            "version": "1.0.16",
             "author": "SBlog",
             "description": "参照喵喵小站的 Sunny 风格制作：横向导航、动态卡片、评论预览与侧栏。文章点赞功能依赖文章点赞（article-likes）插件，请在插件管理中启用。",
             "homepage": "https://github.com/jkjoy/SBlog-Extensions",
             "requires": "1.14.29",
-            "tested": "1.14.33",
-            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-sunny-v1.0.15/theme-sunny-1.0.15.zip",
-            "sha256": "f2b9a9989669c714fb51c8da8f7456c96b971230dc239cd30b6dddd4e406d184",
-            "source_sha256": "44e7f166642eb6b916fecb442ee518d907984188bca23014fe705b019a62b9af"
+            "tested": "1.14.37",
+            "download_url": "https://github.com/jkjoy/SBlog-Extensions/releases/download/theme-sunny-v1.0.16/theme-sunny-1.0.16.zip",
+            "sha256": "1a6e69af4958b5ae4ef859858928a3559288d96fef1dd83130d322d4d4b89c47",
+            "source_sha256": "1402552a3e1b29c5b21a0a0cc68a19985a77c5c259438cb6f037e6ea21439592"
         },
         {
             "type": "theme",
